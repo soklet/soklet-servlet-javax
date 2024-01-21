@@ -25,7 +25,9 @@ import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -70,6 +72,10 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private final Map<String, List<String>> headers;
 	@Nonnull
+	private final ByteArrayOutputStream responseOutputStream;
+	@Nonnull
+	private ResponseWriteMethod responseWriteMethod;
+	@Nonnull
 	private Integer statusCode;
 	@Nonnull
 	private Boolean responseCommitted;
@@ -83,6 +89,10 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	private Charset charset;
 	@Nullable
 	private String contentType;
+	@Nullable
+	private SokletServletOutputStream servletOutputStream;
+	@Nullable
+	private SokletServletPrintWriter printWriter;
 
 	public SokletHttpServletResponse(@Nonnull Request request) {
 		this(requireNonNull(request).getPath());
@@ -93,6 +103,8 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 		this.requestPath = requestPath;
 		this.statusCode = HttpServletResponse.SC_OK;
+		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
+		this.responseOutputStream = new ByteArrayOutputStream(2_048);
 		this.cookies = new ArrayList<>();
 		this.headers = new HashMap<>();
 		this.responseCommitted = false;
@@ -174,6 +186,45 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	protected String dateHeaderRepresentation(@Nonnull Long millisSinceEpoch) {
 		requireNonNull(millisSinceEpoch);
 		return DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(millisSinceEpoch));
+	}
+
+	@Nonnull
+	protected Optional<SokletServletOutputStream> getServletOutputStream() {
+		return Optional.ofNullable(this.servletOutputStream);
+	}
+
+	protected void setServletOutputStream(@Nullable SokletServletOutputStream servletOutputStream) {
+		this.servletOutputStream = servletOutputStream;
+	}
+
+	@Nonnull
+	protected Optional<SokletServletPrintWriter> getPrintWriter() {
+		return Optional.ofNullable(this.printWriter);
+	}
+
+	public void setPrintWriter(@Nullable SokletServletPrintWriter printWriter) {
+		this.printWriter = printWriter;
+	}
+
+	@Nonnull
+	protected ByteArrayOutputStream getResponseOutputStream() {
+		return this.responseOutputStream;
+	}
+
+	@Nonnull
+	protected ResponseWriteMethod getResponseWriteMethod() {
+		return this.responseWriteMethod;
+	}
+
+	protected void setResponseWriteMethod(@Nonnull ResponseWriteMethod responseWriteMethod) {
+		requireNonNull(responseWriteMethod);
+		this.responseWriteMethod = responseWriteMethod;
+	}
+
+	protected enum ResponseWriteMethod {
+		UNSPECIFIED,
+		SERVLET_OUTPUT_STREAM,
+		PRINT_WRITER
 	}
 
 	// Implementation of HttpServletResponse methods below:
@@ -379,12 +430,57 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	@Nonnull
 	public ServletOutputStream getOutputStream() throws IOException {
-		throw new UnsupportedOperationException(); // TODO
+		// Returns a ServletOutputStream suitable for writing binary data in the response.
+		// The servlet container does not encode the binary data.
+		// Calling flush() on the ServletOutputStream commits the response.
+		// Either this method or getWriter() may be called to write the body, not both, except when reset() has been called.
+		ResponseWriteMethod currentResponseWriteMethod = getResponseWriteMethod();
+
+		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
+			setResponseWriteMethod(ResponseWriteMethod.SERVLET_OUTPUT_STREAM);
+			this.servletOutputStream = new SokletServletOutputStream(getResponseOutputStream(), (ignored) -> {
+				// TODO: any work needed when bytes are written to response
+			}, (ignored) -> {
+				// TODO: any work needed once response is fully committed
+			});
+			return getServletOutputStream().get();
+		} else if (currentResponseWriteMethod == ResponseWriteMethod.SERVLET_OUTPUT_STREAM) {
+			return getServletOutputStream().get();
+		} else {
+			throw new IllegalStateException(format("Cannot use %s for writing response; already using %s",
+					ServletOutputStream.class.getSimpleName(), PrintWriter.class.getSimpleName()));
+		}
 	}
 
 	@Override
 	public PrintWriter getWriter() throws IOException {
-		throw new UnsupportedOperationException(); // TODO
+		// Returns a PrintWriter object that can send character text to the client.
+		// The PrintWriter uses the character encoding returned by getCharacterEncoding().
+		// If the response's character encoding has not been specified as described in getCharacterEncoding
+		// (i.e., the method just returns the default value ISO-8859-1), getWriter updates it to ISO-8859-1.
+		// Calling flush() on the PrintWriter commits the response.
+		//
+		// Either this method or getOutputStream() may be called to write the body, not both, except when reset() has been called.
+		ResponseWriteMethod currentResponseWriteMethod = getResponseWriteMethod();
+
+		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
+			// Per spec, if not already ISO-8859-1, update the encoding...
+			if (getCharacterEncoding() == null || !StandardCharsets.ISO_8859_1.name().equals(getCharacterEncoding()))
+				setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+
+			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
+			this.printWriter = new SokletServletPrintWriter(new OutputStreamWriter(getResponseOutputStream(), getCharacterEncoding()), (ignored) -> {
+				// TODO: any work needed when bytes are written to response
+			}, (ignored) -> {
+				// TODO: any work needed once response is fully committed
+			});
+			return getPrintWriter().get();
+		} else if (currentResponseWriteMethod == ResponseWriteMethod.PRINT_WRITER) {
+			return getPrintWriter().get();
+		} else {
+			throw new IllegalStateException(format("Cannot use %s for writing response; already using %s",
+					PrintWriter.class.getSimpleName(), ServletOutputStream.class.getSimpleName()));
+		}
 	}
 
 	@Override

@@ -18,21 +18,24 @@ package com.soklet.servlet.javax;
 
 import com.soklet.core.HttpMethod;
 import com.soklet.core.Request;
+import org.junit.Assert;
 import org.junit.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
-public class RequestTests {
+public class RequestResponseTests {
 	@Test
-	public void testRequestBasics() {
+	public void testRequestBasics() throws IOException {
 		String bodyAsString = "example body";
 
 		Request request = new Request.Builder(HttpMethod.GET, "/testing?a=b&c=d")
@@ -42,9 +45,8 @@ public class RequestTests {
 
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
-		// /testing
-		// http://localhost:8080/testing
-		httpServletRequest.getRequestURI();
-		httpServletRequest.getRequestURL();
+		Assert.assertEquals("Request URI mismatch", "/testing", httpServletRequest.getRequestURI());
+		Assert.assertEquals("Body content mismatch", bodyAsString,
+				httpServletRequest.getReader().lines().collect(Collectors.joining("")));
 	}
 }
