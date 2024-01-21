@@ -79,6 +79,8 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	private Integer statusCode;
 	@Nonnull
 	private Boolean responseCommitted;
+	@Nonnull
+	private Boolean responseFinalized;
 	@Nullable
 	private Locale locale;
 	@Nullable
@@ -108,6 +110,7 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		this.cookies = new ArrayList<>();
 		this.headers = new HashMap<>();
 		this.responseCommitted = false;
+		this.responseFinalized = false;
 	}
 
 	@Nonnull
@@ -175,6 +178,16 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	protected void setResponseCommitted(@Nonnull Boolean responseCommitted) {
 		requireNonNull(responseCommitted);
 		this.responseCommitted = responseCommitted;
+	}
+
+	@Nonnull
+	protected Boolean getResponseFinalized() {
+		return this.responseFinalized;
+	}
+
+	protected void setResponseFinalized(@Nonnull Boolean responseFinalized) {
+		requireNonNull(responseFinalized);
+		this.responseFinalized = responseFinalized;
 	}
 
 	protected void ensureResponseIsUncommitted() {
@@ -439,9 +452,10 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			setResponseWriteMethod(ResponseWriteMethod.SERVLET_OUTPUT_STREAM);
 			this.servletOutputStream = new SokletServletOutputStream(getResponseOutputStream(), (ignored) -> {
-				// TODO: any work needed when bytes are written to response
+				// Flip to "committed" if any write occurs
+				setResponseCommitted(true);
 			}, (ignored) -> {
-				// TODO: any work needed once response is fully committed
+				setResponseFinalized(true);
 			});
 			return getServletOutputStream().get();
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.SERVLET_OUTPUT_STREAM) {
@@ -465,14 +479,16 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			// Per spec, if not already ISO-8859-1, update the encoding...
-			if (getCharacterEncoding() == null || !StandardCharsets.ISO_8859_1.name().equals(getCharacterEncoding()))
-				setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+			Charset currentCharset = getCharset().orElse(null);
+			if (currentCharset == null || !StandardCharsets.ISO_8859_1.equals(currentCharset))
+				setCharset(StandardCharsets.ISO_8859_1);
 
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
 			this.printWriter = new SokletServletPrintWriter(new OutputStreamWriter(getResponseOutputStream(), getCharacterEncoding()), (ignored) -> {
-				// TODO: any work needed when bytes are written to response
+				// Flip to "committed" if any write occurs
+				setResponseCommitted(true);
 			}, (ignored) -> {
-				// TODO: any work needed once response is fully committed
+				setResponseFinalized(true);
 			});
 			return getPrintWriter().get();
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.PRINT_WRITER) {
@@ -484,23 +500,33 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Override
-	public void setCharacterEncoding(String s) {
-		// TODO
+	public void setCharacterEncoding(@Nullable String charset) {
+		ensureResponseIsUncommitted();
+		setCharset(charset == null ? null : Charset.forName(charset));
 	}
 
 	@Override
-	public void setContentLength(int i) {
-		// TODO
+	public void setContentLength(int len) {
+		ensureResponseIsUncommitted();
+		setHeader("Content-Length", String.valueOf(len));
 	}
 
 	@Override
-	public void setContentLengthLong(long l) {
-		// TODO
+	public void setContentLengthLong(long len) {
+		ensureResponseIsUncommitted();
+		setHeader("Content-Length", String.valueOf(len));
 	}
 
 	@Override
-	public void setContentType(String s) {
-		// TODO
+	public void setContentType(@Nullable String type) {
+		// This method may be called repeatedly to change content type and character encoding.
+		// This method has no effect if called after the response has been committed.
+		// It does not set the response's character encoding if it is called after getWriter has been called
+		// or after the response has been committed.
+		if (isCommitted())
+			return;
+
+		setHeader("Content-Type", type);
 	}
 
 	@Override

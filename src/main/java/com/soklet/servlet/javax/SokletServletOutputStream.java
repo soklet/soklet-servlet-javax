@@ -38,9 +38,9 @@ class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final Consumer<SokletServletOutputStream> writeOccurredCallback;
 	@Nonnull
-	private final Consumer<SokletServletOutputStream> committedCallback;
+	private final Consumer<SokletServletOutputStream> writeFinalizedCallback;
 	@Nonnull
-	private Boolean committed = false;
+	private Boolean writeFinalized = false;
 
 	public SokletServletOutputStream(@Nonnull OutputStream outputStream) {
 		this(requireNonNull(outputStream), null, null);
@@ -48,19 +48,19 @@ class SokletServletOutputStream extends ServletOutputStream {
 
 	public SokletServletOutputStream(@Nonnull OutputStream outputStream,
 																	 @Nullable Consumer<SokletServletOutputStream> writeOccurredCallback,
-																	 @Nullable Consumer<SokletServletOutputStream> committedCallback) {
+																	 @Nullable Consumer<SokletServletOutputStream> writeFinalizedCallback) {
 		super();
 		requireNonNull(outputStream);
 
 		if (writeOccurredCallback == null)
 			writeOccurredCallback = (ignored) -> {};
 
-		if (committedCallback == null)
-			committedCallback = (ignored) -> {};
+		if (writeFinalizedCallback == null)
+			writeFinalizedCallback = (ignored) -> {};
 
 		this.outputStream = outputStream;
 		this.writeOccurredCallback = writeOccurredCallback;
-		this.committedCallback = committedCallback;
+		this.writeFinalizedCallback = writeFinalizedCallback;
 	}
 
 	@Nonnull
@@ -74,20 +74,21 @@ class SokletServletOutputStream extends ServletOutputStream {
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletOutputStream> getCommittedCallback() {
-		return this.committedCallback;
+	protected Consumer<SokletServletOutputStream> getWriteFinalizedCallback() {
+		return this.writeFinalizedCallback;
 	}
 
 	@Nonnull
-	public Boolean getCommitted() {
-		return this.committed;
+	protected Boolean getWriteFinalized() {
+		return this.writeFinalized;
 	}
 
-	protected void setCommitted(@Nonnull Boolean committed) {
-		this.committed = committed;
+	protected void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+		requireNonNull(writeFinalized);
+		this.writeFinalized = writeFinalized;
 	}
 
-	// Implementation of ServletOutputStream methods below:
+// Implementation of ServletOutputStream methods below:
 
 	@Override
 	public void write(int b) throws IOException {
@@ -97,7 +98,7 @@ class SokletServletOutputStream extends ServletOutputStream {
 
 	@Override
 	public boolean isReady() {
-		return !getCommitted();
+		return !getWriteFinalized();
 	}
 
 	@Override
@@ -105,9 +106,9 @@ class SokletServletOutputStream extends ServletOutputStream {
 		super.flush();
 		getOutputStream().flush();
 
-		if (!getCommitted()) {
-			setCommitted(true);
-			getCommittedCallback().accept(this);
+		if (!getWriteFinalized()) {
+			setWriteFinalized(true);
+			getWriteFinalizedCallback().accept(this);
 		}
 	}
 
@@ -116,9 +117,9 @@ class SokletServletOutputStream extends ServletOutputStream {
 		super.close();
 		getOutputStream().close();
 
-		if (!getCommitted()) {
-			setCommitted(true);
-			getCommittedCallback().accept(this);
+		if (!getWriteFinalized()) {
+			setWriteFinalized(true);
+			getWriteFinalizedCallback().accept(this);
 		}
 	}
 

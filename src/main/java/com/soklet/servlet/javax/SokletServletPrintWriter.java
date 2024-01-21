@@ -34,9 +34,9 @@ class SokletServletPrintWriter extends PrintWriter {
 	@Nonnull
 	private final Consumer<SokletServletPrintWriter> writeOccurredCallback;
 	@Nonnull
-	private final Consumer<SokletServletPrintWriter> committedCallback;
+	private final Consumer<SokletServletPrintWriter> writeFinalizedCallback;
 	@Nonnull
-	private Boolean committed = false;
+	private Boolean writeFinalized = false;
 
 	public SokletServletPrintWriter(@Nonnull Writer writer) {
 		this(requireNonNull(writer), null, null);
@@ -44,26 +44,27 @@ class SokletServletPrintWriter extends PrintWriter {
 
 	public SokletServletPrintWriter(@Nonnull Writer writer,
 																	@Nullable Consumer<SokletServletPrintWriter> writeOccurredCallback,
-																	@Nullable Consumer<SokletServletPrintWriter> committedCallback) {
+																	@Nullable Consumer<SokletServletPrintWriter> writeFinalizedCallback) {
 		super(requireNonNull(writer), true);
 
 		if (writeOccurredCallback == null)
 			writeOccurredCallback = (ignored) -> {};
 
-		if (committedCallback == null)
-			committedCallback = (ignored) -> {};
+		if (writeFinalizedCallback == null)
+			writeFinalizedCallback = (ignored) -> {};
 
 		this.writeOccurredCallback = writeOccurredCallback;
-		this.committedCallback = committedCallback;
+		this.writeFinalizedCallback = writeFinalizedCallback;
 	}
 
 	@Nonnull
-	public Boolean getCommitted() {
-		return this.committed;
+	protected Boolean getWriteFinalized() {
+		return this.writeFinalized;
 	}
 
-	protected void setCommitted(@Nonnull Boolean committed) {
-		this.committed = committed;
+	protected void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+		requireNonNull(writeFinalized);
+		this.writeFinalized = writeFinalized;
 	}
 
 	@Nonnull
@@ -72,8 +73,8 @@ class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletPrintWriter> getCommittedCallback() {
-		return this.committedCallback;
+	protected Consumer<SokletServletPrintWriter> getWriteFinalizedCallback() {
+		return this.writeFinalizedCallback;
 	}
 
 // Implementation of PrintWriter methods below:
@@ -345,9 +346,9 @@ class SokletServletPrintWriter extends PrintWriter {
 	public void flush() {
 		super.flush();
 
-		if (!getCommitted()) {
-			setCommitted(true);
-			getCommittedCallback().accept(this);
+		if (!getWriteFinalized()) {
+			setWriteFinalized(true);
+			getWriteFinalizedCallback().accept(this);
 		}
 	}
 
@@ -356,9 +357,9 @@ class SokletServletPrintWriter extends PrintWriter {
 		super.flush();
 		super.close();
 
-		if (!getCommitted()) {
-			setCommitted(true);
-			getCommittedCallback().accept(this);
+		if (!getWriteFinalized()) {
+			setWriteFinalized(true);
+			getWriteFinalizedCallback().accept(this);
 		}
 	}
 }
