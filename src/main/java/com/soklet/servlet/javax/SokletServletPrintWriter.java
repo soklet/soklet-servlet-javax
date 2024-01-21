@@ -38,6 +38,10 @@ class SokletServletPrintWriter extends PrintWriter {
 	@Nonnull
 	private Boolean committed = false;
 
+	public SokletServletPrintWriter(@Nonnull Writer writer) {
+		this(requireNonNull(writer), null, null);
+	}
+
 	public SokletServletPrintWriter(@Nonnull Writer writer,
 																	@Nullable Consumer<SokletServletPrintWriter> writeOccurredCallback,
 																	@Nullable Consumer<SokletServletPrintWriter> committedCallback) {

@@ -21,8 +21,12 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.WriteListener;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.util.function.Consumer;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
@@ -30,46 +34,97 @@ import java.io.IOException;
 @NotThreadSafe
 class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
-	private final ByteArrayOutputStream internalOutputStream;
+	private final OutputStream outputStream;
+	@Nonnull
+	private final Consumer<SokletServletOutputStream> writeOccurredCallback;
+	@Nonnull
+	private final Consumer<SokletServletOutputStream> committedCallback;
+	@Nonnull
+	private Boolean committed = false;
 
-	public SokletServletOutputStream() {
-		this.internalOutputStream = new ByteArrayOutputStream();
+	public SokletServletOutputStream(@Nonnull OutputStream outputStream) {
+		this(requireNonNull(outputStream), null, null);
+	}
+
+	public SokletServletOutputStream(@Nonnull OutputStream outputStream,
+																	 @Nullable Consumer<SokletServletOutputStream> writeOccurredCallback,
+																	 @Nullable Consumer<SokletServletOutputStream> committedCallback) {
+		super();
+		requireNonNull(outputStream);
+
+		if (writeOccurredCallback == null)
+			writeOccurredCallback = (ignored) -> {};
+
+		if (committedCallback == null)
+			committedCallback = (ignored) -> {};
+
+		this.outputStream = outputStream;
+		this.writeOccurredCallback = writeOccurredCallback;
+		this.committedCallback = committedCallback;
 	}
 
 	@Nonnull
-	byte[] getBytesWrittenToOutputStream() {
-		return getInternalOutputStream().toByteArray();
+	protected OutputStream getOutputStream() {
+		return this.outputStream;
 	}
 
 	@Nonnull
-	protected ByteArrayOutputStream getInternalOutputStream() {
-		return this.internalOutputStream;
+	protected Consumer<SokletServletOutputStream> getWriteOccurredCallback() {
+		return this.writeOccurredCallback;
+	}
+
+	@Nonnull
+	protected Consumer<SokletServletOutputStream> getCommittedCallback() {
+		return this.committedCallback;
+	}
+
+	@Nonnull
+	public Boolean getCommitted() {
+		return this.committed;
+	}
+
+	protected void setCommitted(@Nonnull Boolean committed) {
+		this.committed = committed;
 	}
 
 	// Implementation of ServletOutputStream methods below:
 
 	@Override
+	public void write(int b) throws IOException {
+		getOutputStream().write(b);
+		getWriteOccurredCallback().accept(this);
+	}
+
+	@Override
 	public boolean isReady() {
-		return true;
+		return !getCommitted();
 	}
 
 	@Override
 	public void flush() throws IOException {
-		getInternalOutputStream().flush();
+		super.flush();
+		getOutputStream().flush();
+
+		if (!getCommitted()) {
+			setCommitted(true);
+			getCommittedCallback().accept(this);
+		}
 	}
 
 	@Override
 	public void close() throws IOException {
-		// A no-op for ByteArrayOutputStream
+		super.close();
+		getOutputStream().close();
+
+		if (!getCommitted()) {
+			setCommitted(true);
+			getCommittedCallback().accept(this);
+		}
 	}
 
 	@Override
-	public void setWriteListener(@Nullable WriteListener writeListener) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void write(int b) throws IOException {
-		getInternalOutputStream().write(b);
+	public void setWriteListener(@Nonnull WriteListener writeListener) {
+		requireNonNull(writeListener);
+		throw new IllegalStateException(format("%s functionality is not supported", WriteListener.class.getSimpleName()));
 	}
 }

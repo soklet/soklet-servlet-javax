@@ -68,8 +68,6 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private final List<Cookie> cookies;
 	@Nonnull
-	private final SokletServletOutputStream servletOutputStream;
-	@Nonnull
 	private final Map<String, List<String>> headers;
 	@Nonnull
 	private Integer statusCode;
@@ -97,7 +95,6 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.cookies = new ArrayList<>();
 		this.headers = new HashMap<>();
-		this.servletOutputStream = new SokletServletOutputStream();
 		this.responseCommitted = false;
 	}
 
@@ -119,11 +116,6 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	protected Map<String, List<String>> getHeaders() {
 		return this.headers;
-	}
-
-	@Nonnull
-	protected SokletServletOutputStream getServletOutputStream() {
-		return this.servletOutputStream;
 	}
 
 	@Nonnull
@@ -387,54 +379,56 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	@Nonnull
 	public ServletOutputStream getOutputStream() throws IOException {
-		return this.servletOutputStream;
+		throw new UnsupportedOperationException(); // TODO
 	}
 
 	@Override
 	public PrintWriter getWriter() throws IOException {
-		return null;
+		throw new UnsupportedOperationException(); // TODO
 	}
 
 	@Override
 	public void setCharacterEncoding(String s) {
-
+		// TODO
 	}
 
 	@Override
 	public void setContentLength(int i) {
-
+		// TODO
 	}
 
 	@Override
 	public void setContentLengthLong(long l) {
-
+		// TODO
 	}
 
 	@Override
 	public void setContentType(String s) {
-
+		// TODO
 	}
 
 	@Override
 	public void setBufferSize(int i) {
-
+		// TODO
 	}
 
 	@Override
 	public int getBufferSize() {
 		return 0;
+		// TODO
 	}
 
 	@Override
 	public void flushBuffer() throws IOException {
 		ensureResponseIsUncommitted();
 		setResponseCommitted(true);
+		// TODO
 	}
 
 	@Override
 	public void resetBuffer() {
 		ensureResponseIsUncommitted();
-		// No-op
+		// TODO
 	}
 
 	@Override
@@ -445,7 +439,7 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void reset() {
 		ensureResponseIsUncommitted();
-		// No-op
+		// TODO
 	}
 
 	@Override

@@ -52,12 +52,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletContext implements ServletContext {
+class SokletServletContext implements ServletContext {
 	@Nonnull
 	private final Writer logWriter;
 	@Nonnull
@@ -94,7 +95,10 @@ public class SokletServletContext implements ServletContext {
 	@ThreadSafe
 	protected static class NoOpWriter extends Writer {
 		@Override
-		public void write(char[] cbuf, int off, int len) throws IOException {
+		public void write(@Nonnull char[] cbuf,
+											int off,
+											int len) throws IOException {
+			requireNonNull(cbuf);
 			// No-op
 		}
 
@@ -156,7 +160,7 @@ public class SokletServletContext implements ServletContext {
 	@Nonnull
 	public Set<String> getResourcePaths(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResourcePaths-java.lang.String-
-		// This would need the set of all URLs that Soklet is aware of, likely via ResourceMethodResolver::getAvailableResourceMethods
+		// This would need the set of all URLs that Soklet is aware of, likely via ResourceMethodResolver::getResourceMethods
 		return Set.of();
 	}
 
