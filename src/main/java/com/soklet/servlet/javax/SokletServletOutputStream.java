@@ -28,12 +28,17 @@ import java.io.IOException;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletOutputStream extends ServletOutputStream {
+class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final ByteArrayOutputStream internalOutputStream;
 
 	public SokletServletOutputStream() {
 		this.internalOutputStream = new ByteArrayOutputStream();
+	}
+
+	@Nonnull
+	byte[] getBytesWrittenToOutputStream() {
+		return getInternalOutputStream().toByteArray();
 	}
 
 	@Nonnull

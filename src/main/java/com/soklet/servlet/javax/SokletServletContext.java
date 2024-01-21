@@ -39,6 +39,8 @@ import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -63,9 +65,9 @@ public class SokletServletContext implements ServletContext {
 	@Nonnull
 	private int sessionTimeout;
 	@Nullable
-	private String requestCharacterEncoding;
+	private Charset requestCharset;
 	@Nullable
-	private String responseCharacterEncoding;
+	private Charset responseCharset;
 
 	public SokletServletContext() {
 		this(null);
@@ -75,8 +77,8 @@ public class SokletServletContext implements ServletContext {
 		this.logWriter = logWriter == null ? new NoOpWriter() : logWriter;
 		this.attributes = new HashMap<>();
 		this.sessionTimeout = -1;
-		this.requestCharacterEncoding = "UTF-8";
-		this.responseCharacterEncoding = "UTF-8";
+		this.requestCharset = StandardCharsets.UTF_8;
+		this.responseCharset = StandardCharsets.UTF_8;
 	}
 
 	@Nonnull
@@ -500,21 +502,22 @@ public class SokletServletContext implements ServletContext {
 	@Override
 	@Nullable
 	public String getRequestCharacterEncoding() {
-		return this.requestCharacterEncoding;
+		return this.requestCharset == null ? null : this.requestCharset.name();
 	}
 
 	@Override
 	public void setRequestCharacterEncoding(@Nullable String encoding) {
-		this.requestCharacterEncoding = encoding;
+		this.requestCharset = encoding == null ? null : Charset.forName(encoding);
 	}
 
 	@Override
+	@Nullable
 	public String getResponseCharacterEncoding() {
-		return this.responseCharacterEncoding;
+		return this.responseCharset == null ? null : this.responseCharset.name();
 	}
 
 	@Override
 	public void setResponseCharacterEncoding(@Nullable String encoding) {
-		this.responseCharacterEncoding = encoding;
+		this.responseCharset = encoding == null ? null : Charset.forName(encoding);
 	}
 }

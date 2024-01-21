@@ -16,6 +16,7 @@
 
 package com.soklet.servlet.javax;
 
+import com.soklet.core.Request;
 import com.soklet.core.Response;
 
 import javax.annotation.Nonnull;
@@ -26,10 +27,24 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
@@ -37,15 +52,53 @@ import java.util.Locale;
 @NotThreadSafe
 public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
+	private static final Charset DEFAULT_CHARSET;
+	@Nonnull
+	private static final DateTimeFormatter DATE_TIME_FORMATTER;
+
+	static {
+		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
+		DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
+				.withLocale(Locale.US)
+				.withZone(ZoneId.of("GMT"));
+	}
+
+	@Nonnull
+	private final String requestPath; // e.g. "/test/abc".  Always starts with "/"
+	@Nonnull
 	private final List<Cookie> cookies;
 	@Nonnull
-	private final ServletOutputStream servletOutputStream;
+	private final SokletServletOutputStream servletOutputStream;
+	@Nonnull
+	private final Map<String, List<String>> headers;
+	@Nonnull
+	private Integer statusCode;
+	@Nonnull
+	private Boolean responseCommitted;
 	@Nullable
 	private Locale locale;
+	@Nullable
+	private String errorMessage;
+	@Nullable
+	private String redirectUrl;
+	@Nullable
+	private Charset charset;
+	@Nullable
+	private String contentType;
 
-	public SokletHttpServletResponse() {
+	public SokletHttpServletResponse(@Nonnull Request request) {
+		this(requireNonNull(request).getPath());
+	}
+
+	public SokletHttpServletResponse(@Nonnull String requestPath) {
+		requireNonNull(requestPath);
+
+		this.requestPath = requestPath;
+		this.statusCode = HttpServletResponse.SC_OK;
 		this.cookies = new ArrayList<>();
+		this.headers = new HashMap<>();
 		this.servletOutputStream = new SokletServletOutputStream();
+		this.responseCommitted = false;
 	}
 
 	@Nonnull
@@ -54,129 +107,285 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
+	protected String getRequestPath() {
+		return this.requestPath;
+	}
+
+	@Nonnull
 	protected List<Cookie> getCookies() {
 		return this.cookies;
+	}
+
+	@Nonnull
+	protected Map<String, List<String>> getHeaders() {
+		return this.headers;
+	}
+
+	@Nonnull
+	protected SokletServletOutputStream getServletOutputStream() {
+		return this.servletOutputStream;
+	}
+
+	@Nonnull
+	protected Integer getStatusCode() {
+		return this.statusCode;
+	}
+
+	protected void setStatusCode(@Nonnull Integer statusCode) {
+		requireNonNull(statusCode);
+		this.statusCode = statusCode;
+	}
+
+	@Nonnull
+	protected Optional<String> getErrorMessage() {
+		return Optional.ofNullable(this.errorMessage);
+	}
+
+	protected void setErrorMessage(@Nullable String errorMessage) {
+		this.errorMessage = errorMessage;
+	}
+
+	@Nonnull
+	protected Optional<String> getRedirectUrl() {
+		return Optional.ofNullable(this.redirectUrl);
+	}
+
+	protected void setRedirectUrl(@Nullable String redirectUrl) {
+		this.redirectUrl = redirectUrl;
+	}
+
+	@Nonnull
+	protected Optional<Charset> getCharset() {
+		return Optional.ofNullable(this.charset);
+	}
+
+	protected void setCharset(@Nullable Charset charset) {
+		this.charset = charset;
+	}
+
+	@Nonnull
+	protected Boolean getResponseCommitted() {
+		return this.responseCommitted;
+	}
+
+	protected void setResponseCommitted(@Nonnull Boolean responseCommitted) {
+		requireNonNull(responseCommitted);
+		this.responseCommitted = responseCommitted;
+	}
+
+	protected void ensureResponseIsUncommitted() {
+		if (getResponseCommitted())
+			throw new IllegalStateException("Response has already been committed.");
+	}
+
+	@Nonnull
+	protected String dateHeaderRepresentation(@Nonnull Long millisSinceEpoch) {
+		requireNonNull(millisSinceEpoch);
+		return DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(millisSinceEpoch));
 	}
 
 	// Implementation of HttpServletResponse methods below:
 
 	@Override
 	public void addCookie(@Nullable Cookie cookie) {
+		ensureResponseIsUncommitted();
+
 		if (cookie != null)
 			getCookies().add(cookie);
 	}
 
 	@Override
-	public boolean containsHeader(String s) {
-		return false;
+	public boolean containsHeader(@Nullable String name) {
+		return getHeaders().containsKey(name);
 	}
 
 	@Override
-	public String encodeURL(String s) {
-		return null;
+	@Nullable
+	public String encodeURL(@Nullable String url) {
+		return url;
 	}
 
 	@Override
-	public String encodeRedirectURL(String s) {
-		return null;
+	@Nullable
+	public String encodeRedirectURL(@Nullable String url) {
+		return url;
 	}
 
 	@Override
-	public String encodeUrl(String s) {
-		return null;
+	@Deprecated
+	public String encodeUrl(@Nullable String url) {
+		return url;
 	}
 
 	@Override
-	public String encodeRedirectUrl(String s) {
-		return null;
+	@Deprecated
+	public String encodeRedirectUrl(@Nullable String url) {
+		return url;
 	}
 
 	@Override
-	public void sendError(int i, String s) throws IOException {
-
+	public void sendError(int sc,
+												@Nullable String msg) throws IOException {
+		ensureResponseIsUncommitted();
+		setStatus(sc);
+		setErrorMessage(msg);
+		setResponseCommitted(true);
 	}
 
 	@Override
-	public void sendError(int i) throws IOException {
-
+	public void sendError(int sc) throws IOException {
+		ensureResponseIsUncommitted();
+		setStatus(sc);
+		setErrorMessage(null);
+		setResponseCommitted(true);
 	}
 
 	@Override
-	public void sendRedirect(String s) throws IOException {
+	public void sendRedirect(@Nullable String location) throws IOException {
+		ensureResponseIsUncommitted();
+		setStatus(HttpServletResponse.SC_FOUND);
 
+		// This method can accept relative URLs; the servlet container must convert the relative URL to an absolute URL
+		// before sending the response to the client. If the location is relative without a leading '/' the container
+		// interprets it as relative to the current request URI. If the location is relative with a leading '/'
+		// the container interprets it as relative to the servlet container root. If the location is relative with two
+		// leading '/' the container interprets it as a network-path reference (see RFC 3986: Uniform Resource
+		// Identifier (URI): Generic Syntax, section 4.2 "Relative Reference").
+		if (location.startsWith("/")) {
+			// URL is relative with leading /
+			setRedirectUrl(location);
+		} else {
+			try {
+				new URL(location);
+				// URL is absolute
+				setRedirectUrl(location);
+			} catch (MalformedURLException ignored) {
+				// URL is relative but does not have leading /
+				setRedirectUrl(format("%s/%s", getRequestPath(), location));
+			}
+		}
+
+		flushBuffer();
+		setResponseCommitted(true);
 	}
 
 	@Override
-	public void setDateHeader(String s, long l) {
-
+	public void setDateHeader(@Nullable String name,
+														long date) {
+		ensureResponseIsUncommitted();
+		setHeader(name, dateHeaderRepresentation(date));
 	}
 
 	@Override
-	public void addDateHeader(String s, long l) {
-
+	public void addDateHeader(@Nullable String name,
+														long date) {
+		ensureResponseIsUncommitted();
+		addHeader(name, dateHeaderRepresentation(date));
 	}
 
 	@Override
-	public void setHeader(String s, String s1) {
+	public void setHeader(@Nullable String name,
+												@Nullable String value) {
+		ensureResponseIsUncommitted();
 
+		if (name == null || name.trim().length() == 0 || value == null)
+			return;
+
+		List<String> values = new ArrayList<>();
+		values.add(value);
+		getHeaders().put(name, values);
 	}
 
 	@Override
-	public void addHeader(String s, String s1) {
+	public void addHeader(@Nullable String name,
+												@Nullable String value) {
+		ensureResponseIsUncommitted();
 
+		if (name == null || name.trim().length() == 0 || value == null)
+			return;
+
+		List<String> values = getHeaders().get(name);
+
+		if (values == null)
+			setHeader(name, value);
+		else
+			values.add(value);
 	}
 
 	@Override
-	public void setIntHeader(String s, int i) {
-
+	public void setIntHeader(@Nullable String name,
+													 int value) {
+		ensureResponseIsUncommitted();
+		setHeader(name, String.valueOf(value));
 	}
 
 	@Override
-	public void addIntHeader(String s, int i) {
-
+	public void addIntHeader(@Nullable String name,
+													 int value) {
+		ensureResponseIsUncommitted();
+		addHeader(name, String.valueOf(value));
 	}
 
 	@Override
-	public void setStatus(int i) {
-
+	public void setStatus(int sc) {
+		ensureResponseIsUncommitted();
+		this.statusCode = sc;
 	}
 
 	@Override
-	public void setStatus(int i, String s) {
-
+	@Deprecated
+	public void setStatus(int sc,
+												@Nullable String sm) {
+		ensureResponseIsUncommitted();
+		this.statusCode = sc;
+		this.errorMessage = sm;
 	}
 
 	@Override
 	public int getStatus() {
-		return 0;
+		return getStatusCode();
 	}
 
 	@Override
-	public String getHeader(String s) {
-		return null;
+	@Nullable
+	public String getHeader(@Nullable String name) {
+		if (name == null)
+			return null;
+
+		List<String> values = getHeaders().get(name);
+		return values == null || values.size() == 0 ? null : values.get(0);
 	}
 
 	@Override
-	public Collection<String> getHeaders(String s) {
-		return null;
+	@Nonnull
+	public Collection<String> getHeaders(@Nullable String name) {
+		if (name == null)
+			return List.of();
+
+		List<String> values = getHeaders().get(name);
+		return values == null ? List.of() : Collections.unmodifiableList(values);
 	}
 
 	@Override
+	@Nonnull
 	public Collection<String> getHeaderNames() {
-		return null;
+		return Collections.unmodifiableSet(getHeaders().keySet());
 	}
 
 	@Override
+	@Nonnull
 	public String getCharacterEncoding() {
-		return null;
+		return getCharset().orElse(DEFAULT_CHARSET).name();
 	}
 
 	@Override
+	@Nullable
 	public String getContentType() {
-		return null;
+		return this.contentType;
 	}
 
 	@Override
+	@Nonnull
 	public ServletOutputStream getOutputStream() throws IOException {
 		return this.servletOutputStream;
 	}
@@ -218,26 +427,30 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void flushBuffer() throws IOException {
-
+		ensureResponseIsUncommitted();
+		setResponseCommitted(true);
 	}
 
 	@Override
 	public void resetBuffer() {
-
+		ensureResponseIsUncommitted();
+		// No-op
 	}
 
 	@Override
 	public boolean isCommitted() {
-		return false;
+		return getResponseCommitted();
 	}
 
 	@Override
 	public void reset() {
+		ensureResponseIsUncommitted();
 		// No-op
 	}
 
 	@Override
 	public void setLocale(@Nullable Locale locale) {
+		ensureResponseIsUncommitted();
 		this.locale = locale;
 	}
 
