@@ -54,11 +54,14 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
+	private static final Integer DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
+	@Nonnull
 	private static final Charset DEFAULT_CHARSET;
 	@Nonnull
 	private static final DateTimeFormatter DATE_TIME_FORMATTER;
 
 	static {
+		DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES = 1_024;
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
 		DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 				.withLocale(Locale.US)
@@ -72,7 +75,7 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private final Map<String, List<String>> headers;
 	@Nonnull
-	private final ByteArrayOutputStream responseOutputStream;
+	private ByteArrayOutputStream responseOutputStream;
 	@Nonnull
 	private ResponseWriteMethod responseWriteMethod;
 	@Nonnull
@@ -91,6 +94,8 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	private Charset charset;
 	@Nullable
 	private String contentType;
+	@Nonnull
+	private Integer responseBufferSizeInBytes;
 	@Nullable
 	private SokletServletOutputStream servletOutputStream;
 	@Nullable
@@ -106,7 +111,8 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		this.requestPath = requestPath;
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
-		this.responseOutputStream = new ByteArrayOutputStream(2_048);
+		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
+		this.responseOutputStream = new ByteArrayOutputStream(DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES);
 		this.cookies = new ArrayList<>();
 		this.headers = new HashMap<>();
 		this.responseCommitted = false;
@@ -222,6 +228,21 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	protected ByteArrayOutputStream getResponseOutputStream() {
 		return this.responseOutputStream;
+	}
+
+	protected void setResponseOutputStream(@Nonnull ByteArrayOutputStream responseOutputStream) {
+		requireNonNull(responseOutputStream);
+		this.responseOutputStream = responseOutputStream;
+	}
+
+	@Nonnull
+	protected Integer getResponseBufferSizeInBytes() {
+		return this.responseBufferSizeInBytes;
+	}
+
+	protected void setResponseBufferSizeInBytes(@Nonnull Integer responseBufferSizeInBytes) {
+		requireNonNull(responseBufferSizeInBytes);
+		this.responseBufferSizeInBytes = responseBufferSizeInBytes;
 	}
 
 	@Nonnull
@@ -526,31 +547,33 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		if (isCommitted())
 			return;
 
+		this.contentType = type;
 		setHeader("Content-Type", type);
 	}
 
 	@Override
-	public void setBufferSize(int i) {
-		// TODO
+	public void setBufferSize(int size) {
+		ensureResponseIsUncommitted();
+		setResponseBufferSizeInBytes(size);
+		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
 	}
 
 	@Override
 	public int getBufferSize() {
-		return 0;
-		// TODO
+		return getResponseBufferSizeInBytes();
 	}
 
 	@Override
 	public void flushBuffer() throws IOException {
 		ensureResponseIsUncommitted();
 		setResponseCommitted(true);
-		// TODO
+		getResponseOutputStream().flush();
 	}
 
 	@Override
 	public void resetBuffer() {
 		ensureResponseIsUncommitted();
-		// TODO
+		getResponseOutputStream().reset();
 	}
 
 	@Override
@@ -560,8 +583,22 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void reset() {
+		// Clears any data that exists in the buffer as well as the status code, headers.
+		// The state of calling getWriter() or getOutputStream() is also cleared.
+		// It is legal, for instance, to call getWriter(), reset() and then getOutputStream().
+		// If getWriter() or getOutputStream() have been called before this method, then the corresponding returned
+		// Writer or OutputStream will be staled and the behavior of using the stale object is undefined.
+		// If the response has been committed, this method throws an IllegalStateException.
+
 		ensureResponseIsUncommitted();
-		// TODO
+
+		setStatusCode(HttpServletResponse.SC_OK);
+		setServletOutputStream(null);
+		setPrintWriter(null);
+		setResponseWriteMethod(ResponseWriteMethod.UNSPECIFIED);
+		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
+		getHeaders().clear();
+		getCookies().clear();
 	}
 
 	@Override
