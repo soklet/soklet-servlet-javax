@@ -49,7 +49,7 @@ class SokletHttpSession implements HttpSession {
 	}
 
 	@Nonnull
-	private final UUID sessionId;
+	private UUID sessionId;
 	@Nonnull
 	private final Instant createdAt;
 	@Nonnull
@@ -68,6 +68,11 @@ class SokletHttpSession implements HttpSession {
 		this.servletContext = servletContext;
 		this.invalidated = false;
 		this.maxInactiveInterval = 0;
+	}
+
+	public void setSessionId(@Nonnull UUID sessionId) {
+		requireNonNull(sessionId);
+		this.sessionId = sessionId;
 	}
 
 	@Nonnull
