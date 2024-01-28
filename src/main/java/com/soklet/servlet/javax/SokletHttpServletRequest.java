@@ -37,6 +37,7 @@ import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpUpgradeHandler;
 import javax.servlet.http.Part;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -498,9 +499,10 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public ServletInputStream getInputStream() throws IOException {
-		// TODO: implement
-		return null;
+		byte[] body = getRequest().getBody().orElse(new byte[]{});
+		return new SokletServletInputStream(new ByteArrayInputStream(body));
 	}
 
 	@Override
