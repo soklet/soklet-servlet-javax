@@ -40,7 +40,7 @@ class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final Consumer<SokletServletOutputStream> writeFinalizedCallback;
 	@Nonnull
-	private Boolean writeFinalized = false;
+	private Boolean writeFinalized;
 
 	public SokletServletOutputStream(@Nonnull OutputStream outputStream) {
 		this(requireNonNull(outputStream), null, null);
@@ -61,6 +61,7 @@ class SokletServletOutputStream extends ServletOutputStream {
 		this.outputStream = outputStream;
 		this.writeOccurredCallback = writeOccurredCallback;
 		this.writeFinalizedCallback = writeFinalizedCallback;
+		this.writeFinalized = false;
 	}
 
 	@Nonnull

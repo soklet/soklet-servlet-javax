@@ -34,7 +34,7 @@ class SokletServletInputStream extends ServletInputStream {
 	@Nonnull
 	private final InputStream inputStream;
 	@Nonnull
-	private Boolean finished = false;
+	private Boolean finished;
 
 	public SokletServletInputStream(@Nonnull InputStream inputStream) {
 		super();
