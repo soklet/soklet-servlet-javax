@@ -51,6 +51,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -506,20 +507,43 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	public String getParameter(String s) {
-		// TODO: implement
-		return null;
+	@Nullable
+	public String getParameter(@Nullable String name) {
+		String value = null;
+
+		// First, check query parameters.
+		if (getRequest().getQueryParameters().keySet().contains(name)) {
+			// If there is a query parameter with the given name, return it
+			value = getRequest().getQueryParameter(name).orElse(null);
+		} else if (getRequest().getFormParameters().keySet().contains(name)) {
+			// Otherwise, check form parameters in request body
+			value = getRequest().getFormParameter(name).orElse(null);
+		}
+
+		return value;
 	}
 
 	@Override
+	@Nonnull
 	public Enumeration<String> getParameterNames() {
-		// TODO: implement
-		return null;
+		Set<String> queryParameterNames = getRequest().getQueryParameters().keySet();
+		Set<String> formParameterNames = getRequest().getFormParameters().keySet();
+
+		Set<String> parameterNames = new HashSet<>(queryParameterNames.size() + formParameterNames.size());
+		parameterNames.addAll(queryParameterNames);
+		parameterNames.addAll(formParameterNames);
+
+		return Collections.enumeration(parameterNames);
 	}
 
 	@Override
-	public String[] getParameterValues(String s) {
+	@Nullable
+	public String[] getParameterValues(@Nullable String name) {
+		if (name == null)
+			return null;
+
 		// TODO: implement
+
 		return new String[0];
 	}
 
@@ -530,9 +554,9 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public String getProtocol() {
-		// TODO: implement
-		return null;
+		return "HTTP/1.1";
 	}
 
 	@Override
