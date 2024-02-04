@@ -24,10 +24,13 @@ import org.junit.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
@@ -36,15 +39,17 @@ import java.util.stream.Collectors;
 public class RequestResponseTests {
 	@Test
 	public void testRequestBasics() throws IOException {
+		Charset charset = StandardCharsets.ISO_8859_1;
 		String bodyAsString = "example body";
 
-		Request request = new Request.Builder(HttpMethod.GET, "/testing?a=b&c=d")
+		Request request = new Request.Builder(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"One", Set.of("Two, Three"),
 						"Host", Set.of("www.soklet.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"X-Forwarded-Proto", Set.of("https"),
+						"Content-Type", Set.of(format("text/plain; charset=%s", charset.name()))
 				))
-				.body(bodyAsString.getBytes(StandardCharsets.UTF_8))
+				.body(bodyAsString.getBytes(charset))
 				.build();
 
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);

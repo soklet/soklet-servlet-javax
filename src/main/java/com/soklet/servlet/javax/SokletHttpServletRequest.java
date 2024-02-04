@@ -724,20 +724,61 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nullable
 	public String getRemoteHost() {
-		// TODO: implement
-		return null;
+		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
+		// e.g. https://www.soklet.com/test/abc
+		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+
+		if (clientUrlPrefix != null) {
+			clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+
+			// Remove protocol prefix
+			if (clientUrlPrefix.startsWith("https://"))
+				clientUrlPrefix = clientUrlPrefix.replace("https://", "");
+			else if (clientUrlPrefix.startsWith("http://"))
+				clientUrlPrefix = clientUrlPrefix.replace("http://", "");
+
+			// Remove "/" and anything after it
+			int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
+
+			if (indexOfFirstSlash != -1)
+				clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
+
+			String[] hostAndPortComponents = clientUrlPrefix.split(":");
+
+			String host = null;
+
+			if (hostAndPortComponents != null && hostAndPortComponents.length > 0 && hostAndPortComponents[0] != null)
+				host = hostAndPortComponents[0].trim();
+
+			if (host != null && host.length() > 0)
+				return host;
+		}
+
+		// "If the engine cannot or chooses not to resolve the hostname (to improve performance),
+		// this method returns the dotted-string form of the IP address."
+		return getRemoteAddr();
 	}
 
 	@Override
-	public void setAttribute(String s, Object o) {
-		// TODO: implement
+	public void setAttribute(@Nullable String name,
+													 @Nullable Object o) {
+		if (name == null)
+			return;
 
+		if (o == null)
+			removeAttribute(name);
+		else
+			getAttributes().put(name, o);
 	}
 
 	@Override
-	public void removeAttribute(String s) {
-		// TODO: implement
+	public void removeAttribute(@Nullable String name) {
+		if (name == null)
+			return;
+
+		getAttributes().remove(name);
 	}
 
 	@Override
@@ -760,15 +801,18 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	public RequestDispatcher getRequestDispatcher(String s) {
-		// TODO: implement
+	@Nullable
+	public RequestDispatcher getRequestDispatcher(@Nullable String path) {
+		// "This method returns null if the servlet container cannot return a RequestDispatcher."
 		return null;
 	}
 
 	@Override
-	public String getRealPath(String s) {
-		// TODO: implement
-		return null;
+	@Deprecated
+	@Nullable
+	public String getRealPath(String path) {
+		// "As of Version 2.1 of the Java Servlet API, use ServletContext.getRealPath(java.lang.String) instead."
+		return getServletContext().getRealPath(path);
 	}
 
 	@Override
@@ -826,43 +870,46 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public ServletContext getServletContext() {
-		// TODO: implement
+		// TODO: implement (make ServletContext available via builder?)
 		return null;
 	}
 
 	@Override
+	@Nonnull
 	public AsyncContext startAsync() throws IllegalStateException {
-		// TODO: implement
-		return null;
+		throw new IllegalStateException("Soklet does not support async servlet operations");
 	}
 
 	@Override
-	public AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException {
-		// TODO: implement
-		return null;
+	@Nonnull
+	public AsyncContext startAsync(@Nonnull ServletRequest servletRequest,
+																 @Nonnull ServletResponse servletResponse) throws IllegalStateException {
+		requireNonNull(servletResponse);
+		requireNonNull(servletResponse);
+
+		throw new IllegalStateException("Soklet does not support async servlet operations");
 	}
 
 	@Override
 	public boolean isAsyncStarted() {
-		// TODO: implement
 		return false;
 	}
 
 	@Override
 	public boolean isAsyncSupported() {
-		// TODO: implement
 		return false;
 	}
 
 	@Override
+	@Nonnull
 	public AsyncContext getAsyncContext() {
-		// TODO: implement
-		return null;
+		throw new IllegalStateException("Soklet does not support async servlet operations");
 	}
 
 	@Override
+	@Nonnull
 	public DispatcherType getDispatcherType() {
-		// TODO: implement
-		return null;
+		// Currently Soklet does not support RequestDispatcher, so this is safe to hardcode
+		return DispatcherType.REQUEST;
 	}
 }
