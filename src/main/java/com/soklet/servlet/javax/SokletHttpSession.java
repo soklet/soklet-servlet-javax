@@ -174,7 +174,7 @@ class SokletHttpSession implements HttpSession {
 	public String[] getValueNames() {
 		ensureNotInvalidated();
 		List<String> valueNames = Collections.list(getAttributeNames());
-		return valueNames.toArray(new String[]{});
+		return valueNames.toArray(new String[0]);
 	}
 
 	@Override

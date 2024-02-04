@@ -39,12 +39,18 @@ public class RequestResponseTests {
 		String bodyAsString = "example body";
 
 		Request request = new Request.Builder(HttpMethod.GET, "/testing?a=b&c=d")
-				.headers(Map.of("One", Set.of("Two, Three")))
+				.headers(Map.of(
+						"One", Set.of("Two, Three"),
+						"Host", Set.of("www.soklet.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
 				.body(bodyAsString.getBytes(StandardCharsets.UTF_8))
 				.build();
 
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
+		Assert.assertEquals("Server name mismatch", "www.soklet.com", httpServletRequest.getServerName());
+		Assert.assertEquals("Server port mismatch", 443, httpServletRequest.getServerPort());
 		Assert.assertEquals("Request URI mismatch", "/testing", httpServletRequest.getRequestURI());
 		Assert.assertEquals("Body content mismatch", bodyAsString,
 				httpServletRequest.getReader().lines().collect(Collectors.joining("")));

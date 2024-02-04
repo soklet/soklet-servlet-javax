@@ -39,7 +39,10 @@ import javax.servlet.http.Part;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
@@ -55,6 +58,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -86,14 +90,27 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	private Charset charset;
 	@Nullable
 	private String contentType;
+	@Nullable
+	private final String host;
+	@Nullable
+	private final Integer port;
 
 	public SokletHttpServletRequest(@Nonnull Request request) {
+		this(request, null, null);
+	}
+
+	public SokletHttpServletRequest(@Nonnull Request request,
+																	@Nullable String host,
+																	@Nullable Integer port) {
 		requireNonNull(request);
+
 		this.request = request;
 		this.attributes = new HashMap<>();
 		this.cookies = parseCookies(request);
 		this.charset = parseCharacterEncoding(request).orElse(null);
 		this.contentType = parseContentType(request).orElse(null);
+		this.host = host;
+		this.port = port;
 	}
 
 	@Nonnull
@@ -113,7 +130,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		Map<String, Set<String>> cookies = request.getCookies();
 		List<Cookie> convertedCookies = new ArrayList<>(cookies.size());
 
-		for (Map.Entry<String, Set<String>> entry : cookies.entrySet()) {
+		for (Entry<String, Set<String>> entry : cookies.entrySet()) {
 			String name = entry.getKey();
 			Set<String> values = entry.getValue();
 
@@ -156,6 +173,16 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 
 	protected void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
+	}
+
+	@Nonnull
+	protected Optional<String> getHost() {
+		return Optional.ofNullable(this.host);
+	}
+
+	@Nonnull
+	protected Optional<Integer> getPort() {
+		return Optional.ofNullable(this.port);
 	}
 
 	// Implementation of HttpServletRequest methods below:
@@ -542,15 +569,46 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		// TODO: implement
+		if (!getRequest().getQueryParameters().keySet().contains(name) &&
+				!getRequest().getFormParameters().keySet().contains(name))
+			return null;
 
-		return new String[0];
+		List<String> parameterValues = new ArrayList<>();
+
+		for (Entry<String, Set<String>> entry : getRequest().getQueryParameters().entrySet())
+			parameterValues.addAll(entry.getValue());
+
+		for (Entry<String, Set<String>> entry : getRequest().getFormParameters().entrySet())
+			parameterValues.addAll(entry.getValue());
+
+		return parameterValues.toArray(new String[0]);
 	}
 
 	@Override
+	@Nonnull
 	public Map<String, String[]> getParameterMap() {
-		// TODO: implement
-		return null;
+		Map<String, Set<String>> parameterMap = new HashMap<>();
+
+		// Mutable copy of entries
+		for (Entry<String, Set<String>> entry : getRequest().getQueryParameters().entrySet())
+			parameterMap.put(entry.getKey(), new HashSet<>(entry.getValue()));
+
+		// Add form parameters to entries
+		for (Entry<String, Set<String>> entry : getRequest().getFormParameters().entrySet()) {
+			Set<String> existingEntries = parameterMap.get(entry.getKey());
+
+			if (existingEntries != null)
+				existingEntries.addAll(entry.getValue());
+			else
+				parameterMap.put(entry.getKey(), entry.getValue());
+		}
+
+		Map<String, String[]> finalParameterMap = new HashMap<>();
+
+		for (Entry<String, Set<String>> entry : parameterMap.entrySet())
+			finalParameterMap.put(entry.getKey(), entry.getValue().toArray(new String[0]));
+
+		return Collections.unmodifiableMap(finalParameterMap);
 	}
 
 	@Override
@@ -560,33 +618,109 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public String getScheme() {
-		// TODO: implement
-		return null;
+		// Soklet only supports HTTP because it's intended to live behind a load balancer/SSL termination point
+		return "http";
 	}
 
 	@Override
+	@Nonnull
 	public String getServerName() {
-		// TODO: implement
-		return null;
+		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
+		// e.g. https://www.soklet.com/test/abc
+		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+
+		if (clientUrlPrefix == null)
+			return getLocalName();
+
+		clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+
+		// Remove protocol prefix
+		if (clientUrlPrefix.startsWith("https://"))
+			clientUrlPrefix = clientUrlPrefix.replace("https://", "");
+		else if (clientUrlPrefix.startsWith("http://"))
+			clientUrlPrefix = clientUrlPrefix.replace("http://", "");
+
+		// Remove "/" and anything after it
+		int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
+
+		if (indexOfFirstSlash != -1)
+			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
+
+		// Remove ":" and anything after it (port)
+		int indexOfColon = clientUrlPrefix.indexOf(":");
+
+		if (indexOfColon != -1)
+			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfColon);
+
+		return clientUrlPrefix;
 	}
 
 	@Override
 	public int getServerPort() {
-		// TODO: implement
-		return 0;
+		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
+		// e.g. https://www.soklet.com/test/abc
+		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+
+		if (clientUrlPrefix == null)
+			return getLocalPort();
+
+		clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+
+		boolean https = false;
+
+		// Remove protocol prefix
+		if (clientUrlPrefix.startsWith("https://")) {
+			clientUrlPrefix = clientUrlPrefix.replace("https://", "");
+			https = true;
+		} else if (clientUrlPrefix.startsWith("http://")) {
+			clientUrlPrefix = clientUrlPrefix.replace("http://", "");
+		}
+
+		// Remove "/" and anything after it
+		int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
+
+		if (indexOfFirstSlash != -1)
+			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
+
+		String[] hostAndPortComponents = clientUrlPrefix.split(":");
+
+		// No explicit port?  Look at protocol for guidance
+		if (hostAndPortComponents.length == 1)
+			return https ? 443 : 80;
+
+		try {
+			return Integer.parseInt(hostAndPortComponents[1], 10);
+		} catch (Exception ignored) {
+			return getLocalPort();
+		}
 	}
 
 	@Override
+	@Nonnull
 	public BufferedReader getReader() throws IOException {
-		// TODO: implement
-		return null;
+		Charset charset = getCharset().orElse(DEFAULT_CHARSET);
+		InputStream inputStream = new ByteArrayInputStream(getRequest().getBody().orElse(new byte[0]));
+		return new BufferedReader(new InputStreamReader(inputStream, charset));
 	}
 
 	@Override
+	@Nullable
 	public String getRemoteAddr() {
-		// TODO: implement
-		return null;
+		String xForwardedForHeader = getRequest().getHeader("X-Forwarded-For").orElse(null);
+
+		if (xForwardedForHeader == null)
+			return null;
+
+		// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
+		String[] components = xForwardedForHeader.split(",");
+
+		if (components.length == 0 || components[0] == null)
+			return null;
+
+		String value = components[0].trim();
+		return value.length() > 0 ? value : null;
 	}
 
 	@Override
@@ -607,21 +741,22 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public Locale getLocale() {
-		// TODO: implement
-		return null;
+		List<Locale> locales = getRequest().getLocales();
+		return locales.size() == 0 ? Locale.getDefault() : locales.get(0);
 	}
 
 	@Override
+	@Nonnull
 	public Enumeration<Locale> getLocales() {
-		// TODO: implement
-		return null;
+		List<Locale> locales = getRequest().getLocales();
+		return Collections.enumeration(locales.size() == 0 ? List.of(Locale.getDefault()) : locales);
 	}
 
 	@Override
 	public boolean isSecure() {
-		// TODO: implement
-		return false;
+		return getScheme().equals("https");
 	}
 
 	@Override
@@ -643,21 +778,50 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public String getLocalName() {
-		// TODO: implement
-		return null;
+		if (getHost().isPresent())
+			return getHost().get();
+
+		try {
+			String hostName = InetAddress.getLocalHost().getHostName();
+
+			if (hostName != null) {
+				hostName = hostName.trim();
+
+				if (hostName.length() > 0)
+					return hostName;
+			}
+		} catch (Exception e) {
+			// Ignored
+		}
+
+		return "localhost";
 	}
 
 	@Override
+	@Nonnull
 	public String getLocalAddr() {
-		// TODO: implement
-		return null;
+		try {
+			String hostAddress = InetAddress.getLocalHost().getHostAddress();
+
+			if (hostAddress != null) {
+				hostAddress = hostAddress.trim();
+
+				if (hostAddress.length() > 0)
+					return hostAddress;
+			}
+		} catch (Exception e) {
+			// Ignored
+		}
+
+		return "127.0.0.1";
 	}
 
 	@Override
 	public int getLocalPort() {
-		// TODO: implement
-		return 0;
+		return getPort().orElseThrow(() -> new IllegalStateException(format("%s must be initialized with a port in order to call this method",
+				getClass().getSimpleName())));
 	}
 
 	@Override
