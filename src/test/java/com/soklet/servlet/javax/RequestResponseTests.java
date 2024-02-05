@@ -98,6 +98,7 @@ public class RequestResponseTests {
 		String marshaledResponseBodyAsString = new String(marshaledResponse.getBody().get(), charset);
 		ResponseCookie responseCookie = marshaledResponse.getCookies().stream().findFirst().orElse(null);
 
+		Assert.assertEquals("Status mismatch", 201, (int) marshaledResponse.getStatusCode());
 		Assert.assertEquals("Header mismatch", Set.of("one", "two"), marshaledResponse.getHeaders().get("test"));
 		Assert.assertEquals("Cookie name mismatch", "cname", responseCookie.getName());
 		Assert.assertEquals("Cookie value mismatch", "cvalue", responseCookie.getValue().get());
