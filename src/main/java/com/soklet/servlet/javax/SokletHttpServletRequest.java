@@ -220,7 +220,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		@Nonnull
-		public Builder host(@Nullable Integer port) {
+		public Builder port(@Nullable Integer port) {
 			this.port = port;
 			return this;
 		}
