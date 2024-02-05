@@ -16,8 +16,10 @@
 
 package com.soklet.servlet.javax;
 
+import com.soklet.core.MarshaledResponse;
 import com.soklet.core.Request;
 import com.soklet.core.Response;
+import com.soklet.core.ResponseCookie;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,6 +35,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -40,10 +43,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -121,7 +127,36 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Nonnull
 	public Response toResponse() {
-		throw new UnsupportedOperationException("TODO");
+		// In the servlet world, there is really no difference between Response and MarshaledResponse
+		MarshaledResponse marshaledResponse = toMarshaledResponse();
+
+		return new Response.Builder(marshaledResponse.getStatusCode())
+				.body(marshaledResponse.getBody().orElse(null))
+				.headers(marshaledResponse.getHeaders())
+				.cookies(marshaledResponse.getCookies())
+				.build();
+	}
+
+	@Nonnull
+	public MarshaledResponse toMarshaledResponse() {
+		byte[] body = getResponseOutputStream().toByteArray();
+
+		Map<String, Set<String>> headers = getHeaders().entrySet().stream()
+				.collect(Collectors.toMap(entry -> entry.getKey(), entry -> new HashSet<>(entry.getValue())));
+
+		Set<ResponseCookie> cookies = getCookies().stream()
+				.map(cookie -> new ResponseCookie.Builder(cookie.getName(), cookie.getValue())
+						.path(cookie.getPath())
+						.domain(cookie.getDomain())
+						.maxAge(Duration.ofSeconds(cookie.getMaxAge()))
+						.build())
+				.collect(Collectors.toSet());
+
+		return new MarshaledResponse.Builder(getStatus())
+				.body(body)
+				.headers(headers)
+				.cookies(cookies)
+				.build();
 	}
 
 	@Nonnull
@@ -501,7 +536,8 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			// Per spec, if not already ISO-8859-1, update the encoding...
 			Charset currentCharset = getCharset().orElse(null);
-			if (currentCharset == null || !StandardCharsets.ISO_8859_1.equals(currentCharset))
+
+			if (currentCharset == null)
 				setCharset(StandardCharsets.ISO_8859_1);
 
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
