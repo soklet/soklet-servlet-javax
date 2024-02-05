@@ -80,37 +80,39 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nonnull
 	private final Request request;
+	@Nullable
+	private final String host;
+	@Nullable
+	private final Integer port;
+	@Nonnull
+	private final ServletContext servletContext;
+	@Nullable
+	private HttpSession httpSession;
 	@Nonnull
 	private final Map<String, Object> attributes;
 	@Nonnull
 	private final List<Cookie> cookies;
 	@Nullable
-	private SokletHttpSession httpSession;
-	@Nullable
 	private Charset charset;
 	@Nullable
 	private String contentType;
-	@Nullable
-	private final String host;
-	@Nullable
-	private final Integer port;
 
 	public SokletHttpServletRequest(@Nonnull Request request) {
-		this(request, null, null);
+		this(new Builder(request));
 	}
 
-	public SokletHttpServletRequest(@Nonnull Request request,
-																	@Nullable String host,
-																	@Nullable Integer port) {
-		requireNonNull(request);
+	protected SokletHttpServletRequest(@Nonnull Builder builder) {
+		requireNonNull(builder);
 
-		this.request = request;
+		this.request = builder.request;
 		this.attributes = new HashMap<>();
 		this.cookies = parseCookies(request);
 		this.charset = parseCharacterEncoding(request).orElse(null);
 		this.contentType = parseContentType(request).orElse(null);
-		this.host = host;
-		this.port = port;
+		this.host = builder.host;
+		this.port = builder.port;
+		this.servletContext = builder.servletContext == null ? new SokletServletContext() : builder.servletContext;
+		this.httpSession = builder.httpSession;
 	}
 
 	@Nonnull
@@ -158,11 +160,11 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nonnull
-	protected Optional<SokletHttpSession> getHttpSession() {
+	protected Optional<HttpSession> getHttpSession() {
 		return Optional.ofNullable(this.httpSession);
 	}
 
-	protected void setHttpSession(@Nullable SokletHttpSession httpSession) {
+	protected void setHttpSession(@Nullable HttpSession httpSession) {
 		this.httpSession = httpSession;
 	}
 
@@ -183,6 +185,62 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	protected Optional<Integer> getPort() {
 		return Optional.ofNullable(this.port);
+	}
+
+	/**
+	 * Builder used to construct instances of {@link SokletHttpServletRequest}.
+	 * <p>
+	 * This class is intended for use by a single thread.
+	 *
+	 * @author <a href="https://www.revetkn.com">Mark Allen</a>
+	 */
+	@NotThreadSafe
+	public static class Builder {
+		@Nonnull
+		private final Request request;
+		@Nullable
+		private Integer port;
+		@Nullable
+		private String host;
+		@Nullable
+		private ServletContext servletContext;
+		@Nullable
+		private HttpSession httpSession;
+
+		@Nonnull
+		public Builder(@Nonnull Request request) {
+			requireNonNull(request);
+			this.request = request;
+		}
+
+		@Nonnull
+		public Builder host(@Nullable String host) {
+			this.host = host;
+			return this;
+		}
+
+		@Nonnull
+		public Builder host(@Nullable Integer port) {
+			this.port = port;
+			return this;
+		}
+
+		@Nonnull
+		public Builder servletContext(@Nullable ServletContext servletContext) {
+			this.servletContext = servletContext;
+			return this;
+		}
+
+		@Nonnull
+		public Builder httpSession(@Nullable HttpSession httpSession) {
+			this.httpSession = httpSession;
+			return this;
+		}
+
+		@Nonnull
+		public SokletHttpServletRequest build() {
+			return new SokletHttpServletRequest(this);
+		}
 	}
 
 	// Implementation of HttpServletRequest methods below:
@@ -366,7 +424,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public HttpSession getSession(boolean create) {
-		SokletHttpSession currentHttpSession = getHttpSession().orElse(null);
+		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
 		if (create && currentHttpSession == null) {
 			currentHttpSession = new SokletHttpSession(getServletContext());
@@ -379,7 +437,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public HttpSession getSession() {
-		SokletHttpSession currentHttpSession = getHttpSession().orElse(null);
+		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
 		if (currentHttpSession == null) {
 			currentHttpSession = new SokletHttpSession(getServletContext());
@@ -392,13 +450,17 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String changeSessionId() {
-		SokletHttpSession currentHttpSession = getHttpSession().orElse(null);
+		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
 		if (currentHttpSession == null)
 			throw new IllegalStateException("No session is present");
 
+		if (!(currentHttpSession instanceof SokletHttpSession))
+			throw new IllegalStateException(format("Cannot change session IDs. Session must be of type %s; instead it is of type %s",
+					SokletHttpSession.class.getSimpleName(), currentHttpSession.getClass().getSimpleName()));
+
 		UUID newSessionId = UUID.randomUUID();
-		currentHttpSession.setSessionId(newSessionId);
+		((SokletHttpSession) currentHttpSession).setSessionId(newSessionId);
 		return String.valueOf(newSessionId);
 	}
 
@@ -817,8 +879,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getRemotePort() {
-		// TODO: implement
-		return 0;
+		return getServerPort();
 	}
 
 	@Override
@@ -869,9 +930,9 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nonnull
 	public ServletContext getServletContext() {
-		// TODO: implement (make ServletContext available via builder?)
-		return null;
+		return this.servletContext;
 	}
 
 	@Override
