@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-class SokletHttpSession implements HttpSession {
+public class SokletHttpSession implements HttpSession {
 	@Nonnull
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 

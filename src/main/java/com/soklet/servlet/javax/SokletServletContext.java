@@ -58,7 +58,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-class SokletServletContext implements ServletContext {
+public class SokletServletContext implements ServletContext {
 	@Nonnull
 	private final Writer logWriter;
 	@Nonnull

@@ -29,7 +29,7 @@ import java.util.Enumeration;
  */
 @Immutable
 @Deprecated
-class SokletHttpSessionContext implements HttpSessionContext {
+public class SokletHttpSessionContext implements HttpSessionContext {
 
 	// Implementation of HttpSessionContext methods below:
 

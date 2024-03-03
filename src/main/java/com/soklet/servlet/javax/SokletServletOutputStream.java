@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-class SokletServletOutputStream extends ServletOutputStream {
+public class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final OutputStream outputStream;
 	@Nonnull
