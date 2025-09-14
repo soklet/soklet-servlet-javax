@@ -37,6 +37,8 @@ import java.util.UUID;
 import static java.util.Objects.requireNonNull;
 
 /**
+ * Soklet integration implementation of {@link HttpSession}.
+ *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe

@@ -25,6 +25,10 @@ import java.util.Collections;
 import java.util.Enumeration;
 
 /**
+ * Soklet integration implementation of {@link HttpSessionContext}.
+ * <p>
+ * <strong>Note that {@link HttpSessionContext} is deprecated, so this implementation is as well.</strong>
+ *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @Immutable
