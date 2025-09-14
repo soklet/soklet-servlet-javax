@@ -92,7 +92,7 @@
                     <links>
                         <link>https://docs.oracle.com/en/java/javase/24/docs/api/</link>
                         <link>https://javadoc.io/doc/com.google.code.findbugs/jsr305/3.0.2/</link>
-                        <link>https://javadoc.io/doc/javax.servlet/javax.servlet-api/latest/</link>
+                        <link>https://javadoc.io/doc/javax.servlet/javax.servlet-api/4.0.1/</link>
                         <link>https://javadoc.soklet.com/</link>
                     </links>
                     <quiet>true</quiet>
