@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Revetware LLC.
+ * Copyright 2024-2025 Revetware LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		// In the servlet world, there is really no difference between Response and MarshaledResponse
 		MarshaledResponse marshaledResponse = toMarshaledResponse();
 
-		return new Response.Builder(marshaledResponse.getStatusCode())
+		return Response.withStatusCode(marshaledResponse.getStatusCode())
 				.body(marshaledResponse.getBody().orElse(null))
 				.headers(marshaledResponse.getHeaders())
 				.cookies(marshaledResponse.getCookies())
@@ -145,14 +145,14 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 				.collect(Collectors.toMap(entry -> entry.getKey(), entry -> new HashSet<>(entry.getValue())));
 
 		Set<ResponseCookie> cookies = getCookies().stream()
-				.map(cookie -> new ResponseCookie.Builder(cookie.getName(), cookie.getValue())
+				.map(cookie -> ResponseCookie.with(cookie.getName(), cookie.getValue())
 						.path(cookie.getPath())
 						.domain(cookie.getDomain())
 						.maxAge(Duration.ofSeconds(cookie.getMaxAge()))
 						.build())
 				.collect(Collectors.toSet());
 
-		return new MarshaledResponse.Builder(getStatus())
+		return MarshaledResponse.withStatusCode(getStatus())
 				.body(body)
 				.headers(headers)
 				.cookies(cookies)

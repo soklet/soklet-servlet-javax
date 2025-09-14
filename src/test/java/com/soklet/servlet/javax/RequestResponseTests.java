@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Revetware LLC.
+ * Copyright 2024-2025 Revetware LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class RequestResponseTests {
 		Charset charset = StandardCharsets.ISO_8859_1;
 		String bodyAsString = "example body";
 
-		Request request = new Request.Builder(HttpMethod.POST, "/testing?a=b&c=d")
+		Request request = Request.with(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"One", Set.of("Two, Three"),
 						"Host", Set.of("www.soklet.com"),
@@ -71,7 +71,7 @@ public class RequestResponseTests {
 		Charset charset = StandardCharsets.UTF_16BE;
 		String requestBodyAsString = "example body";
 
-		Request request = new Request.Builder(HttpMethod.POST, "/testing?a=b&c=d")
+		Request request = Request.with(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"Content-Type", Set.of(format("text/plain; charset=%s", charset.name()))
 				))
@@ -110,7 +110,7 @@ public class RequestResponseTests {
 
 	@Test
 	public void session() {
-		Request request = new Request.Builder(HttpMethod.GET, "/testing").build();
+		Request request = Request.with(HttpMethod.GET, "/testing").build();
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
 		HttpSession httpSession = httpServletRequest.getSession();
