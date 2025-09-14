@@ -363,19 +363,24 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 		// the container interprets it as relative to the servlet container root. If the location is relative with two
 		// leading '/' the container interprets it as a network-path reference (see RFC 3986: Uniform Resource
 		// Identifier (URI): Generic Syntax, section 4.2 "Relative Reference").
+		String finalLocation;
+
 		if (location.startsWith("/")) {
 			// URL is relative with leading /
-			setRedirectUrl(location);
+			finalLocation = location;
 		} else {
 			try {
 				new URL(location);
 				// URL is absolute
-				setRedirectUrl(location);
+				finalLocation = location;
 			} catch (MalformedURLException ignored) {
 				// URL is relative but does not have leading /
-				setRedirectUrl(format("%s/%s", getRequestPath(), location));
+				finalLocation = format("%s/%s", getRequestPath(), location);
 			}
 		}
+
+		setRedirectUrl(finalLocation);
+		setHeader("Location", finalLocation);
 
 		flushBuffer();
 		setResponseCommitted(true);

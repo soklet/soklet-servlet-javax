@@ -102,7 +102,7 @@ public class RequestResponseTests {
 		Assertions.assertEquals(Set.of("one", "two"), marshaledResponse.getHeaders().get("test"), "Header mismatch");
 		Assertions.assertEquals("cname", responseCookie.getName(), "Cookie name mismatch");
 		Assertions.assertEquals("cvalue", responseCookie.getValue().get(), "Cookie value mismatch");
-		Assertions.assertEquals("Cookie domain mismatch", "soklet.com", responseCookie.getDomain().get());
+		Assertions.assertEquals("soklet.com", responseCookie.getDomain().get(), "Cookie domain mismatch");
 		Assertions.assertEquals(Duration.ofSeconds(60L), responseCookie.getMaxAge().get(), "Cookie maxage mismatch");
 		Assertions.assertEquals("/", responseCookie.getPath().get(), "Cookie path mismatch");
 		Assertions.assertEquals(responseBodyAsString, marshaledResponseBodyAsString, "Body content mismatch");

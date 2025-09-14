@@ -49,6 +49,8 @@ import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.security.Principal;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -290,11 +292,17 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		if (value == null)
 			return -1;
 
+		// Per spec, parse HTTP-date. Accept RFC-1123, or epoch millis as a fallback.
 		try {
-			return Long.valueOf(name, 10);
+			ZonedDateTime zonedDateTime = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME);
+			return zonedDateTime.toInstant().toEpochMilli();
 		} catch (Exception ignored) {
 			// Per spec
-			throw new IllegalArgumentException(format("Header with name '%s' and value '%s' cannot be converted to a date", name, value));
+			try {
+				return Long.parseLong(value);
+			} catch (Exception e) {
+				throw new IllegalArgumentException(format("Header with name '%s' and value '%s' cannot be converted to a date", name, value), e);
+			}
 		}
 	}
 
@@ -334,7 +342,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 			return -1;
 
 		// Throws NumberFormatException if parsing fails, per spec
-		return Integer.valueOf(name, 10);
+		return Integer.valueOf(value, 10);
 	}
 
 	@Override
@@ -631,19 +639,19 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		if (!getRequest().getQueryParameters().keySet().contains(name) &&
-				!getRequest().getFormParameters().keySet().contains(name))
-			return null;
-
 		List<String> parameterValues = new ArrayList<>();
 
-		for (Entry<String, Set<String>> entry : getRequest().getQueryParameters().entrySet())
-			parameterValues.addAll(entry.getValue());
+		Set<String> queryValues = getRequest().getQueryParameters().get(name);
 
-		for (Entry<String, Set<String>> entry : getRequest().getFormParameters().entrySet())
-			parameterValues.addAll(entry.getValue());
+		if (queryValues != null)
+			parameterValues.addAll(queryValues);
 
-		return parameterValues.toArray(new String[0]);
+		Set<String> formValues = getRequest().getFormParameters().get(name);
+
+		if (formValues != null)
+			parameterValues.addAll(formValues);
+
+		return parameterValues.isEmpty() ? null : parameterValues.toArray(new String[0]);
 	}
 
 	@Override
