@@ -101,12 +101,19 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private String contentType;
 
-	public SokletHttpServletRequest(@Nonnull Request request) {
-		this(new Builder(request));
+	@Nonnull
+	public static SokletHttpServletRequest withRequest(@Nonnull Request request) {
+		return new Builder(request).build();
 	}
 
-	protected SokletHttpServletRequest(@Nonnull Builder builder) {
+	@Nonnull
+	public static SokletHttpServletRequest.Builder builderForRequest(@Nonnull Request request) {
+		return new Builder(request);
+	}
+
+	private SokletHttpServletRequest(@Nonnull Builder builder) {
 		requireNonNull(builder);
+		requireNonNull(builder.request);
 
 		this.request = builder.request;
 		this.attributes = new HashMap<>();
@@ -201,7 +208,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@NotThreadSafe
 	public static class Builder {
 		@Nonnull
-		private final Request request;
+		private Request request;
 		@Nullable
 		private Integer port;
 		@Nullable
@@ -212,9 +219,16 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		private HttpSession httpSession;
 
 		@Nonnull
-		public Builder(@Nonnull Request request) {
+		private Builder(@Nonnull Request request) {
 			requireNonNull(request);
 			this.request = request;
+		}
+
+		@Nonnull
+		public Builder request(@Nonnull Request request) {
+			requireNonNull(request);
+			this.request = request;
+			return this;
 		}
 
 		@Nonnull

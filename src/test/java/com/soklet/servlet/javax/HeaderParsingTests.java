@@ -43,7 +43,7 @@ public class HeaderParsingTests {
 				))
 				.build();
 
-		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request);
 
 		Assertions.assertEquals(123, httpServletRequest.getIntHeader("X-Test-Int"), "Int header parse failed");
 
@@ -61,7 +61,7 @@ public class HeaderParsingTests {
 				.build();
 
 		Assertions.assertThrows(IllegalArgumentException.class, () -> {
-			HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
+			HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request);
 			httpServletRequest.getDateHeader("X-Test-Date");
 		});
 	}

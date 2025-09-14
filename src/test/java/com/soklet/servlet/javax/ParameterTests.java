@@ -32,7 +32,7 @@ public class ParameterTests {
 	@Test
 	public void parameterValuesOnlyForRequestedName() {
 		Request request = Request.with(HttpMethod.GET, "/p?one=a&one=b&two=c").build();
-		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request);
 
 		String[] oneValues = httpServletRequest.getParameterValues("one");
 		Assertions.assertArrayEquals(new String[]{"a", "b"}, oneValues);
