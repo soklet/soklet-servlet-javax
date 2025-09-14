@@ -16,8 +16,8 @@
 
 package com.soklet.servlet.javax;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.PrintWriter;
@@ -34,11 +34,11 @@ public class CommitAndResetTests {
 		pw.print("hello");
 		pw.flush();
 
-		Assert.assertTrue("Response should be committed after writing", response.isCommitted());
+		Assertions.assertTrue(response.isCommitted(), "Response should be committed after writing");
 
 		try {
 			response.resetBuffer();
-			Assert.fail("resetBuffer should have thrown");
+			Assertions.fail("resetBuffer should have thrown");
 		} catch (IllegalStateException expected) {
 			// ok
 		}

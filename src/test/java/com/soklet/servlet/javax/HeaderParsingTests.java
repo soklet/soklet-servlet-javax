@@ -18,8 +18,8 @@ package com.soklet.servlet.javax;
 
 import com.soklet.core.HttpMethod;
 import com.soklet.core.Request;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
@@ -45,14 +45,14 @@ public class HeaderParsingTests {
 
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
-		Assert.assertEquals("Int header parse failed", 123, httpServletRequest.getIntHeader("X-Test-Int"));
+		Assertions.assertEquals(123, httpServletRequest.getIntHeader("X-Test-Int"), "Int header parse failed");
 
-		long expectedMillis = ZonedDateTime.parse(rfc1123, DateTimeFormatter.RFC_1123_DATE_TIME)
-				.toInstant().toEpochMilli();
-		Assert.assertEquals("Date header parse failed", expectedMillis, httpServletRequest.getDateHeader("X-Test-Date"));
+		long expectedMillis = ZonedDateTime.parse(rfc1123, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli();
+
+		Assertions.assertEquals(expectedMillis, httpServletRequest.getDateHeader("X-Test-Date"), "Date header parse failed");
 	}
 
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void invalidDateHeaderThrows() {
 		Request request = Request.with(HttpMethod.GET, "/h")
 				.headers(Map.of(
@@ -60,7 +60,9 @@ public class HeaderParsingTests {
 				))
 				.build();
 
-		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
-		httpServletRequest.getDateHeader("X-Test-Date");
+		Assertions.assertThrows(IllegalArgumentException.class, () -> {
+			HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
+			httpServletRequest.getDateHeader("X-Test-Date");
+		});
 	}
 }

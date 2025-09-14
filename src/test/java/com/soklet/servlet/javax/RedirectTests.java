@@ -19,8 +19,8 @@ package com.soklet.servlet.javax;
 import com.soklet.core.HttpMethod;
 import com.soklet.core.MarshaledResponse;
 import com.soklet.core.Request;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletResponse;
@@ -39,10 +39,10 @@ public class RedirectTests {
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assert.assertEquals(HttpServletResponse.SC_FOUND, (int) mr.getStatusCode());
+		Assertions.assertEquals(HttpServletResponse.SC_FOUND, (int) mr.getStatusCode());
 		Set<String> locations = mr.getHeaders().get("Location");
-		Assert.assertTrue("Location header missing", locations != null && !locations.isEmpty());
-		Assert.assertTrue("Location header wrong", locations.contains("/root/path/next"));
+		Assertions.assertTrue(locations != null && !locations.isEmpty(), "Location header missing");
+		Assertions.assertTrue(locations.contains("/root/path/next"), "Location header wrong");
 	}
 
 	@Test
@@ -52,7 +52,7 @@ public class RedirectTests {
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assert.assertTrue(mr.getHeaders().get("Location").contains("https://example.com/where"));
+		Assertions.assertTrue(mr.getHeaders().get("Location").contains("https://example.com/where"));
 	}
 
 	@Test
@@ -62,6 +62,6 @@ public class RedirectTests {
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assert.assertTrue(mr.getHeaders().get("Location").contains("/rooted"));
+		Assertions.assertTrue(mr.getHeaders().get("Location").contains("/rooted"));
 	}
 }

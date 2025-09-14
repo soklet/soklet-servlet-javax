@@ -20,8 +20,8 @@ import com.soklet.core.HttpMethod;
 import com.soklet.core.MarshaledResponse;
 import com.soklet.core.Request;
 import com.soklet.core.ResponseCookie;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.Cookie;
@@ -59,11 +59,11 @@ public class RequestResponseTests {
 
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
-		Assert.assertEquals("Server name mismatch", "www.soklet.com", httpServletRequest.getServerName());
-		Assert.assertEquals("Server port mismatch", 443, httpServletRequest.getServerPort());
-		Assert.assertEquals("Request URI mismatch", "/testing", httpServletRequest.getRequestURI());
-		Assert.assertEquals("Body content mismatch", bodyAsString,
-				httpServletRequest.getReader().lines().collect(Collectors.joining("")));
+		Assertions.assertEquals("www.soklet.com", httpServletRequest.getServerName(), "Server name mismatch");
+		Assertions.assertEquals(443, httpServletRequest.getServerPort(), "Server port mismatch");
+		Assertions.assertEquals("/testing", httpServletRequest.getRequestURI(), "Request URI mismatch");
+		Assertions.assertEquals(bodyAsString, httpServletRequest.getReader().lines().collect(Collectors.joining("")),
+				"Body content mismatch");
 	}
 
 	@Test
@@ -98,14 +98,14 @@ public class RequestResponseTests {
 		String marshaledResponseBodyAsString = new String(marshaledResponse.getBody().get(), charset);
 		ResponseCookie responseCookie = marshaledResponse.getCookies().stream().findFirst().orElse(null);
 
-		Assert.assertEquals("Status mismatch", 201, (int) marshaledResponse.getStatusCode());
-		Assert.assertEquals("Header mismatch", Set.of("one", "two"), marshaledResponse.getHeaders().get("test"));
-		Assert.assertEquals("Cookie name mismatch", "cname", responseCookie.getName());
-		Assert.assertEquals("Cookie value mismatch", "cvalue", responseCookie.getValue().get());
-		Assert.assertEquals("Cookie domain mismatch", "soklet.com", responseCookie.getDomain().get());
-		Assert.assertEquals("Cookie maxage mismatch", Duration.ofSeconds(60L), responseCookie.getMaxAge().get());
-		Assert.assertEquals("Cookie path mismatch", "/", responseCookie.getPath().get());
-		Assert.assertEquals("Body content mismatch", responseBodyAsString, marshaledResponseBodyAsString);
+		Assertions.assertEquals(201, (int) marshaledResponse.getStatusCode(), "Status mismatch");
+		Assertions.assertEquals(Set.of("one", "two"), marshaledResponse.getHeaders().get("test"), "Header mismatch");
+		Assertions.assertEquals("cname", responseCookie.getName(), "Cookie name mismatch");
+		Assertions.assertEquals("cvalue", responseCookie.getValue().get(), "Cookie value mismatch");
+		Assertions.assertEquals("Cookie domain mismatch", "soklet.com", responseCookie.getDomain().get());
+		Assertions.assertEquals(Duration.ofSeconds(60L), responseCookie.getMaxAge().get(), "Cookie maxage mismatch");
+		Assertions.assertEquals("/", responseCookie.getPath().get(), "Cookie path mismatch");
+		Assertions.assertEquals(responseBodyAsString, marshaledResponseBodyAsString, "Body content mismatch");
 	}
 
 	@Test
@@ -116,11 +116,11 @@ public class RequestResponseTests {
 		HttpSession httpSession = httpServletRequest.getSession();
 		httpSession.setAttribute("one", 1);
 
-		Assert.assertEquals("Session is not new", true, httpSession.isNew());
-		Assert.assertEquals("Attribute has wrong value", 1, httpSession.getAttribute("one"));
+		Assertions.assertEquals(true, httpSession.isNew(), "Session is not new");
+		Assertions.assertEquals(1, httpSession.getAttribute("one"), "Attribute has wrong value");
 
 		httpSession.removeAttribute("one");
 
-		Assert.assertEquals("Attribute has wrong value", null, httpSession.getAttribute("one"));
+		Assertions.assertEquals(null, httpSession.getAttribute("one"), "Attribute has wrong value");
 	}
 }

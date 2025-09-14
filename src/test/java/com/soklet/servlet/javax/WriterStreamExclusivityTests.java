@@ -16,7 +16,8 @@
 
 package com.soklet.servlet.javax;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -25,17 +26,21 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public class WriterStreamExclusivityTests {
-	@Test(expected = IllegalStateException.class)
+	@Test
 	public void outputThenWriterIsIllegal() throws Exception {
-		SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
-		response.getOutputStream();
-		response.getWriter();
+		Assertions.assertThrows(IllegalStateException.class, () -> {
+			SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
+			response.getOutputStream();
+			response.getWriter();
+		});
 	}
 
-	@Test(expected = IllegalStateException.class)
+	@Test
 	public void writerThenOutputIsIllegal() throws Exception {
-		SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
-		response.getWriter();
-		response.getOutputStream();
+		Assertions.assertThrows(IllegalStateException.class, () -> {
+			SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
+			response.getWriter();
+			response.getOutputStream();
+		});
 	}
 }

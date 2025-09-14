@@ -18,8 +18,8 @@ package com.soklet.servlet.javax;
 
 import com.soklet.core.HttpMethod;
 import com.soklet.core.Request;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
@@ -35,12 +35,12 @@ public class ParameterTests {
 		HttpServletRequest httpServletRequest = new SokletHttpServletRequest(request);
 
 		String[] oneValues = httpServletRequest.getParameterValues("one");
-		Assert.assertArrayEquals(new String[]{"a", "b"}, oneValues);
+		Assertions.assertArrayEquals(new String[]{"a", "b"}, oneValues);
 
 		String[] twoValues = httpServletRequest.getParameterValues("two");
-		Assert.assertArrayEquals(new String[]{"c"}, twoValues);
+		Assertions.assertArrayEquals(new String[]{"c"}, twoValues);
 
 		String[] missing = httpServletRequest.getParameterValues("none");
-		Assert.assertNull(missing);
+		Assertions.assertNull(missing);
 	}
 }
