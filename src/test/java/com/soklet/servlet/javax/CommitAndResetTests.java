@@ -29,7 +29,7 @@ import java.io.PrintWriter;
 public class CommitAndResetTests {
 	@Test
 	public void writingCommitsResponseAndResetBufferAfterCommitThrows() throws Exception {
-		SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequestPath("/p");
 		PrintWriter pw = response.getWriter();
 		pw.print("hello");
 		pw.flush();
@@ -46,7 +46,7 @@ public class CommitAndResetTests {
 
 	@Test
 	public void resetAllowsSwitchingWriters() throws Exception {
-		SokletHttpServletResponse response = new SokletHttpServletResponse("/p");
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequestPath("/p");
 		response.getWriter(); // select writer
 		response.reset();     // reset clears write method
 		response.getOutputStream(); // now allowed

@@ -109,11 +109,19 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 	@Nullable
 	private SokletServletPrintWriter printWriter;
 
-	public SokletHttpServletResponse(@Nonnull Request request) {
-		this(requireNonNull(request).getPath());
+	@Nonnull
+	public static SokletHttpServletResponse withRequest(@Nonnull Request request) {
+		requireNonNull(request);
+		return new SokletHttpServletResponse(request.getPath());
 	}
 
-	public SokletHttpServletResponse(@Nonnull String requestPath) {
+	@Nonnull
+	public static SokletHttpServletResponse withRequestPath(@Nonnull String requestPath) {
+		requireNonNull(requestPath);
+		return new SokletHttpServletResponse(requestPath);
+	}
+
+	private SokletHttpServletResponse(@Nonnull String requestPath) {
 		requireNonNull(requestPath);
 
 		this.requestPath = requestPath;

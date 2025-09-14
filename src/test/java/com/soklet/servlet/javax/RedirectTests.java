@@ -35,7 +35,7 @@ public class RedirectTests {
 	@Test
 	public void relativeRedirectWithoutSlashUsesRequestPath() throws IOException {
 		Request request = Request.with(HttpMethod.GET, "/root/path").build();
-		SokletHttpServletResponse response = new SokletHttpServletResponse(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -48,7 +48,7 @@ public class RedirectTests {
 	@Test
 	public void absoluteRedirectSetsLocation() throws IOException {
 		Request request = Request.with(HttpMethod.GET, "/root/path").build();
-		SokletHttpServletResponse response = new SokletHttpServletResponse(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -58,7 +58,7 @@ public class RedirectTests {
 	@Test
 	public void rootedRedirectSetsLocation() throws IOException {
 		Request request = Request.with(HttpMethod.GET, "/root/path").build();
-		SokletHttpServletResponse response = new SokletHttpServletResponse(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
