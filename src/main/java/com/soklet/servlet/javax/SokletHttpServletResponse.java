@@ -532,6 +532,66 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
+	@Nonnull
+	protected Boolean writerObtained() {
+		return getResponseWriteMethod() == ResponseWriteMethod.PRINT_WRITER;
+	}
+
+	@Nonnull
+	protected Optional<String> extractCharsetFromContentType(@Nullable String type) {
+		if (type == null)
+			return Optional.empty();
+
+		String[] parts = type.split(";");
+
+		for (int i = 1; i < parts.length; i++) {
+			String p = parts[i].trim();
+			if (p.toLowerCase(Locale.ROOT).startsWith("charset=")) {
+				String cs = p.substring("charset=".length()).trim();
+
+				if (cs.startsWith("\"") && cs.endsWith("\"") && cs.length() >= 2)
+					cs = cs.substring(1, cs.length() - 1);
+
+				return Optional.of(cs);
+			}
+		}
+
+		return Optional.empty();
+	}
+
+	// Helper: remove any charset=... from Content-Type (preserve other params)
+	@Nonnull
+	protected Optional<String> stripCharsetParam(@Nullable String type) {
+		if (type == null)
+			return Optional.empty();
+
+		String[] parts = type.split(";");
+		String base = parts[0].trim();
+		List<String> kept = new ArrayList<>();
+
+		for (int i = 1; i < parts.length; i++) {
+			String p = parts[i].trim();
+
+			if (!p.toLowerCase(Locale.ROOT).startsWith("charset=") && !p.isEmpty())
+				kept.add(p);
+		}
+
+		return Optional.ofNullable(kept.isEmpty() ? base : base + "; " + String.join("; ", kept));
+	}
+
+	// Helper: ensure Content-Type includes the given charset (replacing any existing one)
+	@Nonnull
+	protected Optional<String> withCharset(@Nullable String type,
+																				 @Nonnull String charsetName) {
+		requireNonNull(charsetName);
+
+		if (type == null)
+			return Optional.empty();
+
+		String baseNoCs = stripCharsetParam(type).orElse("text/plain");
+		return Optional.of(baseNoCs + "; charset=" + charsetName);
+	}
+
 	@Override
 	public PrintWriter getWriter() throws IOException {
 		// Returns a PrintWriter object that can send character text to the client.
@@ -541,22 +601,39 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		// Calling flush() on the PrintWriter commits the response.
 		//
 		// Either this method or getOutputStream() may be called to write the body, not both, except when reset() has been called.
+		// Returns a PrintWriter that uses the character encoding returned by getCharacterEncoding().
+		// If not specified yet, calling getWriter() fixes the encoding to ISO-8859-1 per spec.
 		ResponseWriteMethod currentResponseWriteMethod = getResponseWriteMethod();
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
-			// Per spec, if not already ISO-8859-1, update the encoding...
-			Charset currentCharset = getCharset().orElse(null);
+			// Freeze encoding now
+			Charset enc = getCharset().orElse(DEFAULT_CHARSET);
+			setCharset(enc); // record the chosen encoding explicitly
 
-			if (currentCharset == null)
-				setCharset(StandardCharsets.ISO_8859_1);
+			// If a content type is already present and lacks charset, append the frozen charset to header
+			if (this.contentType != null) {
+				Optional<String> csInHeader = extractCharsetFromContentType(this.contentType);
+				if (csInHeader.isEmpty() || !csInHeader.get().equalsIgnoreCase(enc.name())) {
+					String updated = withCharset(this.contentType, enc.name()).orElse(null);
+
+					if (updated != null) {
+						this.contentType = updated;
+						setHeader("Content-Type", updated);
+					} else {
+						setHeader("Content-Type", this.contentType);
+					}
+				}
+			}
 
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
-			this.printWriter = SokletServletPrintWriter.builderWithWriter(new OutputStreamWriter(getResponseOutputStream(), getCharacterEncoding())).writeOccurredCallback((ignored) -> {
-				// Flip to "committed" if any write occurs
-				setResponseCommitted(true);
-			}).writeFinalizedCallback((ignored) -> {
-				setResponseFinalized(true);
-			}).build();
+
+			this.printWriter =
+					SokletServletPrintWriter.builderWithWriter(
+									new OutputStreamWriter(getResponseOutputStream(), enc))
+							.writeOccurredCallback((ignored) -> setResponseCommitted(true))   // commit on first write
+							.writeFinalizedCallback((ignored) -> setResponseFinalized(true))
+							.build();
+
 			return getPrintWriter().get();
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.PRINT_WRITER) {
 			return getPrintWriter().get();
@@ -569,7 +646,43 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void setCharacterEncoding(@Nullable String charset) {
 		ensureResponseIsUncommitted();
-		setCharset(charset == null ? null : Charset.forName(charset));
+
+		// Spec: no effect after getWriter() or after commit
+		if (writerObtained())
+			return;
+
+		if (charset == null || charset.isBlank()) {
+			// Clear explicit charset; default will be chosen at writer time if needed
+			setCharset(null);
+
+			// If a Content-Type is set, remove its charset=... parameter
+			if (this.contentType != null) {
+				String updated = stripCharsetParam(this.contentType).orElse(null);
+				this.contentType = updated;
+				if (updated == null || updated.isBlank()) {
+					getHeaders().remove("Content-Type");
+				} else {
+					setHeader("Content-Type", updated);
+				}
+			}
+
+			return;
+		}
+
+		Charset cs = Charset.forName(charset);
+		setCharset(cs);
+
+		// If a Content-Type is set, reflect/replace the charset=... in the header
+		if (this.contentType != null) {
+			String updated = withCharset(this.contentType, cs.name()).orElse(null);
+
+			if (updated != null) {
+				this.contentType = updated;
+				setHeader("Content-Type", updated);
+			} else {
+				setHeader("Content-Type", this.contentType);
+			}
+		}
 	}
 
 	@Override
@@ -593,8 +706,58 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (isCommitted())
 			return;
 
-		this.contentType = type;
-		setHeader("Content-Type", type);
+		if (!writerObtained()) {
+			// Before writer: charset can still be established/overridden
+			this.contentType = type;
+
+			if (type == null || type.isBlank()) {
+				getHeaders().remove("Content-Type");
+				return;
+			}
+
+			// If caller specified charset=..., adopt it as the current explicit charset
+			Optional<String> cs = extractCharsetFromContentType(type);
+			if (cs.isPresent()) {
+				setCharset(Charset.forName(cs.get()));
+				setHeader("Content-Type", type);
+			} else {
+				// No charset in type. If an explicit charset already exists (via setCharacterEncoding),
+				// reflect it in the header; otherwise just set the type as-is.
+				if (getCharset().isPresent()) {
+					String updated = withCharset(type, getCharset().get().name()).orElse(null);
+
+					if (updated != null) {
+						this.contentType = updated;
+						setHeader("Content-Type", updated);
+					} else {
+						setHeader("Content-Type", type);
+					}
+				} else {
+					setHeader("Content-Type", type);
+				}
+			}
+		} else {
+			// After writer: charset is frozen. We can change the MIME type, but we must NOT change encoding.
+			// If caller supplies a charset, normalize the header back to the locked encoding.
+			this.contentType = type;
+
+			if (type == null || type.isBlank()) {
+				// Allowed: clear header; does not change actual encoding used by writer
+				getHeaders().remove("Content-Type");
+				return;
+			}
+
+			String locked = getCharacterEncoding(); // the frozen encoding name
+			String normalized = withCharset(type, locked).orElse(null);
+
+			if (normalized != null) {
+				this.contentType = normalized;
+				setHeader("Content-Type", normalized);
+			} else {
+				this.contentType = type;
+				setHeader("Content-Type", type);
+			}
+		}
 	}
 
 	@Override
@@ -645,6 +808,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
 		getHeaders().clear();
 		getCookies().clear();
+
+		// Clear content-type/charset & locale to a pristine state
+		this.contentType = null;
+		setCharset(null);
+		this.locale = null;
 	}
 
 	@Override
