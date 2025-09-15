@@ -42,12 +42,12 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletHttpSession implements HttpSession {
+public final class SokletHttpSession implements HttpSession {
 	@Nonnull
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 
 	static {
-		SHARED_HTTP_SESSION_CONTEXT = new SokletHttpSessionContext();
+		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.of();
 	}
 
 	@Nonnull
@@ -61,7 +61,13 @@ public class SokletHttpSession implements HttpSession {
 	private boolean invalidated;
 	private int maxInactiveInterval;
 
-	public SokletHttpSession(@Nonnull ServletContext servletContext) {
+	@Nonnull
+	public static SokletHttpSession withServletContext(@Nonnull ServletContext servletContext) {
+		requireNonNull(servletContext);
+		return new SokletHttpSession(servletContext);
+	}
+
+	private SokletHttpSession(@Nonnull ServletContext servletContext) {
 		requireNonNull(servletContext);
 
 		this.sessionId = UUID.randomUUID();

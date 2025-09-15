@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletOutputStream extends ServletOutputStream {
+public final class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final OutputStream outputStream;
 	@Nonnull
@@ -44,26 +44,71 @@ public class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private Boolean writeFinalized;
 
-	public SokletServletOutputStream(@Nonnull OutputStream outputStream) {
-		this(requireNonNull(outputStream), null, null);
+	@Nonnull
+	public static SokletServletOutputStream withOutputStream(@Nonnull OutputStream outputStream) {
+		return new Builder(outputStream).build();
 	}
 
-	public SokletServletOutputStream(@Nonnull OutputStream outputStream,
-																	 @Nullable Consumer<SokletServletOutputStream> writeOccurredCallback,
-																	 @Nullable Consumer<SokletServletOutputStream> writeFinalizedCallback) {
-		super();
-		requireNonNull(outputStream);
+	@Nonnull
+	public static Builder builderWithOutputStream(@Nonnull OutputStream outputStream) {
+		return new Builder(outputStream);
+	}
 
-		if (writeOccurredCallback == null)
-			writeOccurredCallback = (ignored) -> {};
+	private SokletServletOutputStream(@Nonnull Builder builder) {
+		requireNonNull(builder);
+		requireNonNull(builder.outputStream);
 
-		if (writeFinalizedCallback == null)
-			writeFinalizedCallback = (ignored) -> {};
-
-		this.outputStream = outputStream;
-		this.writeOccurredCallback = writeOccurredCallback;
-		this.writeFinalizedCallback = writeFinalizedCallback;
+		this.outputStream = builder.outputStream;
+		this.writeOccurredCallback = builder.writeOccurredCallback != null ? builder.writeOccurredCallback : (ignored) -> {};
+		this.writeFinalizedCallback = builder.writeFinalizedCallback != null ? builder.writeFinalizedCallback : (ignored) -> {};
 		this.writeFinalized = false;
+	}
+
+	/**
+	 * Builder used to construct instances of {@link SokletServletOutputStream}.
+	 * <p>
+	 * This class is intended for use by a single thread.
+	 *
+	 * @author <a href="https://www.revetkn.com">Mark Allen</a>
+	 */
+	@NotThreadSafe
+	public static class Builder {
+		@Nonnull
+		private OutputStream outputStream;
+		@Nullable
+		private Consumer<SokletServletOutputStream> writeOccurredCallback;
+		@Nullable
+		private Consumer<SokletServletOutputStream> writeFinalizedCallback;
+
+		@Nonnull
+		private Builder(@Nonnull OutputStream outputStream) {
+			requireNonNull(outputStream);
+			this.outputStream = outputStream;
+		}
+
+		@Nonnull
+		public Builder outputStream(@Nonnull OutputStream outputStream) {
+			requireNonNull(outputStream);
+			this.outputStream = outputStream;
+			return this;
+		}
+
+		@Nonnull
+		public Builder writeOccurredCallback(@Nullable Consumer<SokletServletOutputStream> writeOccurredCallback) {
+			this.writeOccurredCallback = writeOccurredCallback;
+			return this;
+		}
+
+		@Nonnull
+		public Builder writeFinalizedCallback(@Nullable Consumer<SokletServletOutputStream> writeFinalizedCallback) {
+			this.writeFinalizedCallback = writeFinalizedCallback;
+			return this;
+		}
+
+		@Nonnull
+		public SokletServletOutputStream build() {
+			return new SokletServletOutputStream(this);
+		}
 	}
 
 	@Nonnull

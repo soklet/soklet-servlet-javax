@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletContext implements ServletContext {
+public final class SokletServletContext implements ServletContext {
 	@Nonnull
 	private final Writer logWriter;
 	@Nonnull
@@ -72,11 +72,17 @@ public class SokletServletContext implements ServletContext {
 	@Nullable
 	private Charset responseCharset;
 
-	public SokletServletContext() {
-		this(null);
+	@Nonnull
+	public static SokletServletContext of() {
+		return new SokletServletContext(null);
 	}
 
-	public SokletServletContext(@Nullable Writer logWriter) {
+	@Nonnull
+	public static SokletServletContext withLogWriter(@Nullable Writer logWriter) {
+		return new SokletServletContext(logWriter);
+	}
+
+	private SokletServletContext(@Nullable Writer logWriter) {
 		this.logWriter = logWriter == null ? new NoOpWriter() : logWriter;
 		this.attributes = new HashMap<>();
 		this.sessionTimeout = -1;

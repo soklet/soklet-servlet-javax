@@ -20,7 +20,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ReadListener;
 import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpSessionContext;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -33,13 +32,19 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletInputStream extends ServletInputStream {
+public final class SokletServletInputStream extends ServletInputStream {
 	@Nonnull
 	private final InputStream inputStream;
 	@Nonnull
 	private Boolean finished;
 
-	public SokletServletInputStream(@Nonnull InputStream inputStream) {
+	@Nonnull
+	public static SokletServletInputStream withInputStream(@Nonnull InputStream inputStream) {
+		requireNonNull(inputStream);
+		return new SokletServletInputStream(inputStream);
+	}
+
+	private SokletServletInputStream(@Nonnull InputStream inputStream) {
 		super();
 		requireNonNull(inputStream);
 

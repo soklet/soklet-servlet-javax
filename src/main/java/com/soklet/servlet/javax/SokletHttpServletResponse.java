@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletHttpServletResponse implements HttpServletResponse {
+public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private static final Integer DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
 	@Nonnull
@@ -522,12 +522,13 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			setResponseWriteMethod(ResponseWriteMethod.SERVLET_OUTPUT_STREAM);
-			this.servletOutputStream = new SokletServletOutputStream(getResponseOutputStream(), (ignored) -> {
-				// Flip to "committed" if any write occurs
-				setResponseCommitted(true);
-			}, (ignored) -> {
-				setResponseFinalized(true);
-			});
+			this.servletOutputStream = SokletServletOutputStream.builderWithOutputStream(getResponseOutputStream())
+					.writeOccurredCallback((ignored) -> {
+						// Flip to "committed" if any write occurs
+						setResponseCommitted(true);
+					}).writeFinalizedCallback((ignored) -> {
+						setResponseFinalized(true);
+					}).build();
 			return getServletOutputStream().get();
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.SERVLET_OUTPUT_STREAM) {
 			return getServletOutputStream().get();
@@ -556,12 +557,12 @@ public class SokletHttpServletResponse implements HttpServletResponse {
 				setCharset(StandardCharsets.ISO_8859_1);
 
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
-			this.printWriter = new SokletServletPrintWriter(new OutputStreamWriter(getResponseOutputStream(), getCharacterEncoding()), (ignored) -> {
+			this.printWriter = SokletServletPrintWriter.builderWithWriter(new OutputStreamWriter(getResponseOutputStream(), getCharacterEncoding())).writeOccurredCallback((ignored) -> {
 				// Flip to "committed" if any write occurs
 				setResponseCommitted(true);
-			}, (ignored) -> {
+			}).writeFinalizedCallback((ignored) -> {
 				setResponseFinalized(true);
-			});
+			}).build();
 			return getPrintWriter().get();
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.PRINT_WRITER) {
 			return getPrintWriter().get();

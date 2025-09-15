@@ -74,7 +74,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletHttpServletRequest implements HttpServletRequest {
+public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	private static final Charset DEFAULT_CHARSET;
 
@@ -107,7 +107,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nonnull
-	public static SokletHttpServletRequest.Builder builderForRequest(@Nonnull Request request) {
+	public static Builder builderWithRequest(@Nonnull Request request) {
 		return new Builder(request);
 	}
 
@@ -122,7 +122,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		this.contentType = parseContentType(request).orElse(null);
 		this.host = builder.host;
 		this.port = builder.port;
-		this.servletContext = builder.servletContext == null ? new SokletServletContext() : builder.servletContext;
+		this.servletContext = builder.servletContext == null ? SokletServletContext.of() : builder.servletContext;
 		this.httpSession = builder.httpSession;
 	}
 
@@ -451,7 +451,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
 		if (create && currentHttpSession == null) {
-			currentHttpSession = new SokletHttpSession(getServletContext());
+			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
 		}
 
@@ -464,7 +464,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
 		if (currentHttpSession == null) {
-			currentHttpSession = new SokletHttpSession(getServletContext());
+			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
 		}
 
@@ -616,7 +616,7 @@ public class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	public ServletInputStream getInputStream() throws IOException {
 		byte[] body = getRequest().getBody().orElse(new byte[]{});
-		return new SokletServletInputStream(new ByteArrayInputStream(body));
+		return SokletServletInputStream.withInputStream(new ByteArrayInputStream(body));
 	}
 
 	@Override

@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @NotThreadSafe
-public class SokletServletPrintWriter extends PrintWriter {
+public final class SokletServletPrintWriter extends PrintWriter {
 	@Nonnull
 	private final Consumer<SokletServletPrintWriter> writeOccurredCallback;
 	@Nonnull
@@ -40,23 +40,67 @@ public class SokletServletPrintWriter extends PrintWriter {
 	@Nonnull
 	private Boolean writeFinalized = false;
 
-	public SokletServletPrintWriter(@Nonnull Writer writer) {
-		this(requireNonNull(writer), null, null);
+	@Nonnull
+	public static SokletServletPrintWriter withWriter(@Nonnull Writer writer) {
+		return new Builder(writer).build();
 	}
 
-	public SokletServletPrintWriter(@Nonnull Writer writer,
-																	@Nullable Consumer<SokletServletPrintWriter> writeOccurredCallback,
-																	@Nullable Consumer<SokletServletPrintWriter> writeFinalizedCallback) {
-		super(requireNonNull(writer), true);
+	@Nonnull
+	public static Builder builderWithWriter(@Nonnull Writer writer) {
+		return new Builder(writer);
+	}
 
-		if (writeOccurredCallback == null)
-			writeOccurredCallback = (ignored) -> {};
+	private SokletServletPrintWriter(@Nonnull Builder builder) {
+		super(requireNonNull(builder.writer), true);
+		this.writeOccurredCallback = builder.writeOccurredCallback != null ? builder.writeOccurredCallback : (ignored) -> {};
+		this.writeFinalizedCallback = builder.writeFinalizedCallback != null ? builder.writeFinalizedCallback : (ignored) -> {};
+	}
 
-		if (writeFinalizedCallback == null)
-			writeFinalizedCallback = (ignored) -> {};
+	/**
+	 * Builder used to construct instances of {@link SokletServletPrintWriter}.
+	 * <p>
+	 * This class is intended for use by a single thread.
+	 *
+	 * @author <a href="https://www.revetkn.com">Mark Allen</a>
+	 */
+	@NotThreadSafe
+	public static class Builder {
+		@Nonnull
+		private Writer writer;
+		@Nullable
+		private Consumer<SokletServletPrintWriter> writeOccurredCallback;
+		@Nullable
+		private Consumer<SokletServletPrintWriter> writeFinalizedCallback;
 
-		this.writeOccurredCallback = writeOccurredCallback;
-		this.writeFinalizedCallback = writeFinalizedCallback;
+		@Nonnull
+		private Builder(@Nonnull Writer writer) {
+			requireNonNull(writer);
+			this.writer = writer;
+		}
+
+		@Nonnull
+		public Builder writer(@Nonnull Writer writer) {
+			requireNonNull(writer);
+			this.writer = writer;
+			return this;
+		}
+
+		@Nonnull
+		public Builder writeOccurredCallback(@Nullable Consumer<SokletServletPrintWriter> writeOccurredCallback) {
+			this.writeOccurredCallback = writeOccurredCallback;
+			return this;
+		}
+
+		@Nonnull
+		public Builder writeFinalizedCallback(@Nullable Consumer<SokletServletPrintWriter> writeFinalizedCallback) {
+			this.writeFinalizedCallback = writeFinalizedCallback;
+			return this;
+		}
+
+		@Nonnull
+		public SokletServletPrintWriter build() {
+			return new SokletServletPrintWriter(this);
+		}
 	}
 
 	@Nonnull
