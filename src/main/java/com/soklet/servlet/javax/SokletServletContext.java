@@ -32,6 +32,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.SessionCookieConfig;
 import javax.servlet.SessionTrackingMode;
 import javax.servlet.descriptor.JspConfigDescriptor;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -43,6 +44,9 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -51,7 +55,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -170,8 +177,60 @@ public final class SokletServletContext implements ServletContext {
 	@Nonnull
 	public Set<String> getResourcePaths(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResourcePaths-java.lang.String-
-		// This would need the set of all URLs that Soklet is aware of, likely via ResourceMethodResolver::getResourceMethods
-		return Set.of();
+		if (path == null || !path.startsWith("/"))
+			return java.util.Set.of();
+
+		try {
+			String normalized = path.equals("/") ? "" : path.substring(1);
+
+			if (!normalized.endsWith("/") && !normalized.isEmpty())
+				normalized += "/";
+
+			Enumeration<URL> roots =
+					Thread.currentThread().getContextClassLoader().getResources(normalized);
+
+			Set<String> out = new java.util.TreeSet<>();
+
+			while (roots.hasMoreElements()) {
+				URL url = roots.nextElement();
+				String protocol = url.getProtocol();
+
+				if ("file".equals(protocol)) {
+					Path p = Paths.get(url.toURI());
+
+					try (Stream<Path> s = Files.list(p)) {
+						s.forEach(child -> {
+							String name = child.getFileName().toString();
+							boolean dir = java.nio.file.Files.isDirectory(child);
+							out.add((path.endsWith("/") ? path : path + "/") + name + (dir ? "/" : ""));
+						});
+					}
+				} else if ("jar".equals(protocol)) {
+					String spec = url.getFile();           // e.g. file:/app.jar!/static/
+					int bang = spec.indexOf("!");
+					String jarPath = spec.substring(0, bang);
+					java.net.URL jarUrl = new java.net.URL(jarPath);
+					try (JarFile jar = new JarFile(new File(jarUrl.toURI()))) {
+						String prefix = normalized;
+						jar.stream()
+								.map(JarEntry::getName)
+								.filter(n -> n.startsWith(prefix) && !n.equals(prefix))
+								.map(n -> {
+									String remainder = n.substring(prefix.length());
+									int slash = remainder.indexOf('/');
+									if (slash == -1)
+										return (path.endsWith("/") ? path : path + "/") + remainder;
+
+									return (path.endsWith("/") ? path : path + "/") + remainder.substring(0, slash + 1);
+								})
+								.forEach(out::add);
+					}
+				}
+			}
+			return out;
+		} catch (Exception ignored) {
+			return Set.of();
+		}
 	}
 
 	@Override

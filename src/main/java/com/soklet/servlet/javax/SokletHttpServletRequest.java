@@ -71,6 +71,9 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 import static java.lang.String.format;
+import static java.util.Locale.ROOT;
+import static java.util.Locale.US;
+import static java.util.Locale.getDefault;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -98,7 +101,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				.appendPattern("EEE, dd MMM ")
 				.appendValueReduced(ChronoField.YEAR, 2, 2, 1900) // 94 -> 1994
 				.appendPattern(" HH:mm:ss zzz")
-				.toFormatter(Locale.US)
+				.toFormatter(US)
 				.withZone(ZoneOffset.UTC);
 
 		// asctime: "EEE MMM  d HH:mm:ss yyyy" — allow 1 or 2 spaces before day, no zone in text → default GMT.
@@ -109,7 +112,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				.optionalStart().appendLiteral(' ').optionalEnd() // tolerate double space before single-digit day
 				.appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
 				.appendPattern(" HH:mm:ss yyyy")
-				.toFormatter(Locale.US)
+				.toFormatter(US)
 				.withZone(ZoneOffset.UTC);
 	}
 
@@ -754,7 +757,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getScheme() {
-		// Soklet only supports HTTP because it's intended to live behind a load balancer/SSL termination point
+		// Honor common reverse-proxy header; fall back to http
+		String proto = getRequest().getHeader("X-Forwarded-Proto").orElse(null);
+
+		if (proto != null) {
+			proto = proto.trim().toLowerCase(ROOT);
+			if (proto.equals("https") || proto.equals("http"))
+				return proto;
+		}
+
 		return "http";
 	}
 
@@ -768,7 +779,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (clientUrlPrefix == null)
 			return getLocalName();
 
-		clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+		clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
 
 		// Remove protocol prefix
 		if (clientUrlPrefix.startsWith("https://"))
@@ -800,7 +811,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (clientUrlPrefix == null)
 			return getLocalPort();
 
-		clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+		clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
 
 		boolean https = false;
 
@@ -854,7 +865,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			return null;
 
 		String value = components[0].trim();
-		return value.length() > 0 ? value : null;
+		return value.length() > 0 ? value : "127.0.0.1";
 	}
 
 	@Override
@@ -871,7 +882,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
 
 		if (clientUrlPrefix != null) {
-			clientUrlPrefix = clientUrlPrefix.toLowerCase(Locale.ROOT);
+			clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
 
 			// Remove protocol prefix
 			if (clientUrlPrefix.startsWith("https://"))
@@ -925,14 +936,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	public Locale getLocale() {
 		List<Locale> locales = getRequest().getLocales();
-		return locales.size() == 0 ? Locale.getDefault() : locales.get(0);
+		return locales.size() == 0 ? getDefault() : locales.get(0);
 	}
 
 	@Override
 	@Nonnull
 	public Enumeration<Locale> getLocales() {
 		List<Locale> locales = getRequest().getLocales();
-		return Collections.enumeration(locales.size() == 0 ? List.of(Locale.getDefault()) : locales);
+		return Collections.enumeration(locales.size() == 0 ? List.of(getDefault()) : locales);
 	}
 
 	@Override
