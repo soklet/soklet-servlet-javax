@@ -20,7 +20,9 @@ However, there is a large body of existing code that relies on the Servlet API. 
 * [`ServletOutputStream`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletOutputStream.html)
 * [`ServletPrintWriter`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletPrintWriter.html)
 
-Support is available for both legacy [`javax.servlet`](https://github.com/soklet/soklet-servlet-javax) and current [`jakarta.servlet`](https://github.com/soklet/soklet-servlet-jakarta) specifications.  Just add the appropriate JAR to your project and you're good to go. 
+This integration is for the legacy `javax.servlet` API. If your system uses `jakarta.servlet` instead, please integrate using [`soklet-servlet-jakarta`](https://github.com/soklet/soklet-servlet-jakarta) instead.
+
+Just add the appropriate JAR to your project and you're good to go. 
 
 **Note: this README provides a high-level overview of Soklet's Servlet Integration.**<br/>
 **For details, please refer to the official documentation at [https://www.soklet.com/docs/servlet-integration](https://www.soklet.com/docs/servlet-integration).**
@@ -29,7 +31,7 @@ Support is available for both legacy [`javax.servlet`](https://github.com/soklet
 
 ### Maven
 
-If you use [`javax.servlet`](https://github.com/soklet/soklet-servlet-javax):
+Like Soklet, this library assumes Java 17+.
 
 ```xml
 <dependency>
@@ -39,19 +41,7 @@ If you use [`javax.servlet`](https://github.com/soklet/soklet-servlet-javax):
 </dependency>
 ```
 
-If you use [`jakarta.servlet`](https://github.com/soklet/soklet-servlet-jakarta):
-
-```xml
-<dependency>
-  <groupId>com.soklet</groupId>
-  <artifactId>soklet-servlet-jakarta</artifactId>
-  <version>1.0.0</version>
-</dependency>
-```
-
 ### Gradle
-
-If you use [`javax.servlet`](https://github.com/soklet/soklet-servlet-javax):
 
 ```js
 repositories {
@@ -60,18 +50,6 @@ repositories {
 
 dependencies {
   implementation 'com.soklet:soklet-servlet-javax:1.0.0'
-}
-```
-
-If you use [`jakarta.servlet`](https://github.com/soklet/soklet-servlet-jakarta):
-
-```js
-repositories {
-  mavenCentral()
-}
-
-dependencies {
-  implementation 'com.soklet:soklet-servlet-jakarta:1.0.0'
 }
 ```
 
