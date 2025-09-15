@@ -27,6 +27,8 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRegistration;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.SessionCookieConfig;
 import javax.servlet.SessionTrackingMode;
 import javax.servlet.descriptor.JspConfigDescriptor;
@@ -176,24 +178,40 @@ public final class SokletServletContext implements ServletContext {
 	@Nullable
 	public URL getResource(@Nullable String path) throws MalformedURLException {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResource-java.lang.String-
-		// This is legal according to spec, but we may want to have a mechanism for loading resources
-		return null;
+		if (path == null || !path.startsWith("/"))
+			return null;
+
+		return getClass().getResource(path); // may be null
 	}
 
 	@Override
 	@Nullable
 	public InputStream getResourceAsStream(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResourceAsStream-java.lang.String-
-		// This is legal according to spec, but we may want to have a mechanism for loading resources
-		return null;
+		if (path == null || !path.startsWith("/"))
+			return null;
+
+		return getClass().getResourceAsStream(path); // may be null
 	}
 
 	@Override
 	@Nullable
 	public RequestDispatcher getRequestDispatcher(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getRequestDispatcher-java.lang.String-
-		// This is legal according to spec, but we likely want a real instance returned
-		return null;
+		if (path == null || path.isBlank())
+			return null;
+
+		return new RequestDispatcher() {
+			@Override
+			public void forward(ServletRequest servletRequest, ServletResponse servletResponse) {
+				throw new IllegalStateException("RequestDispatcher.forward is not supported by Soklet.");
+			}
+
+			@Override
+			public void include(ServletRequest servletRequest, ServletResponse servletResponse) {
+				throw new IllegalStateException("RequestDispatcher.include is not supported by Soklet.");
+			}
+		};
 	}
 
 	@Override

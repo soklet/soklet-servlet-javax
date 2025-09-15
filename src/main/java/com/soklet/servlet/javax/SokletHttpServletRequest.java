@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import static java.lang.String.format;
@@ -77,9 +78,18 @@ import static java.util.Objects.requireNonNull;
 public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	private static final Charset DEFAULT_CHARSET;
+	@Nonnull
+	private static final DateTimeFormatter RFC_1123_PARSER;
+	@Nonnull
+	private static final DateTimeFormatter RFC_1036_PARSER;
+	@Nonnull
+	private static final DateTimeFormatter ASCTIME_PARSER;
 
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
+		RFC_1123_PARSER = DateTimeFormatter.RFC_1123_DATE_TIME;
+		RFC_1036_PARSER = DateTimeFormatter.ofPattern("EEE, dd-MMM-yy HH:mm:ss zzz").withLocale(Locale.US);
+		ASCTIME_PARSER = DateTimeFormatter.ofPattern("EEE MMM  d HH:mm:ss yyyy").withLocale(Locale.US);
 	}
 
 	@Nonnull
@@ -140,7 +150,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	protected List<Cookie> parseCookies(@Nonnull Request request) {
 		requireNonNull(request);
 
-		Map<String, Set<String>> cookies = request.getCookies();
+		Map<String, Set<String>> cookies = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+		cookies.putAll(request.getCookies());
+
 		List<Cookie> convertedCookies = new ArrayList<>(cookies.size());
 
 		for (Entry<String, Set<String>> entry : cookies.entrySet()) {
@@ -309,16 +321,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			return -1;
 
 		// Per spec, parse HTTP-date. Accept RFC-1123, or epoch millis as a fallback.
-		try {
-			ZonedDateTime zonedDateTime = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME);
-			return zonedDateTime.toInstant().toEpochMilli();
-		} catch (Exception ignored) {
-			// Per spec
+		for (DateTimeFormatter dateTimeParser : List.of(RFC_1123_PARSER, RFC_1036_PARSER, ASCTIME_PARSER)) {
 			try {
-				return Long.parseLong(value);
-			} catch (Exception e) {
-				throw new IllegalArgumentException(format("Header with name '%s' and value '%s' cannot be converted to a date", name, value), e);
+				return ZonedDateTime.parse(value, dateTimeParser).toInstant().toEpochMilli();
+			} catch (Exception ignored) {
+				// Nothing to do
 			}
+		}
+
+		try {
+			return Long.parseLong(value);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException(format("Header with name '%s' and value '%s' cannot be converted to a date", name, value), e);
 		}
 	}
 
@@ -517,7 +531,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public boolean authenticate(@Nonnull HttpServletResponse httpServletResponse) throws IOException, ServletException {
 		requireNonNull(httpServletResponse);
 		// TODO: perhaps revisit this in the future
-		throw new UnsupportedEncodingException("Authentication is not supported");
+		throw new ServletException("Authentication is not supported");
 	}
 
 	@Override

@@ -42,13 +42,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -130,7 +130,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
 		this.responseOutputStream = new ByteArrayOutputStream(DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES);
 		this.cookies = new ArrayList<>();
-		this.headers = new HashMap<>();
+		this.headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 		this.responseCommitted = false;
 		this.responseFinalized = false;
 	}
@@ -157,6 +157,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		Set<ResponseCookie> cookies = getCookies().stream()
 				.map(cookie -> ResponseCookie.with(cookie.getName(), cookie.getValue())
 						.path(cookie.getPath())
+						.secure(cookie.getSecure())
+						.httpOnly(cookie.isHttpOnly())
 						.domain(cookie.getDomain())
 						.maxAge(Duration.ofSeconds(cookie.getMaxAge()))
 						.build())
@@ -415,12 +417,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 												@Nullable String value) {
 		ensureResponseIsUncommitted();
 
-		if (name == null || name.trim().length() == 0 || value == null)
-			return;
-
-		List<String> values = new ArrayList<>();
-		values.add(value);
-		getHeaders().put(name, values);
+		if (name != null && !name.isBlank() && value != null) {
+			List<String> values = new ArrayList<>();
+			values.add(value);
+			getHeaders().put(name, values);
+		}
 	}
 
 	@Override
@@ -428,15 +429,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 												@Nullable String value) {
 		ensureResponseIsUncommitted();
 
-		if (name == null || name.trim().length() == 0 || value == null)
-			return;
-
-		List<String> values = getHeaders().get(name);
-
-		if (values == null)
-			setHeader(name, value);
-		else
-			values.add(value);
+		if (name != null && !name.isBlank() && value != null)
+			getHeaders().computeIfAbsent(name, k -> new ArrayList<>()).add(value);
 	}
 
 	@Override
