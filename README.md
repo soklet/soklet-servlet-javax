@@ -29,9 +29,9 @@ This library has zero dependencies (not counting Soklet). Just add the JAR to yo
 
 ## Installation
 
-### Maven
-
 Like Soklet, this library assumes Java 17+.
+
+### Maven
 
 ```xml
 <dependency>
