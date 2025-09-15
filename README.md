@@ -20,7 +20,7 @@ However, there is a large body of existing code that relies on the Servlet API. 
 * [`ServletOutputStream`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletOutputStream.html)
 * [`ServletPrintWriter`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletPrintWriter.html)
 
-This library is for the legacy `javax.servlet` API. If your system uses `jakarta.servlet`, use [`soklet-servlet-jakarta`](https://github.com/soklet/soklet-servlet-jakarta) instead.
+This library is for the legacy `javax.servlet` API. If you need to integrate with the `jakarta.servlet` API, use [`soklet-servlet-jakarta`](https://github.com/soklet/soklet-servlet-jakarta).
 
 This library has zero dependencies (not counting Soklet). Just add the JAR to your project and you're good to go. 
 
