@@ -49,8 +49,12 @@ import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.security.Principal;
-import java.time.ZonedDateTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -88,8 +92,25 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
 		RFC_1123_PARSER = DateTimeFormatter.RFC_1123_DATE_TIME;
-		RFC_1036_PARSER = DateTimeFormatter.ofPattern("EEE, dd-MMM-yy HH:mm:ss zzz").withLocale(Locale.US);
-		ASCTIME_PARSER = DateTimeFormatter.ofPattern("EEE MMM  d HH:mm:ss yyyy").withLocale(Locale.US);
+		// RFC 1036: spaces between day/month/year + 2-digit year reduced to 19xx baseline.
+		RFC_1036_PARSER = new DateTimeFormatterBuilder()
+				.parseCaseInsensitive()
+				.appendPattern("EEE, dd MMM ")
+				.appendValueReduced(ChronoField.YEAR, 2, 2, 1900) // 94 -> 1994
+				.appendPattern(" HH:mm:ss zzz")
+				.toFormatter(Locale.US)
+				.withZone(ZoneOffset.UTC);
+
+		// asctime: "EEE MMM  d HH:mm:ss yyyy" — allow 1 or 2 spaces before day, no zone in text → default GMT.
+		ASCTIME_PARSER = new DateTimeFormatterBuilder()
+				.parseCaseInsensitive()
+				.appendPattern("EEE MMM")
+				.appendLiteral(' ')
+				.optionalStart().appendLiteral(' ').optionalEnd() // tolerate double space before single-digit day
+				.appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
+				.appendPattern(" HH:mm:ss yyyy")
+				.toFormatter(Locale.US)
+				.withZone(ZoneOffset.UTC);
 	}
 
 	@Nonnull
@@ -320,19 +341,23 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (value == null)
 			return -1;
 
-		// Per spec, parse HTTP-date. Accept RFC-1123, or epoch millis as a fallback.
-		for (DateTimeFormatter dateTimeParser : List.of(RFC_1123_PARSER, RFC_1036_PARSER, ASCTIME_PARSER)) {
+		// Try HTTP-date formats (RFC 1123 → RFC 1036 → asctime)
+		for (DateTimeFormatter fmt : List.of(RFC_1123_PARSER, RFC_1036_PARSER, ASCTIME_PARSER)) {
 			try {
-				return ZonedDateTime.parse(value, dateTimeParser).toInstant().toEpochMilli();
+				return Instant.from(fmt.parse(value)).toEpochMilli();
 			} catch (Exception ignored) {
-				// Nothing to do
+				// try next
 			}
 		}
 
+		// Fallback: epoch millis
 		try {
 			return Long.parseLong(value);
 		} catch (NumberFormatException e) {
-			throw new IllegalArgumentException(format("Header with name '%s' and value '%s' cannot be converted to a date", name, value), e);
+			throw new IllegalArgumentException(
+					String.format("Header with name '%s' and value '%s' cannot be converted to a date", name, value),
+					e
+			);
 		}
 	}
 
@@ -446,10 +471,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public StringBuffer getRequestURL() {
-		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
-		// e.g. https://www.soklet.com/test/abc
+		// Try forwarded/synthesized absolute prefix first
 		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
-		return new StringBuffer(clientUrlPrefix == null ? getRequest().getPath() : format("%s%s", clientUrlPrefix, getRequest().getPath()));
+
+		if (clientUrlPrefix != null)
+			return new StringBuffer(format("%s%s", clientUrlPrefix, getRequest().getPath()));
+
+		// Fall back to builder-provided host/port when available
+		String scheme = getScheme(); // Soklet returns "http" by design
+		String host = getServerName();
+		int port = getServerPort(); // may throw if not initialized by builder
+		boolean defaultPort = ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
+		String authority = defaultPort ? host : format("%s:%d", host, port);
+		return new StringBuffer(format("%s://%s%s", scheme, authority, getRequest().getPath()));
 	}
 
 	@Override
@@ -567,7 +601,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	public <T extends HttpUpgradeHandler> T upgrade(@Nullable Class<T> handlerClass) throws IOException, ServletException {
 		// Legal if the given handlerClass fails to be instantiated
-		throw new ServletException("Servlet multipart configuration is not supported");
+		throw new ServletException("HTTP upgrade is not supported");
 	}
 
 	@Override
@@ -826,6 +860,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getRemoteHost() {
+		// This is X-Forwarded-For and is generally what we want (if present)
+		String remoteAddr = getRemoteAddr();
+
+		if (remoteAddr != null)
+			return remoteAddr;
+
 		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
 		// e.g. https://www.soklet.com/test/abc
 		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
@@ -917,7 +957,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getRemotePort() {
-		return getServerPort();
+		// Not reliably knowable without a socket; return 0 to indicate "unknown"
+		return 0;
 	}
 
 	@Override

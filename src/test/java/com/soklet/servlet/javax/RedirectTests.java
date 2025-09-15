@@ -42,7 +42,7 @@ public class RedirectTests {
 		Assertions.assertEquals(HttpServletResponse.SC_FOUND, (int) mr.getStatusCode());
 		Set<String> locations = mr.getHeaders().get("Location");
 		Assertions.assertTrue(locations != null && !locations.isEmpty(), "Location header missing");
-		Assertions.assertTrue(locations.contains("/root/path/next"), "Location header wrong");
+		Assertions.assertTrue(locations.contains("/root/next"), "Location header wrong");
 	}
 
 	@Test

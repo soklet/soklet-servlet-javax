@@ -243,13 +243,13 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	public void invalidate() {
-		setInvalidated(true);
-
 		// Copy to prevent modification while iterating
 		Set<String> namesToRemove = new HashSet<>(getAttributes().keySet());
 
 		for (String name : namesToRemove)
 			removeAttribute(name);
+
+		setInvalidated(true);
 	}
 
 	@Override

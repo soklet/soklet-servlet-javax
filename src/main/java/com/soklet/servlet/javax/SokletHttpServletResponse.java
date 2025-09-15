@@ -155,13 +155,18 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				.collect(Collectors.toMap(entry -> entry.getKey(), entry -> new HashSet<>(entry.getValue())));
 
 		Set<ResponseCookie> cookies = getCookies().stream()
-				.map(cookie -> ResponseCookie.with(cookie.getName(), cookie.getValue())
-						.path(cookie.getPath())
-						.secure(cookie.getSecure())
-						.httpOnly(cookie.isHttpOnly())
-						.domain(cookie.getDomain())
-						.maxAge(Duration.ofSeconds(cookie.getMaxAge()))
-						.build())
+				.map(cookie -> {
+					ResponseCookie.Builder builder = ResponseCookie.with(cookie.getName(), cookie.getValue())
+							.path(cookie.getPath())
+							.secure(cookie.getSecure())
+							.httpOnly(cookie.isHttpOnly())
+							.domain(cookie.getDomain());
+
+					if (cookie.getMaxAge() >= 0)
+						builder.maxAge(Duration.ofSeconds(cookie.getMaxAge()));
+
+					return builder.build();
+				})
 				.collect(Collectors.toSet());
 
 		return MarshaledResponse.withStatusCode(getStatus())
@@ -386,8 +391,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				// URL is absolute
 				finalLocation = location;
 			} catch (MalformedURLException ignored) {
-				// URL is relative but does not have leading /
-				finalLocation = format("%s/%s", getRequestPath(), location);
+				// URL is relative but does not have leading '/', resolve against the parent of the current path
+				String base = getRequestPath();
+				int idx = base.lastIndexOf('/');
+				String parent = (idx <= 0) ? "/" : base.substring(0, idx);
+				finalLocation = parent.endsWith("/") ? parent + location : parent + "/" + location;
 			}
 		}
 
@@ -763,6 +771,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void setBufferSize(int size) {
 		ensureResponseIsUncommitted();
+
+		// Per Servlet spec, setBufferSize must be called before any content is written
+		if (writerObtained() || getServletOutputStream().isPresent() || getResponseOutputStream().size() > 0)
+			throw new IllegalStateException("setBufferSize must be called before any content is written");
+
 		setResponseBufferSizeInBytes(size);
 		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
 	}
