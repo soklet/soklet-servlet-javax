@@ -1,0 +1,28 @@
+<html>
+  <head></head>
+  <body>
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://cdn.soklet.com/soklet-gh-logo-dark-v2.png">
+      <img alt="Soklet" src="https://cdn.soklet.com/soklet-gh-logo-light-v2.png" width="150">
+    </picture>
+	<br/><br/>
+	<a href="https://www.soklet.com" target="_blank">Soklet</a> is not a <a href="https://en.wikipedia.org/wiki/Jakarta_Servlet" target="_blank">Servlet Container</a> - it has its own in-process HTTP server, its own approach to request and response constructs, and so forth.
+	Soklet applications are intended to be "vanilla" Java applications, as opposed to a <a href="https://en.wikipedia.org/wiki/WAR_(file_format)" target="_blank">WAR file</a> deployed onto a Java EE App Server.
+	<br/><br/>
+	However, there is a large body of existing code that relies on the Servlet API. To support it, Soklet provides its own implementations of the following Servlet interfaces, which enable interoperability for many common use cases:
+	<ul>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletRequest.html"><code>HttpServletRequest</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html"><code>HttpServletResponse</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpSession.html"><code>HttpSession</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpSessionContext.html"><code>HttpSessionContext</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletContext.html"><code>ServletContext</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletInputStream.html"><code>ServletInputStream</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletOutputStream.html"><code>ServletOutputStream</code></a></li>
+		<li><a href="https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletPrintWriter.html"><code>ServletPrintWriter</code></a></li>
+	</ul>
+	This library is for the legacy <code>javax.servlet</code> API. If you need to integrate with the <code>jakarta.servlet</code> API, use <a href="https://github.com/soklet/soklet-servlet-jakarta" target="_blank"><code>soklet-servlet-jakarta</code></a>.
+	<br/><br/>
+	<strong>Please refer to the official documentation at <a href="https://www.soklet.com/docs/servlet-integration" target="_blank">https://www.soklet.com/docs/servlet-integration</a>.</strong>
+	<br/><br/>
+  </body>
+</html>

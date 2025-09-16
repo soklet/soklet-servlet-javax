@@ -90,7 +90,7 @@
                 <version>3.11.3</version>
                 <configuration>
                     <links>
-                        <link>https://docs.oracle.com/en/java/javase/24/docs/api/</link>
+                        <link>https://docs.oracle.com/en/java/javase/25/docs/api/</link>
                         <link>https://javadoc.io/doc/com.google.code.findbugs/jsr305/3.0.2/</link>
                         <link>https://javadoc.io/doc/javax.servlet/javax.servlet-api/4.0.1/</link>
                         <link>https://javadoc.soklet.com/</link>
@@ -109,6 +109,7 @@
                     <bottom><![CDATA[Copyright 2024-2025 <a href="https://www.revetware.com" target="_blank">Revetware LLC<a>.]]></bottom>
                     <source>17</source>
                     <failOnError>true</failOnError>
+                    <overview>${basedir}/src/main/javadoc/overview.html</overview>
                 </configuration>
                 <executions>
                     <execution>
