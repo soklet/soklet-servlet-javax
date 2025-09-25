@@ -82,7 +82,7 @@ public final class SokletServletContext implements ServletContext {
 	private Charset responseCharset;
 
 	@Nonnull
-	public static SokletServletContext of() {
+	public static SokletServletContext withDefaults() {
 		return new SokletServletContext(null);
 	}
 

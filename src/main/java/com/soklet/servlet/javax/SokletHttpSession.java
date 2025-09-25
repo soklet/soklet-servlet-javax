@@ -47,7 +47,7 @@ public final class SokletHttpSession implements HttpSession {
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 
 	static {
-		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.of();
+		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.withDefaults();
 	}
 
 	@Nonnull

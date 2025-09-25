@@ -156,7 +156,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.contentType = parseContentType(request).orElse(null);
 		this.host = builder.host;
 		this.port = builder.port;
-		this.servletContext = builder.servletContext == null ? SokletServletContext.of() : builder.servletContext;
+		this.servletContext = builder.servletContext == null ? SokletServletContext.withDefaults() : builder.servletContext;
 		this.httpSession = builder.httpSession;
 	}
 

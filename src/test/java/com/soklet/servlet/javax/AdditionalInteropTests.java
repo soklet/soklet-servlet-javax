@@ -112,7 +112,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void getResourcePathsCurrentlyNotEmpty() {
-		var ctx = SokletServletContext.of();
+		var ctx = SokletServletContext.withDefaults();
 		Assertions.assertFalse(ctx.getResourcePaths("/").isEmpty());
 	}
 

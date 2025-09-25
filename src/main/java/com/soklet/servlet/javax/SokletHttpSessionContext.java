@@ -35,7 +35,7 @@ import java.util.Enumeration;
 @Deprecated
 public final class SokletHttpSessionContext implements HttpSessionContext {
 	@Nonnull
-	public static SokletHttpSessionContext of() {
+	public static SokletHttpSessionContext withDefaults() {
 		return new SokletHttpSessionContext();
 	}
 
