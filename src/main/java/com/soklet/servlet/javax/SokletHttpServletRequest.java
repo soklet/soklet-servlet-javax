@@ -136,12 +136,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private String contentType;
 
 	@Nonnull
-	public static SokletHttpServletRequest withRequest(@Nonnull Request request) {
-		return new Builder(request).build();
-	}
-
-	@Nonnull
-	public static Builder builderWithRequest(@Nonnull Request request) {
+	public static Builder withRequest(@Nonnull Request request) {
 		return new Builder(request);
 	}
 

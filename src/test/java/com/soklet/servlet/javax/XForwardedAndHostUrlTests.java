@@ -42,7 +42,7 @@ public class XForwardedAndHostUrlTests {
 				))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 
 		StringBuffer url = http.getRequestURL();
 		Assertions.assertTrue(url.toString().startsWith("https://www.soklet.com:8443/path"));

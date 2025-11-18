@@ -524,7 +524,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			setResponseWriteMethod(ResponseWriteMethod.SERVLET_OUTPUT_STREAM);
-			this.servletOutputStream = SokletServletOutputStream.builderWithOutputStream(getResponseOutputStream())
+			this.servletOutputStream = SokletServletOutputStream.withOutputStream(getResponseOutputStream())
 					.writeOccurredCallback((ignored) -> {
 						// Flip to "committed" if any write occurs
 						setResponseCommitted(true);
@@ -636,7 +636,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
 
 			this.printWriter =
-					SokletServletPrintWriter.builderWithWriter(
+					SokletServletPrintWriter.withWriter(
 									new OutputStreamWriter(getResponseOutputStream(), enc))
 							.writeOccurredCallback((ignored) -> setResponseCommitted(true))   // commit on first write
 							.writeFinalizedCallback((ignored) -> setResponseFinalized(true))

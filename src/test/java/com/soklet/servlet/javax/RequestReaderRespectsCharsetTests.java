@@ -44,7 +44,7 @@ public class RequestReaderRespectsCharsetTests {
 				.body(text.getBytes(charset))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		String read = http.getReader().readLine();
 		Assertions.assertEquals(text, read);
 	}

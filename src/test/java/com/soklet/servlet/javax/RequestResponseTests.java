@@ -57,7 +57,7 @@ public class RequestResponseTests {
 				.body(bodyAsString.getBytes(charset))
 				.build();
 
-		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 
 		Assertions.assertEquals("www.soklet.com", httpServletRequest.getServerName(), "Server name mismatch");
 		Assertions.assertEquals(443, httpServletRequest.getServerPort(), "Server port mismatch");
@@ -111,7 +111,7 @@ public class RequestResponseTests {
 	@Test
 	public void session() {
 		Request request = Request.with(HttpMethod.GET, "/testing").build();
-		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 
 		HttpSession httpSession = httpServletRequest.getSession();
 		httpSession.setAttribute("one", 1);

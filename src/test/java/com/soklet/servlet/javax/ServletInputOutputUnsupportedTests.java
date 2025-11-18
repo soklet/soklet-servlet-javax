@@ -51,7 +51,7 @@ public class ServletInputOutputUnsupportedTests {
 
 	@Test
 	public void setWriteListenerThrows() {
-		ServletOutputStream out = SokletServletOutputStream.builderWithOutputStream(new ByteArrayOutputStream()).build();
+		ServletOutputStream out = SokletServletOutputStream.withOutputStream(new ByteArrayOutputStream()).build();
 		Assertions.assertThrows(IllegalStateException.class, () -> out.setWriteListener(new WriteListener() {
 			@Override
 			public void onWritePossible() {}

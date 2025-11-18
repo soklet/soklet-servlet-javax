@@ -47,7 +47,7 @@ public class DateHeaderAdditionalFormatsTests {
 				.headers(Map.of("X-Test-Date", Set.of(rfc1036)))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 		long expectedMillis = parseRfc1036Millis(rfc1036);
 		Assertions.assertEquals(expectedMillis, http.getDateHeader("X-Test-Date"));
 	}
@@ -59,7 +59,7 @@ public class DateHeaderAdditionalFormatsTests {
 				.headers(Map.of("X-Test-Date", Set.of(asctime)))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 		long expectedMillis = parseAsctimeMillis(asctime);
 		Assertions.assertEquals(expectedMillis, http.getDateHeader("X-Test-Date"));
 	}

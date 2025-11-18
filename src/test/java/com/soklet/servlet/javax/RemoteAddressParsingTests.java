@@ -39,14 +39,14 @@ public class RemoteAddressParsingTests {
 				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
 	}
 
 	@Test
 	public void returnsNullWhenXffMissing() {
 		Request req = Request.with(HttpMethod.GET, "/x").build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertNull(http.getRemoteAddr());
 		Assertions.assertNull(http.getRemoteHost());
 	}

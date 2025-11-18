@@ -37,7 +37,7 @@ public class CaseInsensitiveHeadersTests {
 				.headers(Map.of("X-Test", Set.of("one")))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("one", http.getHeader("x-test"));
 		Assertions.assertEquals("one", http.getHeader("X-TEST"));
 	}

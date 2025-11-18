@@ -45,12 +45,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	private Boolean writeFinalized;
 
 	@Nonnull
-	public static SokletServletOutputStream withOutputStream(@Nonnull OutputStream outputStream) {
-		return new Builder(outputStream).build();
-	}
-
-	@Nonnull
-	public static Builder builderWithOutputStream(@Nonnull OutputStream outputStream) {
+	public static Builder withOutputStream(@Nonnull OutputStream outputStream) {
 		return new Builder(outputStream);
 	}
 

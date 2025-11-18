@@ -46,7 +46,7 @@ public class DateHeaderParsingValidTests {
 				.headers(Map.of("X-Test-Date", Set.of(stamp)))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 		long millis = http.getDateHeader("X-Test-Date");
 		Assertions.assertEquals(1_725_000_000_000L, millis);
 	}
@@ -57,7 +57,7 @@ public class DateHeaderParsingValidTests {
 				.headers(Map.of("X-Test-Date", Set.of("1725000000000")))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(request);
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 		long millis = http.getDateHeader("X-Test-Date");
 		Assertions.assertEquals(1_725_000_000_000L, millis);
 	}
