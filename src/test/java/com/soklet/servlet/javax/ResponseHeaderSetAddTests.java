@@ -16,7 +16,7 @@
 
 package com.soklet.servlet.javax;
 
-import com.soklet.core.MarshaledResponse;
+import com.soklet.MarshaledResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

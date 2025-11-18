@@ -16,9 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import com.soklet.core.HttpMethod;
-import com.soklet.core.MarshaledResponse;
-import com.soklet.core.Request;
+import com.soklet.HttpMethod;
+import com.soklet.MarshaledResponse;
+import com.soklet.Request;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

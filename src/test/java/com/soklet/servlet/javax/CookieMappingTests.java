@@ -16,7 +16,7 @@
 
 package com.soklet.servlet.javax;
 
-import com.soklet.core.MarshaledResponse;
+import com.soklet.MarshaledResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +50,7 @@ public class CookieMappingTests {
 						rc.getPath().orElse("").equals("/") &&
 						rc.getMaxAge().get().toSeconds() == 60L
 		);
-		
+
 		Assertions.assertTrue(any, "Cookie 'sid' does not have correct values in marshaled response");
 	}
 }

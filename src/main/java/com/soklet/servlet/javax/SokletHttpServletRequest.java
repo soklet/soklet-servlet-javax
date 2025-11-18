@@ -16,8 +16,8 @@
 
 package com.soklet.servlet.javax;
 
-import com.soklet.core.Request;
-import com.soklet.core.Utilities;
+import com.soklet.Request;
+import com.soklet.Utilities;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
