@@ -23,6 +23,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.WriteListener;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static java.lang.String.format;
@@ -38,9 +39,9 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	@Nonnull
 	private final OutputStream outputStream;
 	@Nonnull
-	private final Consumer<SokletServletOutputStream> writeOccurredCallback;
+	private final BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
 	@Nonnull
-	private final Consumer<SokletServletOutputStream> writeFinalizedCallback;
+	private final Consumer<SokletServletOutputStream> onWriteFinalized;
 	@Nonnull
 	private Boolean writeFinalized;
 
@@ -54,8 +55,8 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		requireNonNull(builder.outputStream);
 
 		this.outputStream = builder.outputStream;
-		this.writeOccurredCallback = builder.writeOccurredCallback != null ? builder.writeOccurredCallback : (ignored) -> {};
-		this.writeFinalizedCallback = builder.writeFinalizedCallback != null ? builder.writeFinalizedCallback : (ignored) -> {};
+		this.onWriteOccurred = builder.onWriteOccurred != null ? builder.onWriteOccurred : (ignored1, ignored2) -> {};
+		this.onWriteFinalized = builder.onWriteFinalized != null ? builder.onWriteFinalized : (ignored) -> {};
 		this.writeFinalized = false;
 	}
 
@@ -71,9 +72,9 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		@Nonnull
 		private OutputStream outputStream;
 		@Nullable
-		private Consumer<SokletServletOutputStream> writeOccurredCallback;
+		private BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
 		@Nullable
-		private Consumer<SokletServletOutputStream> writeFinalizedCallback;
+		private Consumer<SokletServletOutputStream> onWriteFinalized;
 
 		@Nonnull
 		private Builder(@Nonnull OutputStream outputStream) {
@@ -89,14 +90,14 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		}
 
 		@Nonnull
-		public Builder writeOccurredCallback(@Nullable Consumer<SokletServletOutputStream> writeOccurredCallback) {
-			this.writeOccurredCallback = writeOccurredCallback;
+		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred) {
+			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
 		@Nonnull
-		public Builder writeFinalizedCallback(@Nullable Consumer<SokletServletOutputStream> writeFinalizedCallback) {
-			this.writeFinalizedCallback = writeFinalizedCallback;
+		public Builder onWriteFinalized(@Nullable Consumer<SokletServletOutputStream> onWriteFinalized) {
+			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
 
@@ -112,13 +113,13 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletOutputStream> getWriteOccurredCallback() {
-		return this.writeOccurredCallback;
+	protected BiConsumer<SokletServletOutputStream, Integer> getOnWriteOccurred() {
+		return this.onWriteOccurred;
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletOutputStream> getWriteFinalizedCallback() {
-		return this.writeFinalizedCallback;
+	protected Consumer<SokletServletOutputStream> getOnWriteFinalized() {
+		return this.onWriteFinalized;
 	}
 
 	@Nonnull
@@ -136,7 +137,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	@Override
 	public void write(int b) throws IOException {
 		getOutputStream().write(b);
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, b);
 	}
 
 	@Override
@@ -151,7 +152,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 
 		if (!getWriteFinalized()) {
 			setWriteFinalized(true);
-			getWriteFinalizedCallback().accept(this);
+			getOnWriteFinalized().accept(this);
 		}
 	}
 
@@ -162,7 +163,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 
 		if (!getWriteFinalized()) {
 			setWriteFinalized(true);
-			getWriteFinalizedCallback().accept(this);
+			getOnWriteFinalized().accept(this);
 		}
 	}
 

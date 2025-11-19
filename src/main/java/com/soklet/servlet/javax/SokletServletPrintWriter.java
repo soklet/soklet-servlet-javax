@@ -16,12 +16,24 @@
 
 package com.soklet.servlet.javax;
 
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.CharAppended;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.CharSequenceAppended;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.CharWritten;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.CharsWritten;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.FormatPerformed;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.NewlinePrinted;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.PrintfPerformed;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.StringWritten;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.ValuePrinted;
+import com.soklet.servlet.javax.SokletServletPrintWriterEvent.ValueWithNewlinePrinted;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Locale;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -34,9 +46,9 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public final class SokletServletPrintWriter extends PrintWriter {
 	@Nonnull
-	private final Consumer<SokletServletPrintWriter> writeOccurredCallback;
+	private final BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
 	@Nonnull
-	private final Consumer<SokletServletPrintWriter> writeFinalizedCallback;
+	private final Consumer<SokletServletPrintWriter> onWriteFinalized;
 	@Nonnull
 	private Boolean writeFinalized = false;
 
@@ -47,8 +59,8 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 	private SokletServletPrintWriter(@Nonnull Builder builder) {
 		super(requireNonNull(builder.writer), true);
-		this.writeOccurredCallback = builder.writeOccurredCallback != null ? builder.writeOccurredCallback : (ignored) -> {};
-		this.writeFinalizedCallback = builder.writeFinalizedCallback != null ? builder.writeFinalizedCallback : (ignored) -> {};
+		this.onWriteOccurred = builder.onWriteOccurred != null ? builder.onWriteOccurred : (ignored1, ignored2) -> {};
+		this.onWriteFinalized = builder.onWriteFinalized != null ? builder.onWriteFinalized : (ignored) -> {};
 	}
 
 	/**
@@ -63,9 +75,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		@Nonnull
 		private Writer writer;
 		@Nullable
-		private Consumer<SokletServletPrintWriter> writeOccurredCallback;
+		private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
 		@Nullable
-		private Consumer<SokletServletPrintWriter> writeFinalizedCallback;
+		private Consumer<SokletServletPrintWriter> onWriteFinalized;
 
 		@Nonnull
 		private Builder(@Nonnull Writer writer) {
@@ -81,14 +93,14 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		}
 
 		@Nonnull
-		public Builder writeOccurredCallback(@Nullable Consumer<SokletServletPrintWriter> writeOccurredCallback) {
-			this.writeOccurredCallback = writeOccurredCallback;
+		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred) {
+			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
 		@Nonnull
-		public Builder writeFinalizedCallback(@Nullable Consumer<SokletServletPrintWriter> writeFinalizedCallback) {
-			this.writeFinalizedCallback = writeFinalizedCallback;
+		public Builder onWriteFinalized(@Nullable Consumer<SokletServletPrintWriter> onWriteFinalized) {
+			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
 
@@ -109,13 +121,13 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletPrintWriter> getWriteOccurredCallback() {
-		return this.writeOccurredCallback;
+	protected BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> getOnWriteOccurred() {
+		return this.onWriteOccurred;
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletPrintWriter> getWriteFinalizedCallback() {
-		return this.writeFinalizedCallback;
+	protected Consumer<SokletServletPrintWriter> getOnWriteFinalized() {
+		return this.onWriteFinalized;
 	}
 
 // Implementation of PrintWriter methods below:
@@ -128,7 +140,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.write(buf, off, len);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharsWritten(buf, off, len));
 	}
 
 	@Override
@@ -139,14 +151,14 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.write(s, off, len);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new StringWritten(s, off, len));
 	}
 
 	@Override
 	public void write(int c) {
 		super.write(c);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharWritten(c));
 	}
 
 	@Override
@@ -155,7 +167,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.write(buf);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharsWritten(buf, 0, buf.length));
 	}
 
 	@Override
@@ -164,49 +176,49 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.write(s);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new StringWritten(s, 0, s.length()));
 	}
 
 	@Override
 	public void print(boolean b) {
 		super.print(b);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(b));
 	}
 
 	@Override
 	public void print(char c) {
 		super.print(c);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(c));
 	}
 
 	@Override
 	public void print(int i) {
 		super.print(i);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(i));
 	}
 
 	@Override
 	public void print(long l) {
 		super.print(l);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(l));
 	}
 
 	@Override
 	public void print(float f) {
 		super.print(f);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(f));
 	}
 
 	@Override
 	public void print(double d) {
 		super.print(d);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(d));
 	}
 
 	@Override
@@ -215,70 +227,70 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.print(s);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(s));
 	}
 
 	@Override
 	public void print(@Nullable String s) {
 		super.print(s);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(s));
 	}
 
 	@Override
 	public void print(@Nullable Object obj) {
 		super.print(obj);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValuePrinted(obj));
 	}
 
 	@Override
 	public void println() {
 		super.println();
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new NewlinePrinted());
 	}
 
 	@Override
 	public void println(boolean x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(char x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(int x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(long x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(float x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(double x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
@@ -287,21 +299,21 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(@Nullable String x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(@Nullable Object x) {
 		super.println(x);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
@@ -312,7 +324,10 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		PrintWriter printWriter = super.printf(format, args);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+
+		Object[] normalizedArgs = args != null ? args : new Object[0];
+		getOnWriteOccurred().accept(this, new PrintfPerformed(null, format, normalizedArgs));
+
 		return printWriter;
 	}
 
@@ -325,7 +340,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		PrintWriter printWriter = super.printf(l, format, args);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new PrintfPerformed(l, format, args));
 		return printWriter;
 	}
 
@@ -337,7 +352,10 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		PrintWriter printWriter = super.format(format, args);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+
+		Object[] normalizedArgs = args != null ? args : new Object[0];
+		getOnWriteOccurred().accept(this, new FormatPerformed(null, format, normalizedArgs));
+
 		return printWriter;
 	}
 
@@ -350,16 +368,23 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		PrintWriter printWriter = super.format(l, format, args);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+
+		Object[] normalizedArgs = args != null ? args : new Object[0];
+		getOnWriteOccurred().accept(this, new FormatPerformed(l, format, normalizedArgs));
+
 		return printWriter;
 	}
 
 	@Override
 	@Nonnull
 	public PrintWriter append(@Nullable CharSequence csq) {
+		// JDK does this, we mirror it
+		if (csq == null)
+			csq = "null";
+
 		PrintWriter printWriter = super.append(csq);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharSequenceAppended(csq, 0, csq.length()));
 		return printWriter;
 	}
 
@@ -368,9 +393,13 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	public PrintWriter append(@Nullable CharSequence csq,
 														int start,
 														int end) {
+		// JDK does this, we mirror it
+		if (csq == null)
+			csq = "null";
+
 		PrintWriter printWriter = super.append(csq, start, end);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharSequenceAppended(csq, start, end));
 		return printWriter;
 	}
 
@@ -379,7 +408,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	public PrintWriter append(char c) {
 		PrintWriter printWriter = super.append(c);
 		super.flush();
-		getWriteOccurredCallback().accept(this);
+		getOnWriteOccurred().accept(this, new CharAppended(c));
 		return printWriter;
 	}
 
@@ -389,7 +418,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		if (!getWriteFinalized()) {
 			setWriteFinalized(true);
-			getWriteFinalizedCallback().accept(this);
+			getOnWriteFinalized().accept(this);
 		}
 	}
 
@@ -400,7 +429,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		if (!getWriteFinalized()) {
 			setWriteFinalized(true);
-			getWriteFinalizedCallback().accept(this);
+			getOnWriteFinalized().accept(this);
 		}
 	}
 }
