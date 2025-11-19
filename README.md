@@ -66,7 +66,7 @@ A normal Servlet API integration looks like the following:
 public MarshaledResponse servletExample(Request request) {
   // Create an HttpServletRequest from the Soklet Request
   HttpServletRequest httpServletRequest = 
-    SokletHttpServletRequest.withRequest(request);
+    SokletHttpServletRequest.withRequest(request).build();
 
   // Create an HttpServletResponse from the Soklet Request
   SokletHttpServletResponse httpServletResponse = 
