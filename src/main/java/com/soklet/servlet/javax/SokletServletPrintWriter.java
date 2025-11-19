@@ -39,7 +39,7 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Soklet integration implementation of {@link SokletServletPrintWriter}.
+ * Special implementation of {@link PrintWriter}, designed for use with {@link SokletHttpServletResponse}.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
