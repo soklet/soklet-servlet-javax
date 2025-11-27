@@ -33,7 +33,7 @@ import javax.annotation.concurrent.ThreadSafe;
 public class RelativeRedirectResolutionTests {
 	@Test
 	public void relativeRedirectResolvesAgainstParentPath() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(Request.with(HttpMethod.GET, "/a/b/c").build());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(Request.withPath(HttpMethod.GET, "/a/b/c").build());
 		resp.sendRedirect("d"); // relative, no leading '/'
 
 		MarshaledResponse mr = resp.toMarshaledResponse();

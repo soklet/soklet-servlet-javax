@@ -35,7 +35,7 @@ import java.util.Set;
 public class XForwardedAndHostUrlTests {
 	@Test
 	public void buildsAbsoluteUrlFromForwardedProtoAndHost() {
-		Request req = Request.with(HttpMethod.GET, "/path?q=1")
+		Request req = Request.withRawUrl(HttpMethod.GET, "/path?q=1")
 				.headers(Map.of(
 						"Host", Set.of("www.soklet.com:8443"),
 						"X-Forwarded-Proto", Set.of("https")

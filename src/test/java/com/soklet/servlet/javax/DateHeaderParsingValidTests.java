@@ -42,7 +42,7 @@ public class DateHeaderParsingValidTests {
 				.withZone(ZoneId.of("GMT"))
 				.format(Instant.ofEpochMilli(1_725_000_000_000L));
 
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of("X-Test-Date", Set.of(stamp)))
 				.build();
 
@@ -53,7 +53,7 @@ public class DateHeaderParsingValidTests {
 
 	@Test
 	public void parsesEpochMillisAsFallback() {
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of("X-Test-Date", Set.of("1725000000000")))
 				.build();
 

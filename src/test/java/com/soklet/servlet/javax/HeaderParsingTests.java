@@ -36,7 +36,7 @@ public class HeaderParsingTests {
 	@Test
 	public void intAndRfc1123DateHeaders() {
 		String rfc1123 = "Sun, 06 Nov 1994 08:49:37 GMT";
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of(
 						"X-Test-Int", Set.of("123"),
 						"X-Test-Date", Set.of(rfc1123)
@@ -54,7 +54,7 @@ public class HeaderParsingTests {
 
 	@Test
 	public void invalidDateHeaderThrows() {
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of(
 						"X-Test-Date", Set.of("not a date")
 				))

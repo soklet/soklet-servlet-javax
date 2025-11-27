@@ -34,7 +34,7 @@ import javax.servlet.http.HttpSession;
 public class SessionInvalidationTests {
 	@Test
 	public void invalidatePreventsAccess() {
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.with(HttpMethod.GET, "/x").build()).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
 		HttpSession session = http.getSession(true);
 		session.setAttribute("foo", "bar");
 		session.invalidate();

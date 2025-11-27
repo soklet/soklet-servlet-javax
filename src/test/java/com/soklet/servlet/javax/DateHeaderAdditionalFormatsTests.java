@@ -43,7 +43,7 @@ public class DateHeaderAdditionalFormatsTests {
 	@Test
 	public void parsesRfc1036Format() {
 		String rfc1036 = "Sun, 06 Nov 94 08:49:37 GMT"; // from RFC 7231 Appendix A
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of("X-Test-Date", Set.of(rfc1036)))
 				.build();
 
@@ -55,7 +55,7 @@ public class DateHeaderAdditionalFormatsTests {
 	@Test
 	public void parsesAsctimeFormat() {
 		String asctime = "Sun Nov  6 08:49:37 1994";
-		Request request = Request.with(HttpMethod.GET, "/h")
+		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of("X-Test-Date", Set.of(asctime)))
 				.build();
 

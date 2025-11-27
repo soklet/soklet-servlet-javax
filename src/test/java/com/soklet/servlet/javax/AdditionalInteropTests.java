@@ -56,7 +56,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void changeSessionIdBehavior() {
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.with(HttpMethod.GET, "/x").build()).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
 		// Without a session, changeSessionId should throw
 		Assertions.assertThrows(IllegalStateException.class, http::changeSessionId);
 
@@ -71,14 +71,14 @@ public class AdditionalInteropTests {
 	@Test
 	public void getServerPortDefaultsFromScheme() {
 		// https without explicit port -> 443
-		Request httpsReq = Request.with(HttpMethod.GET, "/p")
+		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
 				.build();
 		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq).build();
 		Assertions.assertEquals(443, https.getServerPort());
 
 		// http without explicit port -> 80
-		Request httpReq = Request.with(HttpMethod.GET, "/p")
+		Request httpReq = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("http"), "Host", Set.of("example.com")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(httpReq).build();
@@ -118,7 +118,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void forwardedProtoControlsSchemeAndIsSecure() {
-		var req = Request.with(HttpMethod.GET, "/p")
+		var req = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
 				.build();
 		var http = SokletHttpServletRequest.withRequest(req).build();

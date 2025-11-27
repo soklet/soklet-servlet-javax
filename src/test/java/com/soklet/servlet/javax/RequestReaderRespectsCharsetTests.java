@@ -39,7 +39,7 @@ public class RequestReaderRespectsCharsetTests {
 		String text = "Olá, Soklet!";
 		Charset charset = Charset.forName("UTF-8");
 
-		Request req = Request.with(HttpMethod.POST, "/echo")
+		Request req = Request.withPath(HttpMethod.POST, "/echo")
 				.headers(Map.of("Content-Type", Set.of("text/plain; charset=UTF-8")))
 				.body(text.getBytes(charset))
 				.build();

@@ -35,7 +35,7 @@ import java.util.Set;
 public class RemoteAddressParsingTests {
 	@Test
 	public void picksFirstAddressFromXff() {
-		Request req = Request.with(HttpMethod.GET, "/x")
+		Request req = Request.withPath(HttpMethod.GET, "/x")
 				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
 				.build();
 
@@ -45,7 +45,7 @@ public class RemoteAddressParsingTests {
 
 	@Test
 	public void returnsNullWhenXffMissing() {
-		Request req = Request.with(HttpMethod.GET, "/x").build();
+		Request req = Request.withPath(HttpMethod.GET, "/x").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertNull(http.getRemoteAddr());
 		Assertions.assertNull(http.getRemoteHost());

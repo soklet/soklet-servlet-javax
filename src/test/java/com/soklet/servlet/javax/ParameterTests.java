@@ -31,7 +31,7 @@ import javax.servlet.http.HttpServletRequest;
 public class ParameterTests {
 	@Test
 	public void parameterValuesOnlyForRequestedName() {
-		Request request = Request.with(HttpMethod.GET, "/p?one=a&one=b&two=c").build();
+		Request request = Request.withRawUrl(HttpMethod.GET, "/p?one=a&one=b&two=c").build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 
 		String[] oneValues = httpServletRequest.getParameterValues("one");

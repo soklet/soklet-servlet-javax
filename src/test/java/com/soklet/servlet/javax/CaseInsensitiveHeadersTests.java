@@ -33,7 +33,7 @@ import java.util.Set;
 public class CaseInsensitiveHeadersTests {
 	@Test
 	public void requestHeaderLookupIsCaseInsensitive() {
-		Request req = Request.with(HttpMethod.GET, "/x")
+		Request req = Request.withPath(HttpMethod.GET, "/x")
 				.headers(Map.of("X-Test", Set.of("one")))
 				.build();
 

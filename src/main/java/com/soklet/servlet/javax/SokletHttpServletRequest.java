@@ -18,6 +18,7 @@ package com.soklet.servlet.javax;
 
 import com.soklet.Request;
 import com.soklet.Utilities;
+import com.soklet.QueryStringFormat;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -425,12 +426,24 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getQueryString() {
-		try {
-			URI uri = new URI(request.getUri());
-			return uri.getQuery();
-		} catch (Exception ignored) {
+		Map<String, Set<String>> params = getRequest().getQueryParameters();
+
+		if (params.isEmpty())
 			return null;
-		}
+
+		String encodedTarget = Utilities.encodedPathAndQueryString(
+				getRequest().getPath(),
+				params,
+				QueryStringFormat.RFC_3986_STRICT
+		);
+
+		int questionMark = encodedTarget.indexOf('?');
+
+		if (questionMark < 0 || questionMark == encodedTarget.length() - 1)
+			// No query, or "?" with nothing after it
+			return null;
+
+		return encodedTarget.substring(questionMark + 1);
 	}
 
 	@Override

@@ -34,14 +34,14 @@ import javax.servlet.http.HttpServletRequest;
 public class AsyncAndAuthUnsupportedTests {
 	@Test
 	public void startAsyncThrows() {
-		Request req = Request.with(HttpMethod.GET, "/x").build();
+		Request req = Request.withPath(HttpMethod.GET, "/x").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertThrows(IllegalStateException.class, () -> http.startAsync());
 	}
 
 	@Test
 	public void authenticateThrowsServletException() {
-		Request req = Request.with(HttpMethod.GET, "/x").build();
+		Request req = Request.withPath(HttpMethod.GET, "/x").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertThrows(ServletException.class, () -> http.authenticate(SokletHttpServletResponse.withRequestPath("/x")));
 	}

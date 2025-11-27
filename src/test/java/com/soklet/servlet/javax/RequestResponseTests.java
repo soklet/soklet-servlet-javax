@@ -47,7 +47,7 @@ public class RequestResponseTests {
 		Charset charset = StandardCharsets.ISO_8859_1;
 		String bodyAsString = "example body";
 
-		Request request = Request.with(HttpMethod.POST, "/testing?a=b&c=d")
+		Request request = Request.withRawUrl(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"One", Set.of("Two, Three"),
 						"Host", Set.of("www.soklet.com"),
@@ -71,7 +71,7 @@ public class RequestResponseTests {
 		Charset charset = StandardCharsets.UTF_16BE;
 		String requestBodyAsString = "example body";
 
-		Request request = Request.with(HttpMethod.POST, "/testing?a=b&c=d")
+		Request request = Request.withRawUrl(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"Content-Type", Set.of(format("text/plain; charset=%s", charset.name()))
 				))
@@ -110,7 +110,7 @@ public class RequestResponseTests {
 
 	@Test
 	public void session() {
-		Request request = Request.with(HttpMethod.GET, "/testing").build();
+		Request request = Request.withPath(HttpMethod.GET, "/testing").build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 
 		HttpSession httpSession = httpServletRequest.getSession();
