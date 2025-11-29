@@ -84,29 +84,29 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Nonnull
-	protected UUID getSessionId() {
+	private UUID getSessionId() {
 		return this.sessionId;
 	}
 
 	@Nonnull
-	protected Instant getCreatedAt() {
+	private Instant getCreatedAt() {
 		return this.createdAt;
 	}
 
 	@Nonnull
-	protected Map<String, Object> getAttributes() {
+	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
 
-	protected boolean isInvalidated() {
+	private boolean isInvalidated() {
 		return this.invalidated;
 	}
 
-	protected void setInvalidated(boolean invalidated) {
+	private void setInvalidated(boolean invalidated) {
 		this.invalidated = invalidated;
 	}
 
-	protected void ensureNotInvalidated() {
+	private void ensureNotInvalidated() {
 		if (isInvalidated())
 			throw new IllegalStateException("Session is invalidated");
 	}

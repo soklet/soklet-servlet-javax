@@ -111,22 +111,22 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Nonnull
-	protected Boolean getWriteFinalized() {
+	private Boolean getWriteFinalized() {
 		return this.writeFinalized;
 	}
 
-	protected void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+	private void setWriteFinalized(@Nonnull Boolean writeFinalized) {
 		requireNonNull(writeFinalized);
 		this.writeFinalized = writeFinalized;
 	}
 
 	@Nonnull
-	protected BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> getOnWriteOccurred() {
+	private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletPrintWriter> getOnWriteFinalized() {
+	private Consumer<SokletServletPrintWriter> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
 

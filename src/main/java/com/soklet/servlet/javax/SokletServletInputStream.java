@@ -53,16 +53,16 @@ public final class SokletServletInputStream extends ServletInputStream {
 	}
 
 	@Nonnull
-	protected InputStream getInputStream() {
+	private InputStream getInputStream() {
 		return this.inputStream;
 	}
 
 	@Nonnull
-	protected Boolean getFinished() {
+	private Boolean getFinished() {
 		return this.finished;
 	}
 
-	protected void setFinished(@Nonnull Boolean finished) {
+	private void setFinished(@Nonnull Boolean finished) {
 		requireNonNull(finished);
 		this.finished = finished;
 	}

@@ -108,26 +108,26 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	}
 
 	@Nonnull
-	protected OutputStream getOutputStream() {
+	private OutputStream getOutputStream() {
 		return this.outputStream;
 	}
 
 	@Nonnull
-	protected BiConsumer<SokletServletOutputStream, Integer> getOnWriteOccurred() {
+	private BiConsumer<SokletServletOutputStream, Integer> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
 	@Nonnull
-	protected Consumer<SokletServletOutputStream> getOnWriteFinalized() {
+	private Consumer<SokletServletOutputStream> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
 
 	@Nonnull
-	protected Boolean getWriteFinalized() {
+	private Boolean getWriteFinalized() {
 		return this.writeFinalized;
 	}
 
-	protected void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+	private void setWriteFinalized(@Nonnull Boolean writeFinalized) {
 		requireNonNull(writeFinalized);
 		this.writeFinalized = writeFinalized;
 	}

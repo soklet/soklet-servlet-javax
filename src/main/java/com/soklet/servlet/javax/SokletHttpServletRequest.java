@@ -155,17 +155,17 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nonnull
-	protected Request getRequest() {
+	private Request getRequest() {
 		return this.request;
 	}
 
 	@Nonnull
-	protected Map<String, Object> getAttributes() {
+	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
 
 	@Nonnull
-	protected List<Cookie> parseCookies(@Nonnull Request request) {
+	private List<Cookie> parseCookies(@Nonnull Request request) {
 		requireNonNull(request);
 
 		Map<String, Set<String>> cookies = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -189,42 +189,42 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nonnull
-	protected Optional<Charset> parseCharacterEncoding(@Nonnull Request request) {
+	private Optional<Charset> parseCharacterEncoding(@Nonnull Request request) {
 		requireNonNull(request);
 		return Utilities.extractCharsetFromHeaders(request.getHeaders());
 	}
 
 	@Nonnull
-	protected Optional<String> parseContentType(@Nonnull Request request) {
+	private Optional<String> parseContentType(@Nonnull Request request) {
 		requireNonNull(request);
 		return Utilities.extractContentTypeFromHeaders(request.getHeaders());
 	}
 
 	@Nonnull
-	protected Optional<HttpSession> getHttpSession() {
+	private Optional<HttpSession> getHttpSession() {
 		return Optional.ofNullable(this.httpSession);
 	}
 
-	protected void setHttpSession(@Nullable HttpSession httpSession) {
+	private void setHttpSession(@Nullable HttpSession httpSession) {
 		this.httpSession = httpSession;
 	}
 
 	@Nonnull
-	protected Optional<Charset> getCharset() {
+	private Optional<Charset> getCharset() {
 		return Optional.ofNullable(this.charset);
 	}
 
-	protected void setCharset(@Nullable Charset charset) {
+	private void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
 	}
 
 	@Nonnull
-	protected Optional<String> getHost() {
+	private Optional<String> getHost() {
 		return Optional.ofNullable(this.host);
 	}
 
 	@Nonnull
-	protected Optional<Integer> getPort() {
+	private Optional<Integer> getPort() {
 		return Optional.ofNullable(this.port);
 	}
 

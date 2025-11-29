@@ -100,17 +100,17 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Nonnull
-	protected Writer getLogWriter() {
+	private Writer getLogWriter() {
 		return this.logWriter;
 	}
 
 	@Nonnull
-	protected Map<String, Object> getAttributes() {
+	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
 
 	@ThreadSafe
-	protected static class NoOpWriter extends Writer {
+	private static class NoOpWriter extends Writer {
 		@Override
 		public void write(@Nonnull char[] cbuf,
 											int off,
