@@ -18,7 +18,6 @@ package com.soklet.servlet.javax;
 
 import com.soklet.Request;
 import com.soklet.Utilities;
-import com.soklet.QueryStringFormat;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +43,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
@@ -426,24 +424,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getQueryString() {
-		Map<String, Set<String>> params = getRequest().getQueryParameters();
-
-		if (params.isEmpty())
-			return null;
-
-		String encodedTarget = Utilities.encodedPathAndQueryString(
-				getRequest().getPath(),
-				params,
-				QueryStringFormat.RFC_3986_STRICT
-		);
-
-		int questionMark = encodedTarget.indexOf('?');
-
-		if (questionMark < 0 || questionMark == encodedTarget.length() - 1)
-			// No query, or "?" with nothing after it
-			return null;
-
-		return encodedTarget.substring(questionMark + 1);
+		return getRequest().getRawQuery().orElse(null);
 	}
 
 	@Override
