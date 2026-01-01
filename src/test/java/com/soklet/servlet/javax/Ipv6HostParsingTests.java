@@ -23,42 +23,28 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Set;
 
 /*
- * Tests for getRemoteAddr() and getRemoteHost() using X-Forwarded-For.
+ * Verify IPv6 host/port parsing and request URL building.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
-public class RemoteAddressParsingTests {
+public class Ipv6HostParsingTests {
 	@Test
-	public void picksFirstAddressFromXff() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
+	public void ipv6HostAndPortAreParsed() {
+		Request req = Request.withPath(HttpMethod.GET, "/v6")
+				.headers(Map.of(
+						"Host", Set.of("[2001:db8::1]:8443"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
-	}
-
-	@Test
-	public void fallsBackToRemoteAddressWhenXffMissing() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.remoteAddress(new InetSocketAddress("203.0.113.50", 1234))
-				.build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.50", http.getRemoteAddr());
-		Assertions.assertEquals("203.0.113.50", http.getRemoteHost());
-	}
-
-	@Test
-	public void returnsNullWhenXffMissing() {
-		Request req = Request.withPath(HttpMethod.GET, "/x").build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertNull(http.getRemoteAddr());
-		Assertions.assertNull(http.getRemoteHost());
+		Assertions.assertEquals("2001:db8::1", http.getServerName());
+		Assertions.assertEquals(8443, http.getServerPort());
+		Assertions.assertTrue(http.getRequestURL().toString().startsWith("https://[2001:db8::1]:8443/v6"));
 	}
 }

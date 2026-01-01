@@ -22,43 +22,41 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
-import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 /*
- * Tests for getRemoteAddr() and getRemoteHost() using X-Forwarded-For.
+ * Verify request cookie behavior matches servlet expectations.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
-public class RemoteAddressParsingTests {
+public class RequestCookieBehaviorTests {
 	@Test
-	public void picksFirstAddressFromXff() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
-				.build();
-
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
-	}
-
-	@Test
-	public void fallsBackToRemoteAddressWhenXffMissing() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.remoteAddress(new InetSocketAddress("203.0.113.50", 1234))
-				.build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.50", http.getRemoteAddr());
-		Assertions.assertEquals("203.0.113.50", http.getRemoteHost());
-	}
-
-	@Test
-	public void returnsNullWhenXffMissing() {
+	public void getCookiesReturnsNullWhenEmpty() {
 		Request req = Request.withPath(HttpMethod.GET, "/x").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertNull(http.getRemoteAddr());
-		Assertions.assertNull(http.getRemoteHost());
+		Assertions.assertNull(http.getCookies());
+	}
+
+	@Test
+	public void cookieNamesAreCaseSensitive() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Cookie", Set.of("a=1; A=2")))
+				.build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Cookie[] cookies = http.getCookies();
+		Assertions.assertNotNull(cookies);
+
+		Map<String, String> values = new HashMap<>();
+		for (Cookie cookie : cookies)
+			values.put(cookie.getName(), cookie.getValue());
+
+		Assertions.assertEquals(Set.of("a", "A"), values.keySet());
+		Assertions.assertEquals("1", values.get("a"));
+		Assertions.assertEquals("2", values.get("A"));
 	}
 }

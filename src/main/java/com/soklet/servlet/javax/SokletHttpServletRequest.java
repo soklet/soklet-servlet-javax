@@ -43,6 +43,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +68,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.UUID;
 
 import static java.lang.String.format;
@@ -168,9 +169,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private List<Cookie> parseCookies(@Nonnull Request request) {
 		requireNonNull(request);
 
-		Map<String, Set<String>> cookies = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-		cookies.putAll(request.getCookies());
-
+		Map<String, Set<String>> cookies = request.getCookies();
 		List<Cookie> convertedCookies = new ArrayList<>(cookies.size());
 
 		for (Entry<String, Set<String>> entry : cookies.entrySet()) {
@@ -226,6 +225,112 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	private Optional<Integer> getPort() {
 		return Optional.ofNullable(this.port);
+	}
+
+	@Nonnull
+	private Optional<String> getClientUrlPrefix() {
+		return Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders());
+	}
+
+	@Nonnull
+	private Optional<URI> getClientUriPrefix() {
+		String clientUrlPrefix = getClientUrlPrefix().orElse(null);
+
+		if (clientUrlPrefix == null)
+			return Optional.empty();
+
+		try {
+			return Optional.of(URI.create(clientUrlPrefix));
+		} catch (Exception ignored) {
+			return Optional.empty();
+		}
+	}
+
+	private int defaultPortForScheme(@Nullable String scheme) {
+		if (scheme == null)
+			return 0;
+
+		if ("https".equalsIgnoreCase(scheme))
+			return 443;
+
+		if ("http".equalsIgnoreCase(scheme))
+			return 80;
+
+		return 0;
+	}
+
+	@Nullable
+	private String hostFromAuthority(@Nullable String authority) {
+		if (authority == null)
+			return null;
+
+		String normalized = authority.trim();
+
+		if (normalized.isEmpty())
+			return null;
+
+		int at = normalized.lastIndexOf('@');
+
+		if (at >= 0)
+			normalized = normalized.substring(at + 1);
+
+		if (normalized.startsWith("[")) {
+			int close = normalized.indexOf(']');
+
+			if (close > 0)
+				return normalized.substring(1, close);
+
+			return null;
+		}
+
+		int colon = normalized.indexOf(':');
+		return colon > 0 ? normalized.substring(0, colon) : normalized;
+	}
+
+	@Nullable
+	private Integer portFromAuthority(@Nullable String authority) {
+		if (authority == null)
+			return null;
+
+		String normalized = authority.trim();
+
+		if (normalized.isEmpty())
+			return null;
+
+		int at = normalized.lastIndexOf('@');
+
+		if (at >= 0)
+			normalized = normalized.substring(at + 1);
+
+		if (normalized.startsWith("[")) {
+			int close = normalized.indexOf(']');
+
+			if (close > 0 && normalized.length() > close + 1 && normalized.charAt(close + 1) == ':') {
+				String portString = normalized.substring(close + 2).trim();
+
+				try {
+					return Integer.parseInt(portString, 10);
+				} catch (Exception ignored) {
+					return null;
+				}
+			}
+
+			return null;
+		}
+
+		int colon = normalized.indexOf(':');
+
+		if (colon > 0 && normalized.indexOf(':', colon + 1) == -1) {
+			String portString = normalized.substring(colon + 1).trim();
+
+			try {
+				return Integer.parseInt(portString, 10);
+			} catch (Exception ignored) {
+				return null;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -323,9 +428,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@Nullable
 	public Cookie[] getCookies() {
-		return this.cookies.toArray(new Cookie[0]);
+		return this.cookies.isEmpty() ? null : this.cookies.toArray(new Cookie[0]);
 	}
 
 	@Override
@@ -457,25 +562,31 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getRequestURI() {
-		return getRequest().getPath();
+		return getRequest().getRawPath();
 	}
 
 	@Override
 	@Nonnull
 	public StringBuffer getRequestURL() {
 		// Try forwarded/synthesized absolute prefix first
-		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+		String clientUrlPrefix = getClientUrlPrefix().orElse(null);
+		String rawPath = getRequest().getRawPath();
 
 		if (clientUrlPrefix != null)
-			return new StringBuffer(format("%s%s", clientUrlPrefix, getRequest().getPath()));
+			return new StringBuffer(format("%s%s", clientUrlPrefix, rawPath));
 
 		// Fall back to builder-provided host/port when available
 		String scheme = getScheme(); // Soklet returns "http" by design
 		String host = getServerName();
-		int port = getServerPort(); // may throw if not initialized by builder
-		boolean defaultPort = ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
-		String authority = defaultPort ? host : format("%s:%d", host, port);
-		return new StringBuffer(format("%s://%s%s", scheme, authority, getRequest().getPath()));
+		int port = getServerPort();
+		boolean defaultPort = port <= 0 || ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
+		String authorityHost = host;
+
+		if (host != null && host.indexOf(':') >= 0 && !host.startsWith("[") && !host.endsWith("]"))
+			authorityHost = "[" + host + "]";
+
+		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
+		return new StringBuffer(format("%s://%s%s", scheme, authority, rawPath));
 	}
 
 	@Override
@@ -746,6 +857,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getScheme() {
+		URI clientUriPrefix = getClientUriPrefix().orElse(null);
+
+		if (clientUriPrefix != null && clientUriPrefix.getScheme() != null)
+			return clientUriPrefix.getScheme().trim().toLowerCase(ROOT);
+
 		// Honor common reverse-proxy header; fall back to http
 		String proto = getRequest().getHeader("X-Forwarded-Proto").orElse(null);
 
@@ -761,74 +877,48 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getServerName() {
-		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
-		// e.g. https://www.soklet.com/test/abc
-		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+		URI clientUriPrefix = getClientUriPrefix().orElse(null);
 
-		if (clientUrlPrefix == null)
-			return getLocalName();
+		if (clientUriPrefix != null) {
+			String host = clientUriPrefix.getHost();
 
-		clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
+			if (host == null)
+				host = hostFromAuthority(clientUriPrefix.getAuthority());
 
-		// Remove protocol prefix
-		if (clientUrlPrefix.startsWith("https://"))
-			clientUrlPrefix = clientUrlPrefix.replace("https://", "");
-		else if (clientUrlPrefix.startsWith("http://"))
-			clientUrlPrefix = clientUrlPrefix.replace("http://", "");
+			if (host != null) {
+				if (host.startsWith("[") && host.endsWith("]") && host.length() > 2)
+					host = host.substring(1, host.length() - 1);
 
-		// Remove "/" and anything after it
-		int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
+				return host;
+			}
+		}
 
-		if (indexOfFirstSlash != -1)
-			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
-
-		// Remove ":" and anything after it (port)
-		int indexOfColon = clientUrlPrefix.indexOf(":");
-
-		if (indexOfColon != -1)
-			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfColon);
-
-		return clientUrlPrefix;
+		return getLocalName();
 	}
 
 	@Override
 	public int getServerPort() {
-		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
-		// e.g. https://www.soklet.com/test/abc
-		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
+		URI clientUriPrefix = getClientUriPrefix().orElse(null);
 
-		if (clientUrlPrefix == null)
-			return getLocalPort();
+		if (clientUriPrefix != null) {
+			int port = clientUriPrefix.getPort();
+			if (port >= 0)
+				return port;
 
-		clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
+			Integer authorityPort = portFromAuthority(clientUriPrefix.getAuthority());
 
-		boolean https = false;
+			if (authorityPort != null)
+				return authorityPort;
 
-		// Remove protocol prefix
-		if (clientUrlPrefix.startsWith("https://")) {
-			clientUrlPrefix = clientUrlPrefix.replace("https://", "");
-			https = true;
-		} else if (clientUrlPrefix.startsWith("http://")) {
-			clientUrlPrefix = clientUrlPrefix.replace("http://", "");
+			return defaultPortForScheme(clientUriPrefix.getScheme());
 		}
 
-		// Remove "/" and anything after it
-		int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
+		Integer port = getPort().orElse(null);
 
-		if (indexOfFirstSlash != -1)
-			clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
+		if (port != null)
+			return port;
 
-		String[] hostAndPortComponents = clientUrlPrefix.split(":");
-
-		// No explicit port?  Look at protocol for guidance
-		if (hostAndPortComponents.length == 1)
-			return https ? 443 : 80;
-
-		try {
-			return Integer.parseInt(hostAndPortComponents[1], 10);
-		} catch (Exception ignored) {
-			return getLocalPort();
-		}
+		return defaultPortForScheme(getScheme());
 	}
 
 	@Override
@@ -844,58 +934,37 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public String getRemoteAddr() {
 		String xForwardedForHeader = getRequest().getHeader("X-Forwarded-For").orElse(null);
 
-		if (xForwardedForHeader == null)
-			return null;
+		if (xForwardedForHeader != null) {
+			// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
+			String[] components = xForwardedForHeader.split(",");
 
-		// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
-		String[] components = xForwardedForHeader.split(",");
+			for (String component : components) {
+				if (component == null)
+					continue;
 
-		if (components.length == 0 || components[0] == null)
-			return null;
+				String value = component.trim();
 
-		String value = components[0].trim();
-		return value.length() > 0 ? value : "127.0.0.1";
+				if (!value.isEmpty())
+					return value;
+			}
+		}
+
+		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
+
+		if (remoteAddress != null) {
+			InetAddress address = remoteAddress.getAddress();
+			String host = address != null ? address.getHostAddress() : remoteAddress.getHostString();
+
+			if (host != null && !host.isBlank())
+				return host;
+		}
+
+		return null;
 	}
 
 	@Override
 	@Nullable
 	public String getRemoteHost() {
-		// This is X-Forwarded-For and is generally what we want (if present)
-		String remoteAddr = getRemoteAddr();
-
-		if (remoteAddr != null)
-			return remoteAddr;
-
-		// Path only (no query parameters) preceded by remote protocol, host, and port (if available)
-		// e.g. https://www.soklet.com/test/abc
-		String clientUrlPrefix = Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders()).orElse(null);
-
-		if (clientUrlPrefix != null) {
-			clientUrlPrefix = clientUrlPrefix.toLowerCase(ROOT);
-
-			// Remove protocol prefix
-			if (clientUrlPrefix.startsWith("https://"))
-				clientUrlPrefix = clientUrlPrefix.replace("https://", "");
-			else if (clientUrlPrefix.startsWith("http://"))
-				clientUrlPrefix = clientUrlPrefix.replace("http://", "");
-
-			// Remove "/" and anything after it
-			int indexOfFirstSlash = clientUrlPrefix.indexOf("/");
-
-			if (indexOfFirstSlash != -1)
-				clientUrlPrefix = clientUrlPrefix.substring(0, indexOfFirstSlash);
-
-			String[] hostAndPortComponents = clientUrlPrefix.split(":");
-
-			String host = null;
-
-			if (hostAndPortComponents != null && hostAndPortComponents.length > 0 && hostAndPortComponents[0] != null)
-				host = hostAndPortComponents[0].trim();
-
-			if (host != null && host.length() > 0)
-				return host;
-		}
-
 		// "If the engine cannot or chooses not to resolve the hostname (to improve performance),
 		// this method returns the dotted-string form of the IP address."
 		return getRemoteAddr();
@@ -1024,7 +1093,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	public AsyncContext startAsync(@Nonnull ServletRequest servletRequest,
 																 @Nonnull ServletResponse servletResponse) throws IllegalStateException {
-		requireNonNull(servletResponse);
+		requireNonNull(servletRequest);
 		requireNonNull(servletResponse);
 
 		throw new IllegalStateException("Soklet does not support async servlet operations");

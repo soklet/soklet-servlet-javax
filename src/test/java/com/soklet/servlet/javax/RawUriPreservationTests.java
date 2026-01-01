@@ -23,42 +23,36 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Set;
 
 /*
- * Tests for getRemoteAddr() and getRemoteHost() using X-Forwarded-For.
+ * Verify raw URI encoding is preserved for request URL/URI accessors.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
-public class RemoteAddressParsingTests {
+public class RawUriPreservationTests {
 	@Test
-	public void picksFirstAddressFromXff() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
-				.build();
-
+	public void requestUriPreservesRawEncoding() {
+		Request req = Request.withRawUrl(HttpMethod.GET, "/a%20b%3Fc?x=1").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
+		Assertions.assertEquals("/a%20b%3Fc", http.getRequestURI());
+		Assertions.assertTrue(http.getRequestURL().toString().endsWith("/a%20b%3Fc"));
 	}
 
 	@Test
-	public void fallsBackToRemoteAddressWhenXffMissing() {
-		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.remoteAddress(new InetSocketAddress("203.0.113.50", 1234))
+	public void requestUrlPreservesRawEncoding() {
+		Request req = Request.withRawUrl(HttpMethod.GET, "/a%20b%3Fc?x=1")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertEquals("203.0.113.50", http.getRemoteAddr());
-		Assertions.assertEquals("203.0.113.50", http.getRemoteHost());
-	}
-
-	@Test
-	public void returnsNullWhenXffMissing() {
-		Request req = Request.withPath(HttpMethod.GET, "/x").build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertNull(http.getRemoteAddr());
-		Assertions.assertNull(http.getRemoteHost());
+		String url = http.getRequestURL().toString();
+		Assertions.assertTrue(url.startsWith("https://example.com/"));
+		Assertions.assertTrue(url.contains("/a%20b%3Fc"));
+		Assertions.assertFalse(url.contains("?x=1"));
 	}
 }

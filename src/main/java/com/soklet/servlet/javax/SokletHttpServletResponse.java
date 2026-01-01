@@ -325,6 +325,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public boolean containsHeader(@Nullable String name) {
+		if (name == null)
+			return false;
+
 		return getHeaders().containsKey(name);
 	}
 
@@ -787,8 +790,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void flushBuffer() throws IOException {
-		ensureResponseIsUncommitted();
-		setResponseCommitted(true);
+		if (!isCommitted())
+			setResponseCommitted(true);
 		getResponseOutputStream().flush();
 	}
 

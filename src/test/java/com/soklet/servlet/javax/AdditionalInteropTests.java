@@ -52,6 +52,7 @@ public class AdditionalInteropTests {
 		Assertions.assertTrue(resp.containsHeader("x-test"));
 		Assertions.assertTrue(resp.containsHeader("X-TEST"));
 		Assertions.assertFalse(resp.containsHeader("missing"));
+		Assertions.assertFalse(resp.containsHeader(null));
 	}
 
 	@Test
@@ -98,6 +99,13 @@ public class AdditionalInteropTests {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
 		resp.flushBuffer();
 		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+	}
+
+	@Test
+	public void flushBufferAfterCommitIsAllowed() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
+		resp.flushBuffer();
+		Assertions.assertDoesNotThrow(resp::flushBuffer);
 	}
 
 	@Test
