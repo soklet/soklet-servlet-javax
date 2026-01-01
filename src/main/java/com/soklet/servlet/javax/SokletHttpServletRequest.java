@@ -134,6 +134,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private Charset charset;
 	@Nullable
 	private String contentType;
+	@Nullable
+	private SokletServletInputStream servletInputStream;
+	@Nullable
+	private BufferedReader reader;
+	@Nonnull
+	private RequestReadMethod requestReadMethod;
 
 	@Nonnull
 	public static Builder withRequest(@Nonnull Request request) {
@@ -153,6 +159,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.port = builder.port;
 		this.servletContext = builder.servletContext == null ? SokletServletContext.withDefaults() : builder.servletContext;
 		this.httpSession = builder.httpSession;
+		this.requestReadMethod = RequestReadMethod.UNSPECIFIED;
 	}
 
 	@Nonnull
@@ -331,6 +338,40 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		return null;
+	}
+
+	@Nonnull
+	private Optional<SokletServletInputStream> getServletInputStream() {
+		return Optional.ofNullable(this.servletInputStream);
+	}
+
+	private void setServletInputStream(@Nullable SokletServletInputStream servletInputStream) {
+		this.servletInputStream = servletInputStream;
+	}
+
+	@Nonnull
+	private Optional<BufferedReader> getBufferedReader() {
+		return Optional.ofNullable(this.reader);
+	}
+
+	private void setBufferedReader(@Nullable BufferedReader reader) {
+		this.reader = reader;
+	}
+
+	@Nonnull
+	private RequestReadMethod getRequestReadMethod() {
+		return this.requestReadMethod;
+	}
+
+	private void setRequestReadMethod(@Nonnull RequestReadMethod requestReadMethod) {
+		requireNonNull(requestReadMethod);
+		this.requestReadMethod = requestReadMethod;
+	}
+
+	private enum RequestReadMethod {
+		UNSPECIFIED,
+		INPUT_STREAM,
+		READER
 	}
 
 	/**
@@ -766,8 +807,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public ServletInputStream getInputStream() throws IOException {
-		byte[] body = getRequest().getBody().orElse(new byte[]{});
-		return SokletServletInputStream.withInputStream(new ByteArrayInputStream(body));
+		RequestReadMethod currentReadMethod = getRequestReadMethod();
+
+		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
+			setRequestReadMethod(RequestReadMethod.INPUT_STREAM);
+			byte[] body = getRequest().getBody().orElse(new byte[]{});
+			setServletInputStream(SokletServletInputStream.withInputStream(new ByteArrayInputStream(body)));
+			return getServletInputStream().get();
+		} else if (currentReadMethod == RequestReadMethod.INPUT_STREAM) {
+			return getServletInputStream().get();
+		} else {
+			throw new IllegalStateException("getReader() has already been called for this request");
+		}
 	}
 
 	@Override
@@ -893,6 +944,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			}
 		}
 
+		String hostHeader = getRequest().getHeader("Host").orElse(null);
+
+		if (hostHeader != null) {
+			String host = hostFromAuthority(hostHeader);
+
+			if (host != null && !host.isBlank())
+				return host;
+		}
+
 		return getLocalName();
 	}
 
@@ -913,20 +973,44 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			return defaultPortForScheme(clientUriPrefix.getScheme());
 		}
 
+		String hostHeader = getRequest().getHeader("Host").orElse(null);
+
+		if (hostHeader != null) {
+			Integer hostPort = portFromAuthority(hostHeader);
+
+			if (hostPort != null)
+				return hostPort;
+
+			int defaultPort = defaultPortForScheme(getScheme());
+
+			if (defaultPort > 0)
+				return defaultPort;
+		}
+
 		Integer port = getPort().orElse(null);
 
 		if (port != null)
 			return port;
 
-		return defaultPortForScheme(getScheme());
+		return 0;
 	}
 
 	@Override
 	@Nonnull
 	public BufferedReader getReader() throws IOException {
-		Charset charset = getCharset().orElse(DEFAULT_CHARSET);
-		InputStream inputStream = new ByteArrayInputStream(getRequest().getBody().orElse(new byte[0]));
-		return new BufferedReader(new InputStreamReader(inputStream, charset));
+		RequestReadMethod currentReadMethod = getRequestReadMethod();
+
+		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
+			setRequestReadMethod(RequestReadMethod.READER);
+			Charset charset = getCharset().orElse(DEFAULT_CHARSET);
+			InputStream inputStream = new ByteArrayInputStream(getRequest().getBody().orElse(new byte[0]));
+			setBufferedReader(new BufferedReader(new InputStreamReader(inputStream, charset)));
+			return getBufferedReader().get();
+		} else if (currentReadMethod == RequestReadMethod.READER) {
+			return getBufferedReader().get();
+		} else {
+			throw new IllegalStateException("getInputStream() has already been called for this request");
+		}
 	}
 
 	@Override

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,6 +71,24 @@ public class AdditionalInteropTests {
 	}
 
 	@Test
+	public void serverNameAndPortComeFromHostHeader() {
+		Request req = Request.withPath(HttpMethod.GET, "/p")
+				.headers(Map.of("Host", Set.of("example.com:8443")))
+				.build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertEquals("example.com", http.getServerName());
+		Assertions.assertEquals(8443, http.getServerPort());
+		Assertions.assertTrue(http.getRequestURL().toString().startsWith("http://example.com:8443/p"));
+
+		Request reqDefault = Request.withPath(HttpMethod.GET, "/p")
+				.headers(Map.of("Host", Set.of("example.com")))
+				.build();
+		HttpServletRequest httpDefault = SokletHttpServletRequest.withRequest(reqDefault).build();
+		Assertions.assertEquals("example.com", httpDefault.getServerName());
+		Assertions.assertEquals(80, httpDefault.getServerPort());
+	}
+
+	@Test
 	public void getServerPortDefaultsFromScheme() {
 		// https without explicit port -> 443
 		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
@@ -109,6 +128,17 @@ public class AdditionalInteropTests {
 	}
 
 	@Test
+	public void contentTypeReflectsHeaderValue() {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
+		resp.setHeader("Content-Type", "text/plain");
+		Assertions.assertEquals("text/plain", resp.getContentType());
+
+		SokletHttpServletResponse respWithAdd = SokletHttpServletResponse.withRequestPath("/x");
+		respWithAdd.addHeader("Content-Type", "application/json");
+		Assertions.assertEquals("application/json", respWithAdd.getContentType());
+	}
+
+	@Test
 	public void contentLengthHeadersAreSet() {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
 		resp.setContentLength(42);
@@ -132,5 +162,11 @@ public class AdditionalInteropTests {
 		var http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("https", http.getScheme());
 		Assertions.assertTrue(http.isSecure());
+	}
+
+	@Test
+	public void responseLocaleDefaultsToSystemLocale() {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
+		Assertions.assertEquals(Locale.getDefault(), resp.getLocale());
 	}
 }

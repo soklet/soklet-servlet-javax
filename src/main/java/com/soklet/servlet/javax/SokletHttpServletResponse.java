@@ -513,7 +513,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	@Nullable
 	public String getContentType() {
-		return this.contentType;
+		String headerValue = getHeader("Content-Type");
+		return headerValue != null ? headerValue : this.contentType;
 	}
 
 	@Override
@@ -839,6 +840,6 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public Locale getLocale() {
-		return this.locale;
+		return this.locale == null ? Locale.getDefault() : this.locale;
 	}
 }
