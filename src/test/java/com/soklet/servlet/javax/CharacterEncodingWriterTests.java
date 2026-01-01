@@ -34,7 +34,7 @@ import java.util.Locale;
 public class CharacterEncodingWriterTests {
 	@Test
 	public void writerUsesExplicitEncoding() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.setCharacterEncoding("UTF-8");
 		resp.getWriter().write("é"); // non-ASCII
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -44,7 +44,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void changingEncodingAfterGetWriterHasNoEffect() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequestPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		var writer = resp.getWriter();
 		resp.setCharacterEncoding("UTF-16"); // should be ignored per spec
 		writer.write("ok");
@@ -56,7 +56,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void contentTypeCharsetAppliedBeforeWriter() throws Exception {
-		var resp = SokletHttpServletResponse.withRequestPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.setContentType("text/plain; charset=UTF-16");
 		var w = resp.getWriter();
 		w.write("ok");
@@ -72,8 +72,36 @@ public class CharacterEncodingWriterTests {
 	}
 
 	@Test
+	public void headerContentTypeCharsetAppliedBeforeWriter() throws Exception {
+		var resp = SokletHttpServletResponse.withRawPath("/x");
+		resp.setHeader("Content-Type", "text/plain; charset=UTF-16");
+		var w = resp.getWriter();
+		w.write("ok");
+		var mr = resp.toMarshaledResponse();
+
+		Assertions.assertArrayEquals("ok".getBytes(Charset.forName("UTF-16")),
+				mr.getBody().orElse(new byte[]{}), "Body is not encoded with UTF-16");
+
+		var ct = mr.getHeaders().get("Content-Type").iterator().next();
+		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-16"), "Content-Type header does not signal UTF-16");
+	}
+
+	@Test
+	public void setCharacterEncodingUpdatesHeaderContentType() throws Exception {
+		var resp = SokletHttpServletResponse.withRawPath("/x");
+		resp.setHeader("Content-Type", "text/plain");
+		resp.setCharacterEncoding("UTF-8");
+		var w = resp.getWriter();
+		w.write("ok");
+		var mr = resp.toMarshaledResponse();
+
+		var ct = mr.getHeaders().get("Content-Type").iterator().next();
+		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-8"), "Content-Type header does not include UTF-8");
+	}
+
+	@Test
 	public void changingContentTypeAfterWriterDoesNotChangeEncoding() throws Exception {
-		var resp = SokletHttpServletResponse.withRequestPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x");
 		// Do NOT set any charset; getWriter() will lock ISO-8859-1
 		var w = resp.getWriter();
 		// Now try to change to UTF-8—should not affect actual encoding used by writer

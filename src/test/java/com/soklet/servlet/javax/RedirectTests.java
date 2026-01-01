@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -34,7 +35,12 @@ import java.util.Set;
 public class RedirectTests {
 	@Test
 	public void relativeRedirectWithoutSlashUsesRequestPath() throws IOException {
-		Request request = Request.withPath(HttpMethod.GET, "/root/path").build();
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
 		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("next");
 
@@ -42,26 +48,72 @@ public class RedirectTests {
 		Assertions.assertEquals(HttpServletResponse.SC_FOUND, (int) mr.getStatusCode());
 		Set<String> locations = mr.getHeaders().get("Location");
 		Assertions.assertTrue(locations != null && !locations.isEmpty(), "Location header missing");
-		Assertions.assertTrue(locations.contains("/root/next"), "Location header wrong");
+		Assertions.assertTrue(locations.contains("https://example.com/root/next"), "Location header wrong");
 	}
 
 	@Test
 	public void absoluteRedirectSetsLocation() throws IOException {
-		Request request = Request.withPath(HttpMethod.GET, "/root/path").build();
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
 		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertTrue(mr.getHeaders().get("Location").contains("https://example.com/where"));
+		Assertions.assertEquals(Set.of("https://example.com/where"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void rootedRedirectSetsLocation() throws IOException {
-		Request request = Request.withPath(HttpMethod.GET, "/root/path").build();
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
 		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertTrue(mr.getHeaders().get("Location").contains("/rooted"));
+		Assertions.assertEquals(Set.of("https://example.com/rooted"), mr.getHeaders().get("Location"));
+	}
+
+	@Test
+	public void networkPathRedirectUsesRequestScheme() throws IOException {
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		response.sendRedirect("//cdn.example.com/asset");
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://cdn.example.com/asset"), mr.getHeaders().get("Location"));
+	}
+
+	@Test
+	public void nullRedirectThrows() {
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		Assertions.assertThrows(IllegalArgumentException.class, () -> response.sendRedirect(null));
+	}
+
+	@Test
+	public void relativeRedirectUsesFallbackBaseWithoutRequest() throws IOException {
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/root/path");
+		response.sendRedirect("next");
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("http://localhost/root/next"), mr.getHeaders().get("Location"));
 	}
 }

@@ -31,8 +31,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -77,7 +75,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
-	private final String requestPath; // e.g. "/test/abc".  Always starts with "/"
+	private final String rawPath; // Raw path (no query), e.g. "/test/abc". Always starts with "/"
+	@Nullable
+	private final Request request;
 	@Nonnull
 	private final List<Cookie> cookies;
 	@Nonnull
@@ -112,19 +112,30 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	public static SokletHttpServletResponse withRequest(@Nonnull Request request) {
 		requireNonNull(request);
-		return new SokletHttpServletResponse(request.getPath());
+		return new SokletHttpServletResponse(request, request.getRawPath());
 	}
 
+	/**
+	 * Creates a response bound to Soklet's raw path construct.
+	 * <p>
+	 * This is the exact path component sent by the client, without URL decoding and without a query string
+	 * (for example, {@code "/a%20b/c"}). It corresponds to {@link Request#getRawPath()}.
+	 *
+	 * @param rawPath raw path component of the request (no query string)
+	 * @return a response bound to the raw request path
+	 */
 	@Nonnull
-	public static SokletHttpServletResponse withRequestPath(@Nonnull String requestPath) {
-		requireNonNull(requestPath);
-		return new SokletHttpServletResponse(requestPath);
+	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath) {
+		requireNonNull(rawPath);
+		return new SokletHttpServletResponse(null, rawPath);
 	}
 
-	private SokletHttpServletResponse(@Nonnull String requestPath) {
-		requireNonNull(requestPath);
+	private SokletHttpServletResponse(@Nullable Request request,
+																		@Nonnull String rawPath) {
+		requireNonNull(rawPath);
 
-		this.requestPath = requestPath;
+		this.request = request;
+		this.rawPath = rawPath;
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
 		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
@@ -177,8 +188,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
-	private String getRequestPath() {
-		return this.requestPath;
+	private String getRawPath() {
+		return this.rawPath;
+	}
+
+	@Nonnull
+	private Optional<Request> getRequest() {
+		return Optional.ofNullable(this.request);
 	}
 
 	@Nonnull
@@ -189,6 +205,21 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private Map<String, List<String>> getHeaders() {
 		return this.headers;
+	}
+
+	private void putHeaderValue(@Nonnull String name,
+															@Nonnull String value,
+															boolean replace) {
+		requireNonNull(name);
+		requireNonNull(value);
+
+		if (replace) {
+			List<String> values = new ArrayList<>();
+			values.add(value);
+			getHeaders().put(name, values);
+		} else {
+			getHeaders().computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+		}
 	}
 
 	@Nonnull
@@ -372,9 +403,44 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseCommitted(true);
 	}
 
+	private boolean isAbsoluteUri(@Nonnull String location) {
+		requireNonNull(location);
+
+		try {
+			return java.net.URI.create(location).isAbsolute();
+		} catch (Exception ignored) {
+			return false;
+		}
+	}
+
+	@Nonnull
+	private String getRedirectBaseUrl() {
+		Request req = getRequest().orElse(null);
+
+		if (req == null)
+			return "http://localhost";
+
+		SokletHttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		String scheme = http.getScheme();
+		String host = http.getServerName();
+		int port = http.getServerPort();
+		boolean defaultPort = port <= 0 || ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
+		String authorityHost = host;
+
+		if (host != null && host.indexOf(':') >= 0 && !host.startsWith("[") && !host.endsWith("]"))
+			authorityHost = "[" + host + "]";
+
+		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
+		return format("%s://%s", scheme, authority);
+	}
+
 	@Override
 	public void sendRedirect(@Nullable String location) throws IOException {
 		ensureResponseIsUncommitted();
+
+		if (location == null)
+			throw new IllegalArgumentException("Redirect location must not be null");
+
 		setStatus(HttpServletResponse.SC_FOUND);
 
 		// This method can accept relative URLs; the servlet container must convert the relative URL to an absolute URL
@@ -383,23 +449,27 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		// the container interprets it as relative to the servlet container root. If the location is relative with two
 		// leading '/' the container interprets it as a network-path reference (see RFC 3986: Uniform Resource
 		// Identifier (URI): Generic Syntax, section 4.2 "Relative Reference").
+		String baseUrl = getRedirectBaseUrl();
+		int schemeIndex = baseUrl.indexOf("://");
+		String scheme = schemeIndex > 0 ? baseUrl.substring(0, schemeIndex) : "http";
 		String finalLocation;
 
-		if (location.startsWith("/")) {
-			// URL is relative with leading /
+		if (location.startsWith("//")) {
+			// Network-path reference: keep host from location but inherit scheme
+			finalLocation = scheme + ":" + location;
+		} else if (isAbsoluteUri(location)) {
+			// URL is already absolute
 			finalLocation = location;
+		} else if (location.startsWith("/")) {
+			// URL is relative with leading /
+			finalLocation = baseUrl + location;
 		} else {
-			try {
-				new URL(location);
-				// URL is absolute
-				finalLocation = location;
-			} catch (MalformedURLException ignored) {
-				// URL is relative but does not have leading '/', resolve against the parent of the current path
-				String base = getRequestPath();
-				int idx = base.lastIndexOf('/');
-				String parent = (idx <= 0) ? "/" : base.substring(0, idx);
-				finalLocation = parent.endsWith("/") ? parent + location : parent + "/" + location;
-			}
+			// URL is relative but does not have leading '/', resolve against the parent of the current path
+			String base = getRawPath();
+			int idx = base.lastIndexOf('/');
+			String parent = (idx <= 0) ? "/" : base.substring(0, idx);
+			String resolvedPath = parent.endsWith("/") ? parent + location : parent + "/" + location;
+			finalLocation = baseUrl + resolvedPath;
 		}
 
 		setRedirectUrl(finalLocation);
@@ -429,9 +499,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		ensureResponseIsUncommitted();
 
 		if (name != null && !name.isBlank() && value != null) {
-			List<String> values = new ArrayList<>();
-			values.add(value);
-			getHeaders().put(name, values);
+			if ("Content-Type".equalsIgnoreCase(name)) {
+				setContentType(value);
+				return;
+			}
+
+			putHeaderValue(name, value, true);
 		}
 	}
 
@@ -440,8 +513,14 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 												@Nullable String value) {
 		ensureResponseIsUncommitted();
 
-		if (name != null && !name.isBlank() && value != null)
-			getHeaders().computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+		if (name != null && !name.isBlank() && value != null) {
+			if ("Content-Type".equalsIgnoreCase(name)) {
+				setContentType(value);
+				return;
+			}
+
+			putHeaderValue(name, value, false);
+		}
 	}
 
 	@Override
@@ -623,16 +702,19 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			setCharset(enc); // record the chosen encoding explicitly
 
 			// If a content type is already present and lacks charset, append the frozen charset to header
-			if (this.contentType != null) {
-				Optional<String> csInHeader = extractCharsetFromContentType(this.contentType);
+			String currentContentType = getContentType();
+
+			if (currentContentType != null) {
+				Optional<String> csInHeader = extractCharsetFromContentType(currentContentType);
 				if (csInHeader.isEmpty() || !csInHeader.get().equalsIgnoreCase(enc.name())) {
-					String updated = withCharset(this.contentType, enc.name()).orElse(null);
+					String updated = withCharset(currentContentType, enc.name()).orElse(null);
 
 					if (updated != null) {
 						this.contentType = updated;
-						setHeader("Content-Type", updated);
+						putHeaderValue("Content-Type", updated, true);
 					} else {
-						setHeader("Content-Type", this.contentType);
+						this.contentType = currentContentType;
+						putHeaderValue("Content-Type", currentContentType, true);
 					}
 				}
 			}
@@ -668,13 +750,15 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			setCharset(null);
 
 			// If a Content-Type is set, remove its charset=... parameter
-			if (this.contentType != null) {
-				String updated = stripCharsetParam(this.contentType).orElse(null);
+			String currentContentType = getContentType();
+
+			if (currentContentType != null) {
+				String updated = stripCharsetParam(currentContentType).orElse(null);
 				this.contentType = updated;
 				if (updated == null || updated.isBlank()) {
 					getHeaders().remove("Content-Type");
 				} else {
-					setHeader("Content-Type", updated);
+					putHeaderValue("Content-Type", updated, true);
 				}
 			}
 
@@ -685,14 +769,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setCharset(cs);
 
 		// If a Content-Type is set, reflect/replace the charset=... in the header
-		if (this.contentType != null) {
-			String updated = withCharset(this.contentType, cs.name()).orElse(null);
+		String currentContentType = getContentType();
+
+		if (currentContentType != null) {
+			String updated = withCharset(currentContentType, cs.name()).orElse(null);
 
 			if (updated != null) {
 				this.contentType = updated;
-				setHeader("Content-Type", updated);
+				putHeaderValue("Content-Type", updated, true);
 			} else {
-				setHeader("Content-Type", this.contentType);
+				this.contentType = currentContentType;
+				putHeaderValue("Content-Type", currentContentType, true);
 			}
 		}
 	}
@@ -731,7 +818,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			Optional<String> cs = extractCharsetFromContentType(type);
 			if (cs.isPresent()) {
 				setCharset(Charset.forName(cs.get()));
-				setHeader("Content-Type", type);
+				putHeaderValue("Content-Type", type, true);
 			} else {
 				// No charset in type. If an explicit charset already exists (via setCharacterEncoding),
 				// reflect it in the header; otherwise just set the type as-is.
@@ -740,12 +827,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 					if (updated != null) {
 						this.contentType = updated;
-						setHeader("Content-Type", updated);
+						putHeaderValue("Content-Type", updated, true);
 					} else {
-						setHeader("Content-Type", type);
+						putHeaderValue("Content-Type", type, true);
 					}
 				} else {
-					setHeader("Content-Type", type);
+					putHeaderValue("Content-Type", type, true);
 				}
 			}
 		} else {
@@ -764,10 +851,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 			if (normalized != null) {
 				this.contentType = normalized;
-				setHeader("Content-Type", normalized);
+				putHeaderValue("Content-Type", normalized, true);
 			} else {
 				this.contentType = type;
-				setHeader("Content-Type", type);
+				putHeaderValue("Content-Type", type, true);
 			}
 		}
 	}
@@ -836,6 +923,18 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public void setLocale(@Nullable Locale locale) {
 		ensureResponseIsUncommitted();
 		this.locale = locale;
+
+		if (locale == null) {
+			getHeaders().remove("Content-Language");
+			return;
+		}
+
+		String tag = locale.toLanguageTag();
+
+		if (tag.isBlank())
+			getHeaders().remove("Content-Language");
+		else
+			putHeaderValue("Content-Language", tag, true);
 	}
 
 	@Override

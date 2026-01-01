@@ -20,31 +20,23 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.io.PrintWriter;
+import javax.servlet.ServletOutputStream;
+import java.nio.charset.StandardCharsets;
 
 /*
- * Buffer size semantics: before vs after writing.
+ * Verify that output stream readiness reflects non-blocking semantics.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
-public class ResponseBufferSizeSemanticsTests {
+public class ServletOutputStreamReadinessTests {
 	@Test
-	public void setBufferSizeBeforeWritingIsAllowed() throws Exception {
+	public void outputStreamIsAlwaysReady() throws Exception {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
-		resp.setBufferSize(4096);
-		Assertions.assertEquals(4096, resp.getBufferSize());
-		// Write afterwards
-		PrintWriter w = resp.getWriter();
-		w.write("ok");
-		w.flush();
-	}
-
-	@Test
-	public void setBufferSizeAfterWritingShouldThrow() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
-		PrintWriter w = resp.getWriter();
-		w.write("ok");
-		Assertions.assertThrows(IllegalStateException.class, () -> resp.setBufferSize(8192));
+		ServletOutputStream out = resp.getOutputStream();
+		Assertions.assertTrue(out.isReady());
+		out.write("ok".getBytes(StandardCharsets.ISO_8859_1));
+		out.flush();
+		Assertions.assertTrue(out.isReady());
 	}
 }

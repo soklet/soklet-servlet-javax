@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.Map;
+import java.util.Set;
 
 /*
  * Preferred behavior per RFC 3986: relative redirect is resolved against the parent path.
@@ -33,11 +35,17 @@ import javax.annotation.concurrent.ThreadSafe;
 public class RelativeRedirectResolutionTests {
 	@Test
 	public void relativeRedirectResolvesAgainstParentPath() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(Request.withPath(HttpMethod.GET, "/a/b/c").build());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
+				Request.withPath(HttpMethod.GET, "/a/b/c")
+						.headers(Map.of(
+								"Host", Set.of("example.com"),
+								"X-Forwarded-Proto", Set.of("https")
+						))
+						.build());
 		resp.sendRedirect("d"); // relative, no leading '/'
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		// Expected: /a/b/d (parent of /a/b/c is /a/b)
-		Assertions.assertTrue(mr.getHeaders().get("Location").contains("/a/b/d"));
+		Assertions.assertEquals(Set.of("https://example.com/a/b/d"), mr.getHeaders().get("Location"));
 	}
 }

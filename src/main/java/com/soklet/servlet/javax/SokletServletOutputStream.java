@@ -142,7 +142,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 
 	@Override
 	public boolean isReady() {
-		return !getWriteFinalized();
+		return true;
 	}
 
 	@Override

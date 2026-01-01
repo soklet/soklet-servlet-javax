@@ -992,7 +992,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (port != null)
 			return port;
 
-		return 0;
+		int defaultPort = defaultPortForScheme(getScheme());
+		return defaultPort > 0 ? defaultPort : 0;
 	}
 
 	@Override

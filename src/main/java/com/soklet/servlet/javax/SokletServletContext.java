@@ -27,8 +27,6 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRegistration;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 import javax.servlet.SessionCookieConfig;
 import javax.servlet.SessionTrackingMode;
 import javax.servlet.descriptor.JspConfigDescriptor;
@@ -256,21 +254,10 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Nullable
 	public RequestDispatcher getRequestDispatcher(@Nullable String path) {
-		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getRequestDispatcher-java.lang.String-
 		if (path == null || path.isBlank())
 			return null;
 
-		return new RequestDispatcher() {
-			@Override
-			public void forward(ServletRequest servletRequest, ServletResponse servletResponse) {
-				throw new IllegalStateException("RequestDispatcher.forward is not supported by Soklet.");
-			}
-
-			@Override
-			public void include(ServletRequest servletRequest, ServletResponse servletResponse) {
-				throw new IllegalStateException("RequestDispatcher.include is not supported by Soklet.");
-			}
-		};
+		return null;
 	}
 
 	@Override
