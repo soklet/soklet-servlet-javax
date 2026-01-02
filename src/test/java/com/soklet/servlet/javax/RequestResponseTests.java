@@ -118,6 +118,22 @@ public class RequestResponseTests {
 	}
 
 	@Test
+	public void setCharacterEncodingAffectsFormParameters() throws IOException {
+		String body = "name=caf%C3%A9";
+
+		Request request = Request.withRawUrl(HttpMethod.POST, "/testing")
+				.headers(Map.of(
+						"Content-Type", Set.of("application/x-www-form-urlencoded")
+				))
+				.body(body.getBytes(StandardCharsets.US_ASCII))
+				.build();
+
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		httpServletRequest.setCharacterEncoding("UTF-8");
+		Assertions.assertEquals("caf\u00E9", httpServletRequest.getParameter("name"));
+	}
+
+	@Test
 	public void session() {
 		Request request = Request.withPath(HttpMethod.GET, "/testing").build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -40,5 +41,19 @@ public class CaseInsensitiveHeadersTests {
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("one", http.getHeader("x-test"));
 		Assertions.assertEquals("one", http.getHeader("X-TEST"));
+	}
+
+	@Test
+	public void requestHeaderReturnsFirstValue() {
+		Set<String> values = new LinkedHashSet<>();
+		values.add("one");
+		values.add("two");
+
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("X-Test", values))
+				.build();
+
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertEquals("one", http.getHeader("X-Test"));
 	}
 }
