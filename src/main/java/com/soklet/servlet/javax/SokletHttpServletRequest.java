@@ -258,6 +258,26 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return context == null ? DEFAULT_CHARSET : context;
 	}
 
+	@Nullable
+	private Long getContentLengthHeaderValue() {
+		String value = getHeader("Content-Length");
+
+		if (value == null)
+			return null;
+
+		value = value.trim();
+
+		if (value.isEmpty())
+			return null;
+
+		try {
+			long parsed = Long.parseLong(value, 10);
+			return parsed < 0 ? null : parsed;
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
 	private void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
 	}
@@ -284,6 +304,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private Map<String, Set<String>> getFormParameters() {
 		if (this.formParameters != null)
 			return this.formParameters;
+
+		if (getRequestReadMethod() != RequestReadMethod.UNSPECIFIED) {
+			this.formParameters = Map.of();
+			return this.formParameters;
+		}
 
 		if (this.contentType == null || !this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
 			this.formParameters = Map.of();
@@ -887,14 +912,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getContentLength() {
-		byte[] body = request.getBody().orElse(null);
-		return body == null ? 0 : body.length;
+		Long length = getContentLengthHeaderValue();
+
+		if (length == null || length > Integer.MAX_VALUE)
+			return -1;
+
+		return length.intValue();
 	}
 
 	@Override
 	public long getContentLengthLong() {
-		byte[] body = request.getBody().orElse(null);
-		return body == null ? 0 : body.length;
+		Long length = getContentLengthHeaderValue();
+		return length == null ? -1 : length;
 	}
 
 	@Override

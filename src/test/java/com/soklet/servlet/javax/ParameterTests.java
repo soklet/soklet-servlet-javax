@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
@@ -42,5 +45,33 @@ public class ParameterTests {
 
 		String[] missing = httpServletRequest.getParameterValues("none");
 		Assertions.assertNull(missing);
+	}
+
+	@Test
+	public void formParametersIgnoredAfterInputStream() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("form=2".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		httpServletRequest.getInputStream();
+
+		Assertions.assertEquals("1", httpServletRequest.getParameter("query"));
+		Assertions.assertNull(httpServletRequest.getParameter("form"));
+		Assertions.assertArrayEquals(new String[]{"1"}, httpServletRequest.getParameterValues("query"));
+		Assertions.assertNull(httpServletRequest.getParameterValues("form"));
+	}
+
+	@Test
+	public void formParametersIgnoredAfterReader() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("form=2".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		httpServletRequest.getReader();
+
+		Assertions.assertNull(httpServletRequest.getParameter("form"));
+		Assertions.assertNull(httpServletRequest.getParameterValues("form"));
 	}
 }

@@ -591,7 +591,16 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	public void setRequestCharacterEncoding(@Nullable String encoding) {
-		this.requestCharset = encoding == null ? null : Charset.forName(encoding);
+		if (encoding == null) {
+			this.requestCharset = null;
+			return;
+		}
+
+		try {
+			this.requestCharset = Charset.forName(encoding);
+		} catch (Exception ignored) {
+			// Ignore invalid charset tokens.
+		}
 	}
 
 	@Override
@@ -602,6 +611,15 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	public void setResponseCharacterEncoding(@Nullable String encoding) {
-		this.responseCharset = encoding == null ? null : Charset.forName(encoding);
+		if (encoding == null) {
+			this.responseCharset = null;
+			return;
+		}
+
+		try {
+			this.responseCharset = Charset.forName(encoding);
+		} catch (Exception ignored) {
+			// Ignore invalid charset tokens.
+		}
 	}
 }
