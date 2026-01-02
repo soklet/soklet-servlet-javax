@@ -46,13 +46,14 @@ public class RequestResponseTests {
 	public void requestBasics() throws IOException {
 		Charset charset = StandardCharsets.ISO_8859_1;
 		String bodyAsString = "example body";
+		String contentType = format("text/plain; charset=%s; boundary=example", charset.name());
 
 		Request request = Request.withRawUrl(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
 						"One", Set.of("Two, Three"),
 						"Host", Set.of("www.soklet.com"),
 						"X-Forwarded-Proto", Set.of("https"),
-						"Content-Type", Set.of(format("text/plain; charset=%s", charset.name()))
+						"Content-Type", Set.of(contentType)
 				))
 				.body(bodyAsString.getBytes(charset))
 				.build();
@@ -62,8 +63,16 @@ public class RequestResponseTests {
 		Assertions.assertEquals("www.soklet.com", httpServletRequest.getServerName(), "Server name mismatch");
 		Assertions.assertEquals(443, httpServletRequest.getServerPort(), "Server port mismatch");
 		Assertions.assertEquals("/testing", httpServletRequest.getRequestURI(), "Request URI mismatch");
+		Assertions.assertEquals(contentType, httpServletRequest.getContentType(), "Content-Type mismatch");
 		Assertions.assertEquals(bodyAsString, httpServletRequest.getReader().lines().collect(Collectors.joining("")),
 				"Body content mismatch");
+	}
+
+	@Test
+	public void requestParameterReturnsFirstValue() {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/testing?a=first&a=second").build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		Assertions.assertEquals("first", httpServletRequest.getParameter("a"));
 	}
 
 	@Test

@@ -612,6 +612,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 						// Flip to "committed" if any write occurs
 						setResponseCommitted(true);
 					}).onWriteFinalized((ignored) -> {
+						setResponseCommitted(true);
 						setResponseFinalized(true);
 					}).build();
 			return getServletOutputStream().get();
@@ -725,7 +726,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 					SokletServletPrintWriter.withWriter(
 									new OutputStreamWriter(getResponseOutputStream(), enc))
 							.onWriteOccurred((ignored1, ignored2) -> setResponseCommitted(true))   // commit on first write
-							.onWriteFinalized((ignored) -> setResponseFinalized(true))
+							.onWriteFinalized((ignored) -> {
+								setResponseCommitted(true);
+								setResponseFinalized(true);
+							})
 							.build();
 
 			return getPrintWriter().get();

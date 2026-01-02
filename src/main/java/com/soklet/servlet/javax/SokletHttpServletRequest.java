@@ -801,7 +801,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getContentType() {
-		return this.contentType;
+		String headerValue = getHeader("Content-Type");
+		return headerValue != null ? headerValue : this.contentType;
 	}
 
 	@Override
@@ -824,18 +825,20 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getParameter(@Nullable String name) {
-		String value = null;
+		if (name == null)
+			return null;
 
-		// First, check query parameters.
-		if (getRequest().getQueryParameters().keySet().contains(name)) {
-			// If there is a query parameter with the given name, return it
-			value = getRequest().getQueryParameter(name).orElse(null);
-		} else if (getRequest().getFormParameters().keySet().contains(name)) {
-			// Otherwise, check form parameters in request body
-			value = getRequest().getFormParameter(name).orElse(null);
-		}
+		Set<String> queryValues = getRequest().getQueryParameters().get(name);
 
-		return value;
+		if (queryValues != null && !queryValues.isEmpty())
+			return queryValues.iterator().next();
+
+		Set<String> formValues = getRequest().getFormParameters().get(name);
+
+		if (formValues != null && !formValues.isEmpty())
+			return formValues.iterator().next();
+
+		return null;
 	}
 
 	@Override

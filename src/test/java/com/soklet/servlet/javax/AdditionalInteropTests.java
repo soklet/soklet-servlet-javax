@@ -130,6 +130,22 @@ public class AdditionalInteropTests {
 	}
 
 	@Test
+	public void outputStreamFlushCommitsResponse() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		resp.getOutputStream().flush();
+		Assertions.assertTrue(resp.isCommitted());
+		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+	}
+
+	@Test
+	public void writerFlushCommitsResponse() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		resp.getWriter().flush();
+		Assertions.assertTrue(resp.isCommitted());
+		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+	}
+
+	@Test
 	public void flushBufferAfterCommitIsAllowed() throws Exception {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.flushBuffer();
