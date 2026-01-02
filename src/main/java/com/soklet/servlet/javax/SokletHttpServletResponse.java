@@ -390,6 +390,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public void sendError(int sc,
 												@Nullable String msg) throws IOException {
 		ensureResponseIsUncommitted();
+		resetBuffer();
 		setStatus(sc);
 		setErrorMessage(msg);
 		setResponseCommitted(true);
@@ -398,6 +399,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void sendError(int sc) throws IOException {
 		ensureResponseIsUncommitted();
+		resetBuffer();
 		setStatus(sc);
 		setErrorMessage(null);
 		setResponseCommitted(true);
@@ -442,6 +444,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			throw new IllegalArgumentException("Redirect location must not be null");
 
 		setStatus(HttpServletResponse.SC_FOUND);
+		resetBuffer();
 
 		// This method can accept relative URLs; the servlet container must convert the relative URL to an absolute URL
 		// before sending the response to the client. If the location is relative without a leading '/' the container
@@ -921,6 +924,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.contentType = null;
 		setCharset(null);
 		this.locale = null;
+		this.errorMessage = null;
+		this.redirectUrl = null;
 	}
 
 	@Override
