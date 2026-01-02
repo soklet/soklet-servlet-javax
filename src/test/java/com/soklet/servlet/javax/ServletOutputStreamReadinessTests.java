@@ -32,7 +32,7 @@ import java.nio.charset.StandardCharsets;
 public class ServletOutputStreamReadinessTests {
 	@Test
 	public void outputStreamIsAlwaysReady() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		ServletOutputStream out = resp.getOutputStream();
 		Assertions.assertTrue(out.isReady());
 		out.write("ok".getBytes(StandardCharsets.ISO_8859_1));

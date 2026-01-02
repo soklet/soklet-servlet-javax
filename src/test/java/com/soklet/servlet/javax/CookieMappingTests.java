@@ -32,7 +32,7 @@ import javax.servlet.http.Cookie;
 public class CookieMappingTests {
 	@Test
 	public void responseCookiesAppearInMarshaledResponse() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		Cookie c = new Cookie("sid", "abc123");
 		c.setHttpOnly(true);
 		c.setSecure(true);

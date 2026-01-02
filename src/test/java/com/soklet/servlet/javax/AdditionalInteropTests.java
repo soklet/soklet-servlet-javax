@@ -38,7 +38,7 @@ import java.util.Set;
 public class AdditionalInteropTests {
 	@Test
 	public void encodeUrlPassThrough() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		String in = "http://example.com/a?b=c";
 		Assertions.assertEquals(in, resp.encodeURL(in));
 		Assertions.assertEquals(in, resp.encodeRedirectURL(in));
@@ -48,7 +48,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void containsHeaderIsCaseInsensitive() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.addHeader("X-Test", "1");
 		Assertions.assertTrue(resp.containsHeader("x-test"));
 		Assertions.assertTrue(resp.containsHeader("X-TEST"));
@@ -116,7 +116,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void headerNamesAreUnmodifiable() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.addHeader("A", "1");
 		var names = resp.getHeaderNames();
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> names.add("B"));
@@ -124,7 +124,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void flushBufferCommitsResponse() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.flushBuffer();
 		Assertions.assertTrue(resp.isCommitted());
 		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
@@ -133,7 +133,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void outputStreamFlushCommitsResponse() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.getOutputStream().flush();
 		Assertions.assertTrue(resp.isCommitted());
 		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
@@ -142,7 +142,7 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void writerFlushCommitsResponse() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.getWriter().flush();
 		Assertions.assertTrue(resp.isCommitted());
 		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
@@ -151,25 +151,25 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void flushBufferAfterCommitIsAllowed() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.flushBuffer();
 		Assertions.assertDoesNotThrow(resp::flushBuffer);
 	}
 
 	@Test
 	public void contentTypeReflectsHeaderValue() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setHeader("Content-Type", "text/plain");
 		Assertions.assertEquals("text/plain", resp.getContentType());
 
-		SokletHttpServletResponse respWithAdd = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse respWithAdd = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		respWithAdd.addHeader("Content-Type", "application/json");
 		Assertions.assertEquals("application/json", respWithAdd.getContentType());
 	}
 
 	@Test
 	public void contentLengthHeadersAreSet() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setContentLength(42);
 		resp.setContentLengthLong(43L);
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -227,13 +227,13 @@ public class AdditionalInteropTests {
 
 	@Test
 	public void responseLocaleDefaultsToSystemLocale() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		Assertions.assertEquals(Locale.getDefault(), resp.getLocale());
 	}
 
 	@Test
 	public void responseLocaleSetsContentLanguageHeader() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setLocale(Locale.CANADA_FRENCH);
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		Assertions.assertEquals(Set.of("fr-CA"), mr.getHeaders().get("Content-Language"));

@@ -32,7 +32,7 @@ import java.util.Set;
 public class ResponseHeaderSetAddTests {
 	@Test
 	public void setHeaderReplacesValues() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setHeader("X-Alpha", "one");
 		resp.setHeader("X-Alpha", "two"); // replaces
 
@@ -43,7 +43,7 @@ public class ResponseHeaderSetAddTests {
 
 	@Test
 	public void addHeaderAppendsValues() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.addHeader("X-Beta", "one");
 		resp.addHeader("X-Beta", "two");
 
@@ -54,7 +54,7 @@ public class ResponseHeaderSetAddTests {
 
 	@Test
 	public void setDateHeaderFormatsAsRfc1123() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setDateHeader("Date", 1_725_000_000_000L);
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		String header = mr.getHeaders().get("Date").iterator().next();

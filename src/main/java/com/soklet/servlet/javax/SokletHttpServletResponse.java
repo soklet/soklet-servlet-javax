@@ -27,6 +27,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -79,9 +80,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
-	private final String rawPath; // Raw path (no query), e.g. "/test/abc". Always starts with "/"
+	private final String rawPath; // Raw path (no query), e.g. "/test/abc" or "*"
 	@Nullable
-	private final Request request;
+	private final HttpServletRequest httpServletRequest;
 	@Nonnull
 	private final ServletContext servletContext;
 	@Nonnull
@@ -116,16 +117,24 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private SokletServletPrintWriter printWriter;
 
 	@Nonnull
-	public static SokletHttpServletResponse withRequest(@Nonnull Request request) {
+	public static SokletHttpServletResponse withRequest(@Nonnull HttpServletRequest request) {
 		requireNonNull(request);
-		return new SokletHttpServletResponse(request, request.getRawPath(), null);
+		String rawPath = request.getRequestURI();
+		if (rawPath == null || rawPath.isEmpty())
+			rawPath = "/";
+		ServletContext servletContext = requireNonNull(request.getServletContext());
+		return new SokletHttpServletResponse(request, rawPath, servletContext);
 	}
 
 	@Nonnull
 	public static SokletHttpServletResponse withRequest(@Nonnull Request request,
-																											@Nullable ServletContext servletContext) {
+																											@Nonnull ServletContext servletContext) {
 		requireNonNull(request);
-		return new SokletHttpServletResponse(request, request.getRawPath(), servletContext);
+		requireNonNull(servletContext);
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request)
+				.servletContext(servletContext)
+				.build();
+		return withRequest(httpServletRequest);
 	}
 
 	/**
@@ -135,29 +144,26 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * (for example, {@code "/a%20b/c"}). It corresponds to {@link Request#getRawPath()}.
 	 *
 	 * @param rawPath raw path component of the request (no query string)
+	 * @param servletContext servlet context for this response
 	 * @return a response bound to the raw request path
 	 */
 	@Nonnull
-	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath) {
-		requireNonNull(rawPath);
-		return new SokletHttpServletResponse(null, rawPath, null);
-	}
-
-	@Nonnull
 	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath,
-																											@Nullable ServletContext servletContext) {
+																											@Nonnull ServletContext servletContext) {
 		requireNonNull(rawPath);
+		requireNonNull(servletContext);
 		return new SokletHttpServletResponse(null, rawPath, servletContext);
 	}
 
-	private SokletHttpServletResponse(@Nullable Request request,
+	private SokletHttpServletResponse(@Nullable HttpServletRequest httpServletRequest,
 																		@Nonnull String rawPath,
-																		@Nullable ServletContext servletContext) {
+																		@Nonnull ServletContext servletContext) {
 		requireNonNull(rawPath);
+		requireNonNull(servletContext);
 
-		this.request = request;
+		this.httpServletRequest = httpServletRequest;
 		this.rawPath = rawPath;
-		this.servletContext = servletContext == null ? SokletServletContext.withDefaults() : servletContext;
+		this.servletContext = servletContext;
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
 		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
@@ -215,8 +221,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
-	private Optional<Request> getRequest() {
-		return Optional.ofNullable(this.request);
+	private Optional<HttpServletRequest> getHttpServletRequest() {
+		return Optional.ofNullable(this.httpServletRequest);
 	}
 
 	@Nonnull
@@ -470,17 +476,18 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Nonnull
 	private String getRedirectBaseUrl() {
-		Request req = getRequest().orElse(null);
+		HttpServletRequest httpServletRequest = getHttpServletRequest().orElse(null);
 
-		if (req == null)
+		if (httpServletRequest == null)
 			return "http://localhost";
 
-		SokletHttpServletRequest http = SokletHttpServletRequest.withRequest(req)
-				.servletContext(getServletContext())
-				.build();
-		String scheme = http.getScheme();
-		String host = http.getServerName();
-		int port = http.getServerPort();
+		String scheme = httpServletRequest.getScheme();
+		if (scheme == null || scheme.isBlank())
+			scheme = "http";
+		String host = httpServletRequest.getServerName();
+		if (host == null || host.isBlank())
+			host = "localhost";
+		int port = httpServletRequest.getServerPort();
 		boolean defaultPort = port <= 0 || ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
 		String authorityHost = host;
 
@@ -489,6 +496,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
 		return format("%s://%s", scheme, authority);
+	}
+
+	@Nullable
+	private String getRawQuery() {
+		HttpServletRequest httpServletRequest = getHttpServletRequest().orElse(null);
+
+		if (httpServletRequest == null)
+			return null;
+
+		String rawQuery = httpServletRequest.getQueryString();
+		return rawQuery == null || rawQuery.isEmpty() ? null : rawQuery;
 	}
 
 	private static final class ParsedLocation {
@@ -684,7 +702,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			String query = parsed.rawQuery;
 
 			if (path.isEmpty() && query == null)
-				query = getRequest().flatMap(Request::getRawQuery).orElse(null);
+				query = getRawQuery();
 
 			String relativeSuffix = buildSuffix(query, parsed.rawFragment);
 

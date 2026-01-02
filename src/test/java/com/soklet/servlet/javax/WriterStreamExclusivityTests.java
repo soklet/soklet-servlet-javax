@@ -29,7 +29,7 @@ public class WriterStreamExclusivityTests {
 	@Test
 	public void outputThenWriterIsIllegal() throws Exception {
 		Assertions.assertThrows(IllegalStateException.class, () -> {
-			SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/p");
+			SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/p", SokletServletContext.withDefaults());
 			response.getOutputStream();
 			response.getWriter();
 		});
@@ -38,7 +38,7 @@ public class WriterStreamExclusivityTests {
 	@Test
 	public void writerThenOutputIsIllegal() throws Exception {
 		Assertions.assertThrows(IllegalStateException.class, () -> {
-			SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/p");
+			SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/p", SokletServletContext.withDefaults());
 			response.getWriter();
 			response.getOutputStream();
 		});

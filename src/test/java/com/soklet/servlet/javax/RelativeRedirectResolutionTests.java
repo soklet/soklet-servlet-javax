@@ -41,7 +41,8 @@ public class RelativeRedirectResolutionTests {
 								"Host", Set.of("example.com"),
 								"X-Forwarded-Proto", Set.of("https")
 						))
-						.build());
+						.build(),
+				SokletServletContext.withDefaults());
 		resp.sendRedirect("d"); // relative, no leading '/'
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -57,7 +58,8 @@ public class RelativeRedirectResolutionTests {
 								"Host", Set.of("example.com"),
 								"X-Forwarded-Proto", Set.of("https")
 						))
-						.build());
+						.build(),
+				SokletServletContext.withDefaults());
 		resp.sendRedirect("../d"); // should normalize /a/b/../d -> /a/d
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -72,7 +74,8 @@ public class RelativeRedirectResolutionTests {
 								"Host", Set.of("example.com"),
 								"X-Forwarded-Proto", Set.of("https")
 						))
-						.build());
+						.build(),
+				SokletServletContext.withDefaults());
 		resp.sendRedirect("../d?x=../y#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -87,7 +90,7 @@ public class RelativeRedirectResolutionTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		resp.sendRedirect("#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -102,7 +105,7 @@ public class RelativeRedirectResolutionTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		resp.sendRedirect("");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();

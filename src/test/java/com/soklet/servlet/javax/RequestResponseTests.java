@@ -102,7 +102,7 @@ public class RequestResponseTests {
 
 		String responseBodyAsString = "response test";
 
-		SokletHttpServletResponse httpServletResponse = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse httpServletResponse = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		httpServletResponse.setStatus(201);
 		httpServletResponse.addHeader("test", "one");
 		httpServletResponse.addHeader("test", "two");

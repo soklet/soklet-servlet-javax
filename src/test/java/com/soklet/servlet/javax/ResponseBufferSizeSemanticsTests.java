@@ -31,7 +31,7 @@ import java.io.PrintWriter;
 public class ResponseBufferSizeSemanticsTests {
 	@Test
 	public void setBufferSizeBeforeWritingIsAllowed() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setBufferSize(4096);
 		Assertions.assertEquals(4096, resp.getBufferSize());
 		// Write afterwards
@@ -42,7 +42,7 @@ public class ResponseBufferSizeSemanticsTests {
 
 	@Test
 	public void setBufferSizeAfterWritingShouldThrow() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		PrintWriter w = resp.getWriter();
 		w.write("ok");
 		Assertions.assertThrows(IllegalStateException.class, () -> resp.setBufferSize(8192));

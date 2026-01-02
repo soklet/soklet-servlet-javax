@@ -34,7 +34,7 @@ import java.util.Locale;
 public class CharacterEncodingWriterTests {
 	@Test
 	public void writerUsesExplicitEncoding() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setCharacterEncoding("UTF-8");
 		resp.getWriter().write("é"); // non-ASCII
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -44,7 +44,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void changingEncodingAfterGetWriterHasNoEffect() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		var writer = resp.getWriter();
 		String encoding = resp.getCharacterEncoding();
 		resp.setCharacterEncoding("UTF-16"); // should be ignored per spec
@@ -56,7 +56,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void contentTypeCharsetAppliedBeforeWriter() throws Exception {
-		var resp = SokletHttpServletResponse.withRawPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setContentType("text/plain; charset=UTF-16");
 		var w = resp.getWriter();
 		w.write("ok");
@@ -73,7 +73,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void headerContentTypeCharsetAppliedBeforeWriter() throws Exception {
-		var resp = SokletHttpServletResponse.withRawPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setHeader("Content-Type", "text/plain; charset=UTF-16");
 		var w = resp.getWriter();
 		w.write("ok");
@@ -88,7 +88,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void setCharacterEncodingUpdatesHeaderContentType() throws Exception {
-		var resp = SokletHttpServletResponse.withRawPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		resp.setHeader("Content-Type", "text/plain");
 		resp.setCharacterEncoding("UTF-8");
 		var w = resp.getWriter();
@@ -101,7 +101,7 @@ public class CharacterEncodingWriterTests {
 
 	@Test
 	public void changingContentTypeAfterWriterDoesNotChangeEncoding() throws Exception {
-		var resp = SokletHttpServletResponse.withRawPath("/x");
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		// Do NOT set any charset; getWriter() will lock the default encoding
 		var w = resp.getWriter();
 		String encoding = resp.getCharacterEncoding();

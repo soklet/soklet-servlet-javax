@@ -41,7 +41,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -59,7 +59,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -74,7 +74,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -89,7 +89,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		response.sendRedirect("//cdn.example.com/asset");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -104,13 +104,13 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
 		Assertions.assertThrows(IllegalArgumentException.class, () -> response.sendRedirect(null));
 	}
 
 	@Test
 	public void relativeRedirectUsesFallbackBaseWithoutRequest() throws IOException {
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/root/path");
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/root/path", SokletServletContext.withDefaults());
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
