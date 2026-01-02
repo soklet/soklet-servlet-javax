@@ -685,12 +685,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			}
 		} else if (isAbsoluteUri(location)) {
 			// URL is already absolute
-			if (parsed.scheme == null || parsed.rawAuthority == null) {
-				finalLocation = location;
-			} else {
-				String normalized = normalizePath(parsed.rawPath);
-				finalLocation = parsed.scheme + "://" + parsed.rawAuthority + normalized + suffix;
-			}
+			finalLocation = location;
 		} else if (location.startsWith("/")) {
 			// URL is relative with leading /
 			String normalized = normalizePath(parsed.rawPath);
@@ -1024,7 +1019,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			return;
 		}
 
-		Charset cs = Charset.forName(charset);
+		Charset cs;
+
+		try {
+			cs = Charset.forName(charset);
+		} catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
+			return;
+		}
 		setCharset(cs);
 
 		// If a Content-Type is set, reflect/replace the charset=... in the header
@@ -1080,7 +1081,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			// If caller specified charset=..., adopt it as the current explicit charset
 			Optional<String> cs = extractCharsetFromContentType(type);
 			if (cs.isPresent()) {
-				setCharset(Charset.forName(cs.get()));
+				try {
+					setCharset(Charset.forName(cs.get()));
+				} catch (IllegalCharsetNameException | UnsupportedCharsetException ignored) {
+					// Ignore invalid charset token; leave current charset unchanged.
+				}
 				putHeaderValue("Content-Type", type, true);
 			} else {
 				// No charset in type. If an explicit charset already exists (via setCharacterEncoding),

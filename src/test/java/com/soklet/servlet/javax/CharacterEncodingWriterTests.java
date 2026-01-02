@@ -114,4 +114,30 @@ public class CharacterEncodingWriterTests {
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)),
 				mr.getBody().orElse(new byte[]{}));
 	}
+
+	@Test
+	public void invalidSetCharacterEncodingIsIgnored() throws Exception {
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.setCharacterEncoding("no-such-charset");
+		resp.getWriter().write("é");
+		MarshaledResponse mr = resp.toMarshaledResponse();
+
+		Assertions.assertArrayEquals("é".getBytes(Charset.forName("UTF-8")),
+				mr.getBody().orElse(new byte[]{}));
+	}
+
+	@Test
+	public void invalidCharsetInContentTypeIsIgnored() throws Exception {
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.setContentType("text/plain; charset=no-such-charset");
+		resp.getWriter().write("ok");
+		MarshaledResponse mr = resp.toMarshaledResponse();
+
+		String encoding = resp.getCharacterEncoding();
+		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)),
+				mr.getBody().orElse(new byte[]{}));
+
+		var ct = mr.getHeaders().get("Content-Type").iterator().next();
+		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-8"), "Content-Type header does not include UTF-8");
+	}
 }

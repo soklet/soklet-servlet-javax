@@ -67,6 +67,22 @@ public class RedirectTests {
 	}
 
 	@Test
+	public void absoluteRedirectPreservesVerbatimLocation() throws IOException {
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		String location = "https://example.com/a/../b/./c%2Fz?x=1#frag";
+		response.sendRedirect(location);
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of(location), mr.getHeaders().get("Location"));
+	}
+
+	@Test
 	public void rootedRedirectSetsLocation() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
