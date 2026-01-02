@@ -853,7 +853,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@Nullable
 	public String getCharacterEncoding() {
 		Charset explicit = getCharset().orElse(null);
 

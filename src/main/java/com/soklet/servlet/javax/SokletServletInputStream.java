@@ -50,6 +50,13 @@ public final class SokletServletInputStream extends ServletInputStream {
 
 		this.inputStream = inputStream;
 		this.finished = false;
+
+		try {
+			if (inputStream.available() == 0)
+				this.finished = true;
+		} catch (IOException ignored) {
+			// Ignore, default is "not finished"
+		}
 	}
 
 	@Nonnull

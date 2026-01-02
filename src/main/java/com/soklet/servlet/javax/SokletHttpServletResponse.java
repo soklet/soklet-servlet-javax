@@ -32,6 +32,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
@@ -490,6 +491,77 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return format("%s://%s", scheme, authority);
 	}
 
+	private static final class ParsedLocation {
+		@Nullable
+		private final String scheme;
+		@Nullable
+		private final String rawAuthority;
+		@Nonnull
+		private final String rawPath;
+		@Nullable
+		private final String rawQuery;
+		@Nullable
+		private final String rawFragment;
+		private final boolean opaque;
+
+		private ParsedLocation(@Nullable String scheme,
+													 @Nullable String rawAuthority,
+													 @Nonnull String rawPath,
+													 @Nullable String rawQuery,
+													 @Nullable String rawFragment,
+													 boolean opaque) {
+			this.scheme = scheme;
+			this.rawAuthority = rawAuthority;
+			this.rawPath = rawPath;
+			this.rawQuery = rawQuery;
+			this.rawFragment = rawFragment;
+			this.opaque = opaque;
+		}
+	}
+
+	@Nonnull
+	private ParsedLocation parseLocation(@Nonnull String location) {
+		requireNonNull(location);
+
+		try {
+			URI uri = URI.create(location);
+			String rawPath = uri.getRawPath() == null ? "" : uri.getRawPath();
+			return new ParsedLocation(uri.getScheme(), uri.getRawAuthority(), rawPath, uri.getRawQuery(), uri.getRawFragment(), uri.isOpaque());
+		} catch (Exception ignored) {
+			String rawPath = location;
+			String rawQuery = null;
+			String rawFragment = null;
+
+			int hash = rawPath.indexOf('#');
+			if (hash >= 0) {
+				rawFragment = rawPath.substring(hash + 1);
+				rawPath = rawPath.substring(0, hash);
+			}
+
+			int question = rawPath.indexOf('?');
+			if (question >= 0) {
+				rawQuery = rawPath.substring(question + 1);
+				rawPath = rawPath.substring(0, question);
+			}
+
+			return new ParsedLocation(null, null, rawPath, rawQuery, rawFragment, false);
+		}
+	}
+
+	@Nonnull
+	private String buildSuffix(@Nullable String rawQuery,
+														 @Nullable String rawFragment) {
+		StringBuilder suffix = new StringBuilder();
+
+		if (rawQuery != null)
+			suffix.append('?').append(rawQuery);
+
+		if (rawFragment != null)
+			suffix.append('#').append(rawFragment);
+
+		return suffix.toString();
+	}
+
 	@Nonnull
 	private String normalizePath(@Nonnull String path) {
 		requireNonNull(path);
@@ -580,25 +652,46 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		int schemeIndex = baseUrl.indexOf("://");
 		String scheme = schemeIndex > 0 ? baseUrl.substring(0, schemeIndex) : "http";
 		String finalLocation;
+		ParsedLocation parsed = parseLocation(location);
+		String suffix = buildSuffix(parsed.rawQuery, parsed.rawFragment);
 
-		if (location.startsWith("//")) {
+		if (parsed.opaque) {
+			finalLocation = location;
+		} else if (location.startsWith("//")) {
 			// Network-path reference: keep host from location but inherit scheme
-			finalLocation = scheme + ":" + location;
+			if (parsed.rawAuthority == null) {
+				finalLocation = scheme + ":" + location;
+			} else {
+				String normalized = normalizePath(parsed.rawPath);
+				finalLocation = scheme + "://" + parsed.rawAuthority + normalized + suffix;
+			}
 		} else if (isAbsoluteUri(location)) {
 			// URL is already absolute
-			finalLocation = location;
+			if (parsed.scheme == null || parsed.rawAuthority == null) {
+				finalLocation = location;
+			} else {
+				String normalized = normalizePath(parsed.rawPath);
+				finalLocation = parsed.scheme + "://" + parsed.rawAuthority + normalized + suffix;
+			}
 		} else if (location.startsWith("/")) {
 			// URL is relative with leading /
-			String normalized = normalizePath(location);
-			finalLocation = baseUrl + normalized;
+			String normalized = normalizePath(parsed.rawPath);
+			finalLocation = baseUrl + normalized + suffix;
 		} else {
 			// URL is relative but does not have leading '/', resolve against the parent of the current path
 			String base = getRawPath();
-			int idx = base.lastIndexOf('/');
-			String parent = (idx <= 0) ? "/" : base.substring(0, idx);
-			String resolvedPath = parent.endsWith("/") ? parent + location : parent + "/" + location;
-			String normalized = normalizePath(resolvedPath);
-			finalLocation = baseUrl + normalized;
+			String path = parsed.rawPath;
+
+			if (path.isEmpty()) {
+				String normalized = normalizePath(base);
+				finalLocation = baseUrl + normalized + suffix;
+			} else {
+				int idx = base.lastIndexOf('/');
+				String parent = (idx <= 0) ? "/" : base.substring(0, idx);
+				String resolvedPath = parent.endsWith("/") ? parent + path : parent + "/" + path;
+				String normalized = normalizePath(resolvedPath);
+				finalLocation = baseUrl + normalized + suffix;
+			}
 		}
 
 		setRedirectUrl(finalLocation);

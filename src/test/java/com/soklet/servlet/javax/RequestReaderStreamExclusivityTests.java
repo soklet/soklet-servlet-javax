@@ -74,4 +74,12 @@ public class RequestReaderStreamExclusivityTests {
 		BufferedReader second = http.getReader();
 		Assertions.assertSame(first, second);
 	}
+
+	@Test
+	public void emptyBodyInputStreamIsFinished() throws Exception {
+		Request req = Request.withPath(HttpMethod.POST, "/x").build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		ServletInputStream in = http.getInputStream();
+		Assertions.assertTrue(in.isFinished());
+	}
 }

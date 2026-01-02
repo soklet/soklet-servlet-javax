@@ -63,4 +63,19 @@ public class RelativeRedirectResolutionTests {
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		Assertions.assertEquals(Set.of("https://example.com/a/d"), mr.getHeaders().get("Location"));
 	}
+
+	@Test
+	public void relativeRedirectPreservesQueryAndFragment() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
+				Request.withPath(HttpMethod.GET, "/a/b/c")
+						.headers(Map.of(
+								"Host", Set.of("example.com"),
+								"X-Forwarded-Proto", Set.of("https")
+						))
+						.build());
+		resp.sendRedirect("../d?x=../y#frag");
+
+		MarshaledResponse mr = resp.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/a/d?x=../y#frag"), mr.getHeaders().get("Location"));
+	}
 }
