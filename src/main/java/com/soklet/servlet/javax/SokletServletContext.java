@@ -139,7 +139,15 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Nullable
 	public ServletContext getContext(@Nullable String uripath) {
-		return this;
+		if (uripath == null)
+			return null;
+
+		String normalized = uripath.trim();
+
+		if (normalized.isEmpty() || "/".equals(normalized))
+			return this;
+
+		return null;
 	}
 
 	@Override
@@ -172,11 +180,11 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@Nullable
 	public Set<String> getResourcePaths(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResourcePaths-java.lang.String-
 		if (path == null || !path.startsWith("/"))
-			return java.util.Set.of();
+			return null;
 
 		try {
 			String normalized = path.equals("/") ? "" : path.substring(1);
@@ -225,9 +233,9 @@ public final class SokletServletContext implements ServletContext {
 					}
 				}
 			}
-			return out;
+			return out.isEmpty() ? null : out;
 		} catch (Exception ignored) {
-			return Set.of();
+			return null;
 		}
 	}
 

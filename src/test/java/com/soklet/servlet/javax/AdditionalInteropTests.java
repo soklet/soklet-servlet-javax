@@ -158,15 +158,41 @@ public class AdditionalInteropTests {
 	}
 
 	@Test
-	public void getResourcePathsCurrentlyNotEmpty() {
+	public void getResourcePathsReturnsNullForInvalidPath() {
 		var ctx = SokletServletContext.withDefaults();
-		Assertions.assertFalse(ctx.getResourcePaths("/").isEmpty());
+		Assertions.assertNull(ctx.getResourcePaths("relative"));
+	}
+
+	@Test
+	public void getResourcePathsReturnsNullWhenMissing() {
+		var ctx = SokletServletContext.withDefaults();
+		Assertions.assertNull(ctx.getResourcePaths("/definitely-not-present"));
+	}
+
+	@Test
+	public void getContextReturnsNullForOtherContext() {
+		var ctx = SokletServletContext.withDefaults();
+		Assertions.assertNull(ctx.getContext("/other"));
 	}
 
 	@Test
 	public void requestDispatcherIsNullWhenUnsupported() {
 		var ctx = SokletServletContext.withDefaults();
 		Assertions.assertNull(ctx.getRequestDispatcher("/x"));
+	}
+
+	@Test
+	public void pathTranslatedIsNullWithoutFilesystemMapping() {
+		Request req = Request.withPath(HttpMethod.GET, "/p").build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertNull(http.getPathTranslated());
+	}
+
+	@Test
+	public void localPortDefaultsToZeroWhenUnset() {
+		Request req = Request.withPath(HttpMethod.GET, "/p").build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertEquals(0, http.getLocalPort());
 	}
 
 	@Test

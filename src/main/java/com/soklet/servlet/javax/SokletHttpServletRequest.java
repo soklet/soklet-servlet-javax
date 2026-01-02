@@ -558,7 +558,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getPathTranslated() {
-		return getRequest().getPath();
+		return null;
 	}
 
 	@Override
@@ -1158,8 +1158,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getLocalPort() {
-		return getPort().orElseThrow(() -> new IllegalStateException(format("%s must be initialized with a port in order to call this method",
-				getClass().getSimpleName())));
+		Integer port = getPort().orElse(null);
+		return port == null ? 0 : port;
 	}
 
 	@Override
