@@ -681,16 +681,22 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			// URL is relative but does not have leading '/', resolve against the parent of the current path
 			String base = getRawPath();
 			String path = parsed.rawPath;
+			String query = parsed.rawQuery;
+
+			if (path.isEmpty() && query == null)
+				query = getRequest().flatMap(Request::getRawQuery).orElse(null);
+
+			String relativeSuffix = buildSuffix(query, parsed.rawFragment);
 
 			if (path.isEmpty()) {
 				String normalized = normalizePath(base);
-				finalLocation = baseUrl + normalized + suffix;
+				finalLocation = baseUrl + normalized + relativeSuffix;
 			} else {
 				int idx = base.lastIndexOf('/');
 				String parent = (idx <= 0) ? "/" : base.substring(0, idx);
 				String resolvedPath = parent.endsWith("/") ? parent + path : parent + "/" + path;
 				String normalized = normalizePath(resolvedPath);
-				finalLocation = baseUrl + normalized + suffix;
+				finalLocation = baseUrl + normalized + relativeSuffix;
 			}
 		}
 

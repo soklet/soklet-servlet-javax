@@ -78,4 +78,34 @@ public class RelativeRedirectResolutionTests {
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		Assertions.assertEquals(Set.of("https://example.com/a/d?x=../y#frag"), mr.getHeaders().get("Location"));
 	}
+
+	@Test
+	public void fragmentOnlyRedirectPreservesBaseQuery() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/a/b/c?x=1%2F2&y=a+b")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request);
+		resp.sendRedirect("#frag");
+
+		MarshaledResponse mr = resp.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/a/b/c?x=1%2F2&y=a+b#frag"), mr.getHeaders().get("Location"));
+	}
+
+	@Test
+	public void emptyRedirectPreservesBaseQuery() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/a/b/c?x=1%2F2&y=a+b")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request);
+		resp.sendRedirect("");
+
+		MarshaledResponse mr = resp.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/a/b/c?x=1%2F2&y=a+b"), mr.getHeaders().get("Location"));
+	}
 }

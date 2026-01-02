@@ -52,6 +52,7 @@ public class RemoteAddressParsingTests {
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("203.0.113.50", http.getRemoteAddr());
 		Assertions.assertEquals("203.0.113.50", http.getRemoteHost());
+		Assertions.assertEquals(1234, http.getRemotePort());
 	}
 
 	@Test

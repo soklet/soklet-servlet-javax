@@ -1221,8 +1221,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getRemotePort() {
-		// Not reliably knowable without a socket; return 0 to indicate "unknown"
-		return 0;
+		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
+		return remoteAddress == null ? 0 : remoteAddress.getPort();
 	}
 
 	@Override
