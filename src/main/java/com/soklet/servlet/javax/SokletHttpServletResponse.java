@@ -24,6 +24,7 @@ import com.soklet.ResponseCookie;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
@@ -32,7 +33,9 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.UnsupportedCharsetException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -79,6 +82,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nullable
 	private final Request request;
 	@Nonnull
+	private final ServletContext servletContext;
+	@Nonnull
 	private final List<Cookie> cookies;
 	@Nonnull
 	private final Map<String, List<String>> headers;
@@ -112,7 +117,14 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	public static SokletHttpServletResponse withRequest(@Nonnull Request request) {
 		requireNonNull(request);
-		return new SokletHttpServletResponse(request, request.getRawPath());
+		return new SokletHttpServletResponse(request, request.getRawPath(), null);
+	}
+
+	@Nonnull
+	public static SokletHttpServletResponse withRequest(@Nonnull Request request,
+																											@Nullable ServletContext servletContext) {
+		requireNonNull(request);
+		return new SokletHttpServletResponse(request, request.getRawPath(), servletContext);
 	}
 
 	/**
@@ -127,15 +139,24 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath) {
 		requireNonNull(rawPath);
-		return new SokletHttpServletResponse(null, rawPath);
+		return new SokletHttpServletResponse(null, rawPath, null);
+	}
+
+	@Nonnull
+	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath,
+																											@Nullable ServletContext servletContext) {
+		requireNonNull(rawPath);
+		return new SokletHttpServletResponse(null, rawPath, servletContext);
 	}
 
 	private SokletHttpServletResponse(@Nullable Request request,
-																		@Nonnull String rawPath) {
+																		@Nonnull String rawPath,
+																		@Nullable ServletContext servletContext) {
 		requireNonNull(rawPath);
 
 		this.request = request;
 		this.rawPath = rawPath;
+		this.servletContext = servletContext == null ? SokletServletContext.withDefaults() : servletContext;
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
 		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
@@ -198,6 +219,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Nonnull
+	private ServletContext getServletContext() {
+		return this.servletContext;
+	}
+
+	@Nonnull
 	private List<Cookie> getCookies() {
 		return this.cookies;
 	}
@@ -253,6 +279,31 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Nonnull
 	private Optional<Charset> getCharset() {
 		return Optional.ofNullable(this.charset);
+	}
+
+	@Nullable
+	private Charset getContextResponseCharset() {
+		String encoding = getServletContext().getResponseCharacterEncoding();
+
+		if (encoding == null || encoding.isBlank())
+			return null;
+
+		try {
+			return Charset.forName(encoding);
+		} catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
+			return null;
+		}
+	}
+
+	@Nonnull
+	private Charset getEffectiveCharset() {
+		Charset explicit = this.charset;
+
+		if (explicit != null)
+			return explicit;
+
+		Charset context = getContextResponseCharset();
+		return context == null ? DEFAULT_CHARSET : context;
 	}
 
 	private void setCharset(@Nullable Charset charset) {
@@ -348,7 +399,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void addCookie(@Nullable Cookie cookie) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
 
 		if (cookie != null)
 			getCookies().add(cookie);
@@ -422,7 +474,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (req == null)
 			return "http://localhost";
 
-		SokletHttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		SokletHttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.servletContext(getServletContext())
+				.build();
 		String scheme = http.getScheme();
 		String host = http.getServerName();
 		int port = http.getServerPort();
@@ -434,6 +488,76 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
 		return format("%s://%s", scheme, authority);
+	}
+
+	@Nonnull
+	private String normalizePath(@Nonnull String path) {
+		requireNonNull(path);
+
+		if (path.isEmpty())
+			return path;
+
+		String input = path;
+		StringBuilder output = new StringBuilder();
+
+		while (!input.isEmpty()) {
+			if (input.startsWith("../")) {
+				input = input.substring(3);
+			} else if (input.startsWith("./")) {
+				input = input.substring(2);
+			} else if (input.startsWith("/./")) {
+				input = input.substring(2);
+			} else if (input.equals("/.")) {
+				input = "/";
+			} else if (input.startsWith("/../")) {
+				input = input.substring(3);
+				removeLastSegment(output);
+			} else if (input.equals("/..")) {
+				input = "/";
+				removeLastSegment(output);
+			} else if (input.equals(".") || input.equals("..")) {
+				input = "";
+			} else {
+				int start = input.startsWith("/") ? 1 : 0;
+				int nextSlash = input.indexOf('/', start);
+
+				if (nextSlash == -1) {
+					output.append(input);
+					input = "";
+				} else {
+					output.append(input, 0, nextSlash);
+					input = input.substring(nextSlash);
+				}
+			}
+		}
+
+		return output.toString();
+	}
+
+	private void removeLastSegment(@Nonnull StringBuilder output) {
+		requireNonNull(output);
+
+		int length = output.length();
+
+		if (length == 0)
+			return;
+
+		int end = length;
+
+		if (end > 0 && output.charAt(end - 1) == '/')
+			end--;
+
+		if (end <= 0) {
+			output.setLength(0);
+			return;
+		}
+
+		int lastSlash = output.lastIndexOf("/", end - 1);
+
+		if (lastSlash >= 0)
+			output.delete(lastSlash, output.length());
+		else
+			output.setLength(0);
 	}
 
 	@Override
@@ -465,14 +589,16 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			finalLocation = location;
 		} else if (location.startsWith("/")) {
 			// URL is relative with leading /
-			finalLocation = baseUrl + location;
+			String normalized = normalizePath(location);
+			finalLocation = baseUrl + normalized;
 		} else {
 			// URL is relative but does not have leading '/', resolve against the parent of the current path
 			String base = getRawPath();
 			int idx = base.lastIndexOf('/');
 			String parent = (idx <= 0) ? "/" : base.substring(0, idx);
 			String resolvedPath = parent.endsWith("/") ? parent + location : parent + "/" + location;
-			finalLocation = baseUrl + resolvedPath;
+			String normalized = normalizePath(resolvedPath);
+			finalLocation = baseUrl + normalized;
 		}
 
 		setRedirectUrl(finalLocation);
@@ -485,21 +611,26 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void setDateHeader(@Nullable String name,
 														long date) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		setHeader(name, dateHeaderRepresentation(date));
 	}
 
 	@Override
 	public void addDateHeader(@Nullable String name,
 														long date) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		addHeader(name, dateHeaderRepresentation(date));
 	}
 
 	@Override
 	public void setHeader(@Nullable String name,
 												@Nullable String value) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
 
 		if (name != null && !name.isBlank() && value != null) {
 			if ("Content-Type".equalsIgnoreCase(name)) {
@@ -514,7 +645,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void addHeader(@Nullable String name,
 												@Nullable String value) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
 
 		if (name != null && !name.isBlank() && value != null) {
 			if ("Content-Type".equalsIgnoreCase(name)) {
@@ -529,20 +661,20 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public void setIntHeader(@Nullable String name,
 													 int value) {
-		ensureResponseIsUncommitted();
 		setHeader(name, String.valueOf(value));
 	}
 
 	@Override
 	public void addIntHeader(@Nullable String name,
 													 int value) {
-		ensureResponseIsUncommitted();
 		addHeader(name, String.valueOf(value));
 	}
 
 	@Override
 	public void setStatus(int sc) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		this.statusCode = sc;
 	}
 
@@ -550,7 +682,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Deprecated
 	public void setStatus(int sc,
 												@Nullable String sm) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		this.statusCode = sc;
 		this.errorMessage = sm;
 	}
@@ -589,7 +723,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	@Nonnull
 	public String getCharacterEncoding() {
-		return getCharset().orElse(DEFAULT_CHARSET).name();
+		return getEffectiveCharset().name();
 	}
 
 	@Override
@@ -692,17 +826,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		// Returns a PrintWriter object that can send character text to the client.
 		// The PrintWriter uses the character encoding returned by getCharacterEncoding().
 		// If the response's character encoding has not been specified as described in getCharacterEncoding
-		// (i.e., the method just returns the default value ISO-8859-1), getWriter updates it to ISO-8859-1.
+		// (i.e., the method just returns the default value), getWriter updates it to the effective default.
 		// Calling flush() on the PrintWriter commits the response.
 		//
 		// Either this method or getOutputStream() may be called to write the body, not both, except when reset() has been called.
 		// Returns a PrintWriter that uses the character encoding returned by getCharacterEncoding().
-		// If not specified yet, calling getWriter() fixes the encoding to ISO-8859-1 per spec.
+		// If not specified yet, calling getWriter() fixes the encoding to the effective default.
 		ResponseWriteMethod currentResponseWriteMethod = getResponseWriteMethod();
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			// Freeze encoding now
-			Charset enc = getCharset().orElse(DEFAULT_CHARSET);
+			Charset enc = getEffectiveCharset();
 			setCharset(enc); // record the chosen encoding explicitly
 
 			// If a content type is already present and lacks charset, append the frozen charset to header
@@ -746,7 +880,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void setCharacterEncoding(@Nullable String charset) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
 
 		// Spec: no effect after getWriter() or after commit
 		if (writerObtained())
@@ -793,13 +928,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void setContentLength(int len) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		setHeader("Content-Length", String.valueOf(len));
 	}
 
 	@Override
 	public void setContentLengthLong(long len) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		setHeader("Content-Length", String.valueOf(len));
 	}
 
@@ -930,7 +1069,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@Override
 	public void setLocale(@Nullable Locale locale) {
-		ensureResponseIsUncommitted();
+		if (isCommitted())
+			return;
+
 		this.locale = locale;
 
 		if (locale == null) {

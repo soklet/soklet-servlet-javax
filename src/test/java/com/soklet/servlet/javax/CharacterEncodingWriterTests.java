@@ -46,12 +46,12 @@ public class CharacterEncodingWriterTests {
 	public void changingEncodingAfterGetWriterHasNoEffect() throws Exception {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		var writer = resp.getWriter();
+		String encoding = resp.getCharacterEncoding();
 		resp.setCharacterEncoding("UTF-16"); // should be ignored per spec
 		writer.write("ok");
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		byte[] body = mr.getBody().orElse(new byte[]{});
-		// Default per servlet spec is ISO-8859-1
-		Assertions.assertArrayEquals("ok".getBytes(Charset.forName("ISO-8859-1")), body);
+		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)), body);
 	}
 
 	@Test
@@ -102,15 +102,16 @@ public class CharacterEncodingWriterTests {
 	@Test
 	public void changingContentTypeAfterWriterDoesNotChangeEncoding() throws Exception {
 		var resp = SokletHttpServletResponse.withRawPath("/x");
-		// Do NOT set any charset; getWriter() will lock ISO-8859-1
+		// Do NOT set any charset; getWriter() will lock the default encoding
 		var w = resp.getWriter();
+		String encoding = resp.getCharacterEncoding();
 		// Now try to change to UTF-8—should not affect actual encoding used by writer
 		resp.setContentType("text/plain; charset=UTF-8");
 		w.write("ok");
 		var mr = resp.toMarshaledResponse();
 
-		// Body remains ISO-8859-1
-		Assertions.assertArrayEquals("ok".getBytes(Charset.forName("ISO-8859-1")),
+		// Body remains in the encoding locked at getWriter()
+		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)),
 				mr.getBody().orElse(new byte[]{}));
 	}
 }

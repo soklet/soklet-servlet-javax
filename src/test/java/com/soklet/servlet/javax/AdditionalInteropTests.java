@@ -126,7 +126,9 @@ public class AdditionalInteropTests {
 	public void flushBufferCommitsResponse() throws Exception {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.flushBuffer();
-		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+		Assertions.assertTrue(resp.isCommitted());
+		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
+		Assertions.assertNull(resp.getHeader("X"));
 	}
 
 	@Test
@@ -134,7 +136,8 @@ public class AdditionalInteropTests {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.getOutputStream().flush();
 		Assertions.assertTrue(resp.isCommitted());
-		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
+		Assertions.assertNull(resp.getHeader("X"));
 	}
 
 	@Test
@@ -142,7 +145,8 @@ public class AdditionalInteropTests {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x");
 		resp.getWriter().flush();
 		Assertions.assertTrue(resp.isCommitted());
-		Assertions.assertThrows(IllegalStateException.class, () -> resp.setHeader("X", "1"));
+		Assertions.assertDoesNotThrow(() -> resp.setHeader("X", "1"));
+		Assertions.assertNull(resp.getHeader("X"));
 	}
 
 	@Test

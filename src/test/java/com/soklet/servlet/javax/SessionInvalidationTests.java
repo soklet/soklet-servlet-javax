@@ -43,4 +43,19 @@ public class SessionInvalidationTests {
 		Assertions.assertThrows(IllegalStateException.class, () -> session.setAttribute("a", 1));
 		Assertions.assertThrows(IllegalStateException.class, () -> session.removeAttribute("foo"));
 	}
+
+	@Test
+	public void getSessionAfterInvalidateCreatesNewSession() {
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
+		HttpSession session = http.getSession(true);
+		String sessionId = session.getId();
+		session.invalidate();
+
+		Assertions.assertNull(http.getSession(false));
+
+		HttpSession newSession = http.getSession(true);
+		Assertions.assertNotNull(newSession);
+		Assertions.assertNotEquals(sessionId, newSession.getId());
+		Assertions.assertSame(newSession, http.getSession(false));
+	}
 }

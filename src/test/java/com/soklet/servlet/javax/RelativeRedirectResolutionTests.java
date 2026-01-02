@@ -48,4 +48,19 @@ public class RelativeRedirectResolutionTests {
 		// Expected: /a/b/d (parent of /a/b/c is /a/b)
 		Assertions.assertEquals(Set.of("https://example.com/a/b/d"), mr.getHeaders().get("Location"));
 	}
+
+	@Test
+	public void relativeRedirectNormalizesDotSegments() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
+				Request.withPath(HttpMethod.GET, "/a/b/c")
+						.headers(Map.of(
+								"Host", Set.of("example.com"),
+								"X-Forwarded-Proto", Set.of("https")
+						))
+						.build());
+		resp.sendRedirect("../d"); // should normalize /a/b/../d -> /a/d
+
+		MarshaledResponse mr = resp.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/a/d"), mr.getHeaders().get("Location"));
+	}
 }

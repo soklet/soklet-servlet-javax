@@ -98,7 +98,7 @@ public final class SokletHttpSession implements HttpSession {
 		return this.attributes;
 	}
 
-	private boolean isInvalidated() {
+	boolean isInvalidated() {
 		return this.invalidated;
 	}
 

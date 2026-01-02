@@ -76,6 +76,14 @@ public class RequestResponseTests {
 	}
 
 	@Test
+	public void queryParametersUseServletDecoding() {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/testing?name=red+blue&plus=a%2Bb").build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		Assertions.assertEquals("red blue", httpServletRequest.getParameter("name"));
+		Assertions.assertEquals("a+b", httpServletRequest.getParameter("plus"));
+	}
+
+	@Test
 	public void requestAndResponse() throws IOException {
 		Charset charset = StandardCharsets.UTF_16BE;
 		String requestBodyAsString = "example body";
@@ -130,6 +138,14 @@ public class RequestResponseTests {
 
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 		httpServletRequest.setCharacterEncoding("UTF-8");
+		Assertions.assertEquals("caf\u00E9", httpServletRequest.getParameter("name"));
+	}
+
+	@Test
+	public void setCharacterEncodingAffectsQueryParameters() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/testing?name=caf%E9").build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		httpServletRequest.setCharacterEncoding("ISO-8859-1");
 		Assertions.assertEquals("caf\u00E9", httpServletRequest.getParameter("name"));
 	}
 

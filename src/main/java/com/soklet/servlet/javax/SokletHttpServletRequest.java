@@ -136,6 +136,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private String contentType;
 	@Nullable
+	private Map<String, Set<String>> queryParameters;
+	@Nullable
 	private Map<String, Set<String>> formParameters;
 	private boolean parametersAccessed;
 	@Nullable
@@ -212,7 +214,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nonnull
 	private Optional<HttpSession> getHttpSession() {
-		return Optional.ofNullable(this.httpSession);
+		HttpSession current = this.httpSession;
+
+		if (current instanceof SokletHttpSession && ((SokletHttpSession) current).isInvalidated()) {
+			this.httpSession = null;
+			return Optional.empty();
+		}
+
+		return Optional.ofNullable(current);
 	}
 
 	private void setHttpSession(@Nullable HttpSession httpSession) {
@@ -224,8 +233,51 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return Optional.ofNullable(this.charset);
 	}
 
+	@Nullable
+	private Charset getContextRequestCharset() {
+		String encoding = getServletContext().getRequestCharacterEncoding();
+
+		if (encoding == null || encoding.isBlank())
+			return null;
+
+		try {
+			return Charset.forName(encoding);
+		} catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
+			return null;
+		}
+	}
+
+	@Nonnull
+	private Charset getEffectiveCharset() {
+		Charset explicit = this.charset;
+
+		if (explicit != null)
+			return explicit;
+
+		Charset context = getContextRequestCharset();
+		return context == null ? DEFAULT_CHARSET : context;
+	}
+
 	private void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
+	}
+
+	@Nonnull
+	private Map<String, Set<String>> getQueryParameters() {
+		if (this.queryParameters != null)
+			return this.queryParameters;
+
+		String rawQuery = getRequest().getRawQuery().orElse(null);
+
+		if (rawQuery == null || rawQuery.isEmpty()) {
+			this.queryParameters = Map.of();
+			return this.queryParameters;
+		}
+
+		Charset charset = getEffectiveCharset();
+		Map<String, Set<String>> parsed = Utilities.extractQueryParametersFromQuery(rawQuery, QueryFormat.X_WWW_FORM_URLENCODED, charset);
+		this.queryParameters = Collections.unmodifiableMap(parsed);
+		return this.queryParameters;
 	}
 
 	@Nonnull
@@ -246,7 +298,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		String bodyAsString = new String(body, StandardCharsets.ISO_8859_1);
-		Charset charset = getCharset().orElse(DEFAULT_CHARSET);
+		Charset charset = getEffectiveCharset();
 		Map<String, Set<String>> parsed = Utilities.extractQueryParametersFromQuery(bodyAsString, QueryFormat.X_WWW_FORM_URLENCODED, charset);
 		this.formParameters = Collections.unmodifiableMap(parsed);
 		return this.formParameters;
@@ -803,8 +855,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getCharacterEncoding() {
-		Charset charset = getCharset().orElse(null);
-		return charset == null ? null : charset.name();
+		Charset explicit = getCharset().orElse(null);
+
+		if (explicit != null)
+			return explicit.name();
+
+		Charset context = getContextRequestCharset();
+		return context == null ? null : context.name();
 	}
 
 	@Override
@@ -824,6 +881,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			}
 		}
 
+		this.queryParameters = null;
 		this.formParameters = null;
 	}
 
@@ -871,7 +929,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		markParametersAccessed();
 
-		Set<String> queryValues = getRequest().getQueryParameters().get(name);
+		Set<String> queryValues = getQueryParameters().get(name);
 
 		if (queryValues != null && !queryValues.isEmpty())
 			return queryValues.iterator().next();
@@ -889,7 +947,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public Enumeration<String> getParameterNames() {
 		markParametersAccessed();
 
-		Set<String> queryParameterNames = getRequest().getQueryParameters().keySet();
+		Set<String> queryParameterNames = getQueryParameters().keySet();
 		Set<String> formParameterNames = getFormParameters().keySet();
 
 		Set<String> parameterNames = new HashSet<>(queryParameterNames.size() + formParameterNames.size());
@@ -909,7 +967,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		List<String> parameterValues = new ArrayList<>();
 
-		Set<String> queryValues = getRequest().getQueryParameters().get(name);
+		Set<String> queryValues = getQueryParameters().get(name);
 
 		if (queryValues != null)
 			parameterValues.addAll(queryValues);
@@ -930,7 +988,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		Map<String, Set<String>> parameterMap = new HashMap<>();
 
 		// Mutable copy of entries
-		for (Entry<String, Set<String>> entry : getRequest().getQueryParameters().entrySet())
+		for (Entry<String, Set<String>> entry : getQueryParameters().entrySet())
 			parameterMap.put(entry.getKey(), new HashSet<>(entry.getValue()));
 
 		// Add form parameters to entries
@@ -1055,7 +1113,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.READER);
-			Charset charset = getCharset().orElse(DEFAULT_CHARSET);
+			Charset charset = getEffectiveCharset();
 			InputStream inputStream = new ByteArrayInputStream(getRequest().getBody().orElse(new byte[0]));
 			setBufferedReader(new BufferedReader(new InputStreamReader(inputStream, charset)));
 			return getBufferedReader().get();
