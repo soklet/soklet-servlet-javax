@@ -59,4 +59,20 @@ public class RequestCookieBehaviorTests {
 		Assertions.assertEquals("1", values.get("a"));
 		Assertions.assertEquals("2", values.get("A"));
 	}
+
+	@Test
+	public void cookieValuesPreservePercentEncoding() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Cookie", Set.of("token=a%2Fb%3B%20c")))
+				.build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Cookie[] cookies = http.getCookies();
+		Assertions.assertNotNull(cookies);
+
+		Map<String, String> values = new HashMap<>();
+		for (Cookie cookie : cookies)
+			values.put(cookie.getName(), cookie.getValue());
+
+		Assertions.assertEquals("a%2Fb%3B%20c", values.get("token"));
+	}
 }

@@ -1131,6 +1131,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public void setBufferSize(int size) {
 		ensureResponseIsUncommitted();
 
+		if (size <= 0)
+			throw new IllegalArgumentException("Buffer size must be greater than 0");
+
 		// Per Servlet spec, setBufferSize must be called before any content is written
 		if (writerObtained() || getServletOutputStream().isPresent() || getResponseOutputStream().size() > 0)
 			throw new IllegalStateException("setBufferSize must be called before any content is written");
@@ -1195,6 +1198,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			return;
 
 		this.locale = locale;
+
+		if (locale != null && !writerObtained() && getCharset().isEmpty()) {
+			Charset contextCharset = getContextResponseCharset();
+			Charset selectedCharset = contextCharset == null ? DEFAULT_CHARSET : contextCharset;
+			setCharacterEncoding(selectedCharset.name());
+		}
 
 		if (locale == null) {
 			getHeaders().remove("Content-Language");

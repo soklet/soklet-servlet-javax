@@ -182,22 +182,133 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private List<Cookie> parseCookies(@Nonnull Request request) {
 		requireNonNull(request);
 
-		Map<String, Set<String>> cookies = request.getCookies();
-		List<Cookie> convertedCookies = new ArrayList<>(cookies.size());
+		List<Cookie> convertedCookies = new ArrayList<>();
+		Map<String, Set<String>> headers = request.getHeaders();
 
-		for (Entry<String, Set<String>> entry : cookies.entrySet()) {
-			String name = entry.getKey();
-			Set<String> values = entry.getValue();
+		for (Entry<String, Set<String>> entry : headers.entrySet()) {
+			String headerName = entry.getKey();
 
-			// Should never occur...
-			if (name == null)
+			if (headerName == null || !"cookie".equalsIgnoreCase(headerName.trim()))
 				continue;
 
-			for (String value : values)
-				convertedCookies.add(new Cookie(name, value));
+			Set<String> headerValues = entry.getValue();
+
+			if (headerValues == null)
+				continue;
+
+			for (String headerValue : headerValues) {
+				headerValue = Utilities.trimAggressivelyToNull(headerValue);
+
+				if (headerValue == null)
+					continue;
+
+				for (String cookieComponent : splitCookieHeaderRespectingQuotes(headerValue)) {
+					cookieComponent = Utilities.trimAggressivelyToNull(cookieComponent);
+
+					if (cookieComponent == null)
+						continue;
+
+					String[] cookiePair = cookieComponent.split("=", 2);
+					String rawName = Utilities.trimAggressivelyToNull(cookiePair[0]);
+					String rawValue = (cookiePair.length == 2 ? Utilities.trimAggressivelyToNull(cookiePair[1]) : null);
+
+					if (rawName == null)
+						continue;
+
+					String cookieValue = null;
+
+					if (rawValue != null)
+						cookieValue = unquoteCookieValueIfNeeded(rawValue);
+
+					if (cookieValue != null)
+						convertedCookies.add(new Cookie(rawName, cookieValue));
+				}
+			}
 		}
 
 		return convertedCookies;
+	}
+
+	/**
+	 * Splits a Cookie header string into components on ';' but ONLY when not inside a quoted value.
+	 * Supports backslash-escaped quotes within quoted strings.
+	 */
+	@Nonnull
+	private static List<String> splitCookieHeaderRespectingQuotes(@Nonnull String headerValue) {
+		List<String> parts = new ArrayList<>();
+		StringBuilder current = new StringBuilder(headerValue.length());
+		boolean inQuotes = false;
+		boolean escape = false;
+
+		for (int i = 0; i < headerValue.length(); i++) {
+			char c = headerValue.charAt(i);
+
+			if (escape) {
+				current.append(c);
+				escape = false;
+				continue;
+			}
+
+			if (c == '\\') {
+				escape = true;
+				current.append(c);
+				continue;
+			}
+
+			if (c == '"') {
+				inQuotes = !inQuotes;
+				current.append(c);
+				continue;
+			}
+
+			if (c == ';' && !inQuotes) {
+				parts.add(current.toString());
+				current.setLength(0);
+				continue;
+			}
+
+			current.append(c);
+		}
+
+		if (current.length() > 0)
+			parts.add(current.toString());
+
+		return parts;
+	}
+
+	/**
+	 * If the cookie value is a quoted-string, remove surrounding quotes and unescape \" \\ and \; .
+	 * Otherwise returns the input as-is.
+	 */
+	@Nonnull
+	private static String unquoteCookieValueIfNeeded(@Nonnull String rawValue) {
+		requireNonNull(rawValue);
+
+		if (rawValue.length() >= 2 && rawValue.charAt(0) == '"' && rawValue.charAt(rawValue.length() - 1) == '"') {
+			String inner = rawValue.substring(1, rawValue.length() - 1);
+			StringBuilder sb = new StringBuilder(inner.length());
+			boolean escape = false;
+
+			for (int i = 0; i < inner.length(); i++) {
+				char c = inner.charAt(i);
+
+				if (escape) {
+					sb.append(c);
+					escape = false;
+				} else if (c == '\\') {
+					escape = true;
+				} else {
+					sb.append(c);
+				}
+			}
+
+			if (escape)
+				sb.append('\\');
+
+			return sb.toString();
+		}
+
+		return rawValue;
 	}
 
 	@Nonnull
@@ -940,7 +1051,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.INPUT_STREAM);
-			byte[] body = getRequest().getBody().orElse(new byte[]{});
+			byte[] body = this.parametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[]{});
 			setServletInputStream(SokletServletInputStream.withInputStream(new ByteArrayInputStream(body)));
 			return getServletInputStream().get();
 		} else if (currentReadMethod == RequestReadMethod.INPUT_STREAM) {
@@ -1143,7 +1254,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.READER);
 			Charset charset = getEffectiveCharset();
-			InputStream inputStream = new ByteArrayInputStream(getRequest().getBody().orElse(new byte[0]));
+			byte[] body = this.parametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[0]);
+			InputStream inputStream = new ByteArrayInputStream(body);
 			setBufferedReader(new BufferedReader(new InputStreamReader(inputStream, charset)));
 			return getBufferedReader().get();
 		} else if (currentReadMethod == RequestReadMethod.READER) {

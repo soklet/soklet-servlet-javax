@@ -140,4 +140,15 @@ public class CharacterEncodingWriterTests {
 		var ct = mr.getHeaders().get("Content-Type").iterator().next();
 		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-8"), "Content-Type header does not include UTF-8");
 	}
+
+	@Test
+	public void setLocaleAppliesDefaultEncodingWhenUnset() {
+		var resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.setContentType("text/plain");
+		resp.setLocale(Locale.US);
+
+		String contentType = resp.getContentType();
+		Assertions.assertNotNull(contentType);
+		Assertions.assertTrue(contentType.toLowerCase(Locale.ROOT).contains("charset=utf-8"));
+	}
 }

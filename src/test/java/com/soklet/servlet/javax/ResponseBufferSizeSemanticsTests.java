@@ -47,4 +47,16 @@ public class ResponseBufferSizeSemanticsTests {
 		w.write("ok");
 		Assertions.assertThrows(IllegalStateException.class, () -> resp.setBufferSize(8192));
 	}
+
+	@Test
+	public void setBufferSizeZeroThrows() {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		Assertions.assertThrows(IllegalArgumentException.class, () -> resp.setBufferSize(0));
+	}
+
+	@Test
+	public void setBufferSizeNegativeThrows() {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		Assertions.assertThrows(IllegalArgumentException.class, () -> resp.setBufferSize(-1));
+	}
 }

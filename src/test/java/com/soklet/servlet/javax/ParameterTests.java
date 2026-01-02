@@ -74,4 +74,28 @@ public class ParameterTests {
 		Assertions.assertNull(httpServletRequest.getParameter("form"));
 		Assertions.assertNull(httpServletRequest.getParameterValues("form"));
 	}
+
+	@Test
+	public void inputStreamEmptyAfterParameterAccess() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("form=2".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		Assertions.assertEquals("2", httpServletRequest.getParameter("form"));
+
+		Assertions.assertEquals(-1, httpServletRequest.getInputStream().read());
+	}
+
+	@Test
+	public void readerEmptyAfterParameterAccess() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("form=2".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		Assertions.assertEquals("2", httpServletRequest.getParameter("form"));
+
+		Assertions.assertEquals(-1, httpServletRequest.getReader().read());
+	}
 }
