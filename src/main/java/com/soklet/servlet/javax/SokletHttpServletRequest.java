@@ -455,19 +455,24 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nonnull
-	private Optional<String> getClientUrlPrefix() {
-		return Utilities.extractClientUrlPrefixFromHeaders(getRequest().getHeaders());
+	private Optional<String> getEffectiveOrigin() {
+		return Utilities.extractEffectiveOrigin(
+				Utilities.EffectiveOriginResolver.withRequest(
+						getRequest(),
+						Utilities.EffectiveOriginResolver.TrustPolicy.TRUST_ALL
+				)
+		);
 	}
 
 	@Nonnull
-	private Optional<URI> getClientUriPrefix() {
-		String clientUrlPrefix = getClientUrlPrefix().orElse(null);
+	private Optional<URI> getEffectiveOriginUri() {
+		String effectiveOrigin = getEffectiveOrigin().orElse(null);
 
-		if (clientUrlPrefix == null)
+		if (effectiveOrigin == null)
 			return Optional.empty();
 
 		try {
-			return Optional.of(URI.create(clientUrlPrefix));
+			return Optional.of(URI.create(effectiveOrigin));
 		} catch (Exception ignored) {
 			return Optional.empty();
 		}
@@ -835,11 +840,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nonnull
 	public StringBuffer getRequestURL() {
 		// Try forwarded/synthesized absolute prefix first
-		String clientUrlPrefix = getClientUrlPrefix().orElse(null);
+		String effectiveOrigin = getEffectiveOrigin().orElse(null);
 		String rawPath = getRequest().getRawPath();
 
-		if (clientUrlPrefix != null)
-			return new StringBuffer(format("%s%s", clientUrlPrefix, rawPath));
+		if (effectiveOrigin != null)
+			return new StringBuffer(format("%s%s", effectiveOrigin, rawPath));
 
 		// Fall back to builder-provided host/port when available
 		String scheme = getScheme(); // Soklet returns "http" by design
@@ -1158,10 +1163,10 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getScheme() {
-		URI clientUriPrefix = getClientUriPrefix().orElse(null);
+		URI effectiveOriginUri = getEffectiveOriginUri().orElse(null);
 
-		if (clientUriPrefix != null && clientUriPrefix.getScheme() != null)
-			return clientUriPrefix.getScheme().trim().toLowerCase(ROOT);
+		if (effectiveOriginUri != null && effectiveOriginUri.getScheme() != null)
+			return effectiveOriginUri.getScheme().trim().toLowerCase(ROOT);
 
 		// Honor common reverse-proxy header; fall back to http
 		String proto = getRequest().getHeader("X-Forwarded-Proto").orElse(null);
@@ -1178,13 +1183,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nonnull
 	public String getServerName() {
-		URI clientUriPrefix = getClientUriPrefix().orElse(null);
+		URI effectiveOriginUri = getEffectiveOriginUri().orElse(null);
 
-		if (clientUriPrefix != null) {
-			String host = clientUriPrefix.getHost();
+		if (effectiveOriginUri != null) {
+			String host = effectiveOriginUri.getHost();
 
 			if (host == null)
-				host = hostFromAuthority(clientUriPrefix.getAuthority());
+				host = hostFromAuthority(effectiveOriginUri.getAuthority());
 
 			if (host != null) {
 				if (host.startsWith("[") && host.endsWith("]") && host.length() > 2)
@@ -1208,19 +1213,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getServerPort() {
-		URI clientUriPrefix = getClientUriPrefix().orElse(null);
+		URI effectiveOriginUri = getEffectiveOriginUri().orElse(null);
 
-		if (clientUriPrefix != null) {
-			int port = clientUriPrefix.getPort();
+		if (effectiveOriginUri != null) {
+			int port = effectiveOriginUri.getPort();
 			if (port >= 0)
 				return port;
 
-			Integer authorityPort = portFromAuthority(clientUriPrefix.getAuthority());
+			Integer authorityPort = portFromAuthority(effectiveOriginUri.getAuthority());
 
 			if (authorityPort != null)
 				return authorityPort;
 
-			return defaultPortForScheme(clientUriPrefix.getScheme());
+			return defaultPortForScheme(effectiveOriginUri.getScheme());
 		}
 
 		String hostHeader = getRequest().getHeader("Host").orElse(null);
