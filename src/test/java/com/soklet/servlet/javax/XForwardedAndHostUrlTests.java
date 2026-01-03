@@ -18,6 +18,7 @@ package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -42,11 +43,28 @@ public class XForwardedAndHostUrlTests {
 				))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 
 		StringBuffer url = http.getRequestURL();
 		Assertions.assertTrue(url.toString().startsWith("https://www.soklet.com:8443/path"));
 		Assertions.assertEquals("/path", http.getRequestURI());
 		Assertions.assertEquals("q=1", http.getQueryString());
+	}
+
+	@Test
+	public void forwardedProtoIsIgnoredWithoutTrust() {
+		Request req = Request.withRawUrl(HttpMethod.GET, "/path?q=1")
+				.headers(Map.of(
+						"Host", Set.of("www.soklet.com:8443"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+
+		StringBuffer url = http.getRequestURL();
+		Assertions.assertTrue(url.toString().startsWith("http://www.soklet.com:8443/path"));
 	}
 }

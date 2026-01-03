@@ -19,10 +19,12 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,14 +37,13 @@ import java.util.Set;
 public class RelativeRedirectResolutionTests {
 	@Test
 	public void relativeRedirectResolvesAgainstParentPath() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
-				Request.withPath(HttpMethod.GET, "/a/b/c")
-						.headers(Map.of(
-								"Host", Set.of("example.com"),
-								"X-Forwarded-Proto", Set.of("https")
-						))
-						.build(),
-				SokletServletContext.withDefaults());
+		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("d"); // relative, no leading '/'
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -52,14 +53,13 @@ public class RelativeRedirectResolutionTests {
 
 	@Test
 	public void relativeRedirectNormalizesDotSegments() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
-				Request.withPath(HttpMethod.GET, "/a/b/c")
-						.headers(Map.of(
-								"Host", Set.of("example.com"),
-								"X-Forwarded-Proto", Set.of("https")
-						))
-						.build(),
-				SokletServletContext.withDefaults());
+		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("../d"); // should normalize /a/b/../d -> /a/d
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -68,14 +68,13 @@ public class RelativeRedirectResolutionTests {
 
 	@Test
 	public void relativeRedirectPreservesQueryAndFragment() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(
-				Request.withPath(HttpMethod.GET, "/a/b/c")
-						.headers(Map.of(
-								"Host", Set.of("example.com"),
-								"X-Forwarded-Proto", Set.of("https")
-						))
-						.build(),
-				SokletServletContext.withDefaults());
+		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("../d?x=../y#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -90,7 +89,7 @@ public class RelativeRedirectResolutionTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -105,10 +104,17 @@ public class RelativeRedirectResolutionTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		Assertions.assertEquals(Set.of("https://example.com/a/b/c?x=1%2F2&y=a+b"), mr.getHeaders().get("Location"));
+	}
+
+	private SokletHttpServletResponse responseWithTrustedForwardedHeaders(Request request) {
+		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
+		return SokletHttpServletResponse.withRequest(httpRequest);
 	}
 }

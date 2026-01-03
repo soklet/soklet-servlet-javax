@@ -19,10 +19,12 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
@@ -41,7 +43,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -59,7 +61,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -74,7 +76,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		String location = "https://example.com/a/../b/./c%2Fz?x=1#frag";
 		response.sendRedirect(location);
 
@@ -90,7 +92,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -105,7 +107,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("//cdn.example.com/asset");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -120,7 +122,7 @@ public class RedirectTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRequest(request, SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		Assertions.assertThrows(IllegalArgumentException.class, () -> response.sendRedirect(null));
 	}
 
@@ -131,5 +133,12 @@ public class RedirectTests {
 
 		MarshaledResponse mr = response.toMarshaledResponse();
 		Assertions.assertEquals(Set.of("http://localhost/root/next"), mr.getHeaders().get("Location"));
+	}
+
+	private SokletHttpServletResponse responseWithTrustedForwardedHeaders(Request request) {
+		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
+		return SokletHttpServletResponse.withRequest(httpRequest);
 	}
 }

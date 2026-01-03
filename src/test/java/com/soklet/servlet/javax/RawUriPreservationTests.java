@@ -18,6 +18,7 @@ package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,9 @@ public class RawUriPreservationTests {
 	@Test
 	public void requestUriPreservesRawEncoding() {
 		Request req = Request.withRawUrl(HttpMethod.GET, "/a%20b%3Fc?x=1").build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals("/a%20b%3Fc", http.getRequestURI());
 		Assertions.assertTrue(http.getRequestURL().toString().endsWith("/a%20b%3Fc"));
 	}
@@ -49,7 +52,9 @@ public class RawUriPreservationTests {
 						"X-Forwarded-Proto", Set.of("https")
 				))
 				.build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		String url = http.getRequestURL().toString();
 		Assertions.assertTrue(url.startsWith("https://example.com/"));
 		Assertions.assertTrue(url.contains("/a%20b%3Fc"));

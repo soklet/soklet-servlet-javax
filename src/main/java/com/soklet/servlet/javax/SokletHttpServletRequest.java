@@ -16,9 +16,11 @@
 
 package com.soklet.servlet.javax;
 
-import com.soklet.Request;
 import com.soklet.QueryFormat;
+import com.soklet.Request;
 import com.soklet.Utilities;
+import com.soklet.Utilities.EffectiveOriginResolver;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,6 +72,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
@@ -141,6 +144,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private Map<String, Set<String>> formParameters;
 	private boolean parametersAccessed;
 	private boolean bodyParametersAccessed;
+	@Nonnull
+	private final TrustPolicy forwardedHeaderTrustPolicy;
+	@Nullable
+	private final Predicate<InetSocketAddress> trustedProxyPredicate;
+	@Nullable
+	private final Boolean allowOriginFallback;
 	@Nullable
 	private SokletServletInputStream servletInputStream;
 	@Nullable
@@ -166,6 +175,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.port = builder.port;
 		this.servletContext = builder.servletContext == null ? SokletServletContext.withDefaults() : builder.servletContext;
 		this.httpSession = builder.httpSession;
+		this.forwardedHeaderTrustPolicy = builder.forwardedHeaderTrustPolicy;
+		this.trustedProxyPredicate = builder.trustedProxyPredicate;
+		this.allowOriginFallback = builder.allowOriginFallback;
 		this.requestReadMethod = RequestReadMethod.UNSPECIFIED;
 	}
 
@@ -451,6 +463,20 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.bodyParametersAccessed = true;
 	}
 
+	private boolean shouldTrustForwardedHeaders() {
+		if (this.forwardedHeaderTrustPolicy == TrustPolicy.TRUST_ALL)
+			return true;
+
+		if (this.forwardedHeaderTrustPolicy == TrustPolicy.TRUST_NONE)
+			return false;
+
+		if (this.trustedProxyPredicate == null)
+			return false;
+
+		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
+		return remoteAddress != null && this.trustedProxyPredicate.test(remoteAddress);
+	}
+
 	@Nonnull
 	private Optional<String> getHost() {
 		return Optional.ofNullable(this.host);
@@ -463,12 +489,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nonnull
 	private Optional<String> getEffectiveOrigin() {
-		return Utilities.extractEffectiveOrigin(
-				Utilities.EffectiveOriginResolver.withRequest(
-						getRequest(),
-						Utilities.EffectiveOriginResolver.TrustPolicy.TRUST_ALL
-				)
+		EffectiveOriginResolver resolver = EffectiveOriginResolver.withRequest(
+				getRequest(),
+				this.forwardedHeaderTrustPolicy
 		);
+
+		if (this.trustedProxyPredicate != null)
+			resolver.trustedProxyPredicate(this.trustedProxyPredicate);
+
+		if (this.allowOriginFallback != null)
+			resolver.allowOriginFallback(this.allowOriginFallback);
+
+		return Utilities.extractEffectiveOrigin(resolver);
 	}
 
 	@Nonnull
@@ -625,11 +657,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		private ServletContext servletContext;
 		@Nullable
 		private HttpSession httpSession;
+		@Nonnull
+		private TrustPolicy forwardedHeaderTrustPolicy;
+		@Nullable
+		private Predicate<InetSocketAddress> trustedProxyPredicate;
+		@Nullable
+		private Boolean allowOriginFallback;
 
 		@Nonnull
 		private Builder(@Nonnull Request request) {
 			requireNonNull(request);
 			this.request = request;
+			this.forwardedHeaderTrustPolicy = TrustPolicy.TRUST_NONE;
 		}
 
 		@Nonnull
@@ -664,7 +703,46 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		@Nonnull
+		public Builder forwardedHeaderTrustPolicy(@Nonnull TrustPolicy forwardedHeaderTrustPolicy) {
+			requireNonNull(forwardedHeaderTrustPolicy);
+			this.forwardedHeaderTrustPolicy = forwardedHeaderTrustPolicy;
+			return this;
+		}
+
+		@Nonnull
+		public Builder trustedProxyPredicate(@Nullable Predicate<InetSocketAddress> trustedProxyPredicate) {
+			this.trustedProxyPredicate = trustedProxyPredicate;
+			return this;
+		}
+
+		@Nonnull
+		public Builder trustedProxyAddresses(@Nonnull Set<InetAddress> trustedProxyAddresses) {
+			requireNonNull(trustedProxyAddresses);
+			Set<InetAddress> normalizedAddresses = Set.copyOf(trustedProxyAddresses);
+			this.trustedProxyPredicate = remoteAddress -> {
+				if (remoteAddress == null)
+					return false;
+
+				InetAddress address = remoteAddress.getAddress();
+				return address != null && normalizedAddresses.contains(address);
+			};
+			return this;
+		}
+
+		@Nonnull
+		public Builder allowOriginFallback(@Nullable Boolean allowOriginFallback) {
+			this.allowOriginFallback = allowOriginFallback;
+			return this;
+		}
+
+		@Nonnull
 		public SokletHttpServletRequest build() {
+			if (this.forwardedHeaderTrustPolicy == TrustPolicy.TRUST_PROXY_ALLOWLIST
+					&& this.trustedProxyPredicate == null) {
+				throw new IllegalStateException(format("%s policy requires a trusted proxy predicate or allowlist.",
+						TrustPolicy.TRUST_PROXY_ALLOWLIST));
+			}
+
 			return new SokletHttpServletRequest(this);
 		}
 	}
@@ -1175,13 +1253,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (effectiveOriginUri != null && effectiveOriginUri.getScheme() != null)
 			return effectiveOriginUri.getScheme().trim().toLowerCase(ROOT);
 
-		// Honor common reverse-proxy header; fall back to http
-		String proto = getRequest().getHeader("X-Forwarded-Proto").orElse(null);
+		// Honor common reverse-proxy header only when trusted; fall back to http
+		if (shouldTrustForwardedHeaders()) {
+			String proto = getRequest().getHeader("X-Forwarded-Proto").orElse(null);
 
-		if (proto != null) {
-			proto = proto.trim().toLowerCase(ROOT);
-			if (proto.equals("https") || proto.equals("http"))
-				return proto;
+			if (proto != null) {
+				proto = proto.trim().toLowerCase(ROOT);
+				if (proto.equals("https") || proto.equals("http"))
+					return proto;
+			}
 		}
 
 		return "http";
@@ -1280,20 +1360,22 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getRemoteAddr() {
-		String xForwardedForHeader = getRequest().getHeader("X-Forwarded-For").orElse(null);
+		if (shouldTrustForwardedHeaders()) {
+			String xForwardedForHeader = getRequest().getHeader("X-Forwarded-For").orElse(null);
 
-		if (xForwardedForHeader != null) {
-			// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
-			String[] components = xForwardedForHeader.split(",");
+			if (xForwardedForHeader != null) {
+				// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
+				String[] components = xForwardedForHeader.split(",");
 
-			for (String component : components) {
-				if (component == null)
-					continue;
+				for (String component : components) {
+					if (component == null)
+						continue;
 
-				String value = component.trim();
+					String value = component.trim();
 
-				if (!value.isEmpty())
-					return value;
+					if (!value.isEmpty())
+						return value;
+				}
 			}
 		}
 

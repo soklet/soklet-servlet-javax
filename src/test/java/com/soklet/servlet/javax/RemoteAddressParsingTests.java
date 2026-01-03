@@ -18,6 +18,7 @@ package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -40,8 +41,22 @@ public class RemoteAddressParsingTests {
 				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
+	}
+
+	@Test
+	public void xffIgnoredWithoutTrustPolicy() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
+				.remoteAddress(new InetSocketAddress("203.0.113.50", 1234))
+				.build();
+
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertEquals("203.0.113.50", http.getRemoteAddr());
+		Assertions.assertEquals("203.0.113.50", http.getRemoteHost());
 	}
 
 	@Test

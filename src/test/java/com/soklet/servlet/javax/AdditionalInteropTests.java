@@ -19,6 +19,7 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -94,14 +95,18 @@ public class AdditionalInteropTests {
 		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
 				.build();
-		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq).build();
+		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals(443, https.getServerPort());
 
 		// http without explicit port -> 80
 		Request httpReq = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("http"), "Host", Set.of("example.com")))
 				.build();
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(httpReq).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(httpReq)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals(80, http.getServerPort());
 	}
 
@@ -110,7 +115,9 @@ public class AdditionalInteropTests {
 		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("https")))
 				.build();
-		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq).build();
+		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals(443, https.getServerPort());
 	}
 
@@ -220,7 +227,9 @@ public class AdditionalInteropTests {
 		var req = Request.withPath(HttpMethod.GET, "/p")
 				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
 				.build();
-		var http = SokletHttpServletRequest.withRequest(req).build();
+		var http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals("https", http.getScheme());
 		Assertions.assertTrue(http.isSecure());
 	}

@@ -18,6 +18,7 @@ package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
 import com.soklet.Request;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +43,9 @@ public class Ipv6HostParsingTests {
 				))
 				.build();
 
-		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 		Assertions.assertEquals("2001:db8::1", http.getServerName());
 		Assertions.assertEquals(8443, http.getServerPort());
 		Assertions.assertTrue(http.getRequestURL().toString().startsWith("https://[2001:db8::1]:8443/v6"));

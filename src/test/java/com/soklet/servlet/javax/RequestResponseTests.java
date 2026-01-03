@@ -20,6 +20,7 @@ import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
 import com.soklet.ResponseCookie;
+import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -58,7 +59,9 @@ public class RequestResponseTests {
 				.body(bodyAsString.getBytes(charset))
 				.build();
 
-		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
 
 		Assertions.assertEquals("www.soklet.com", httpServletRequest.getServerName(), "Server name mismatch");
 		Assertions.assertEquals(443, httpServletRequest.getServerPort(), "Server port mismatch");
