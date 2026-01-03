@@ -122,7 +122,7 @@ public class CharacterEncodingWriterTests {
 		resp.getWriter().write("é");
 		MarshaledResponse mr = resp.toMarshaledResponse();
 
-		Assertions.assertArrayEquals("é".getBytes(Charset.forName("UTF-8")),
+		Assertions.assertArrayEquals("é".getBytes(Charset.forName("ISO-8859-1")),
 				mr.getBody().orElse(new byte[]{}));
 	}
 
@@ -138,7 +138,8 @@ public class CharacterEncodingWriterTests {
 				mr.getBody().orElse(new byte[]{}));
 
 		var ct = mr.getHeaders().get("Content-Type").iterator().next();
-		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-8"), "Content-Type header does not include UTF-8");
+		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=iso-8859-1"),
+				"Content-Type header does not include ISO-8859-1");
 	}
 
 	@Test
@@ -149,6 +150,6 @@ public class CharacterEncodingWriterTests {
 
 		String contentType = resp.getContentType();
 		Assertions.assertNotNull(contentType);
-		Assertions.assertTrue(contentType.toLowerCase(Locale.ROOT).contains("charset=utf-8"));
+		Assertions.assertTrue(contentType.toLowerCase(Locale.ROOT).contains("charset=iso-8859-1"));
 	}
 }

@@ -290,6 +290,54 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
+	 * Splits a header value on the given delimiter, ignoring delimiters inside quoted strings.
+	 * Supports backslash-escaped quotes within quoted strings.
+	 */
+	@Nonnull
+	private static List<String> splitHeaderValueRespectingQuotes(@Nonnull String headerValue,
+																														 char delimiter) {
+		List<String> parts = new ArrayList<>();
+		StringBuilder current = new StringBuilder(headerValue.length());
+		boolean inQuotes = false;
+		boolean escape = false;
+
+		for (int i = 0; i < headerValue.length(); i++) {
+			char c = headerValue.charAt(i);
+
+			if (escape) {
+				current.append(c);
+				escape = false;
+				continue;
+			}
+
+			if (c == '\\') {
+				escape = true;
+				current.append(c);
+				continue;
+			}
+
+			if (c == '"') {
+				inQuotes = !inQuotes;
+				current.append(c);
+				continue;
+			}
+
+			if (c == delimiter && !inQuotes) {
+				parts.add(current.toString());
+				current.setLength(0);
+				continue;
+			}
+
+			current.append(c);
+		}
+
+		if (current.length() > 0)
+			parts.add(current.toString());
+
+		return parts;
+	}
+
+	/**
 	 * If the cookie value is a quoted-string, remove surrounding quotes and unescape \" \\ and \; .
 	 * Otherwise returns the input as-is.
 	 */
@@ -322,6 +370,24 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		return rawValue;
+	}
+
+	/**
+	 * Remove a single pair of surrounding quotes if present.
+	 */
+	@Nonnull
+	private static String stripOptionalQuotes(@Nonnull String value) {
+		requireNonNull(value);
+
+		if (value.length() >= 2) {
+			char first = value.charAt(0);
+			char last = value.charAt(value.length() - 1);
+
+			if ((first == '"' && last == '"') || (first == '\'' && last == '\''))
+				return value.substring(1, value.length() - 1);
+		}
+
+		return value;
 	}
 
 	@Nonnull
@@ -475,6 +541,129 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
 		return remoteAddress != null && this.trustedProxyPredicate.test(remoteAddress);
+	}
+
+	@Nullable
+	private String extractForwardedForFromHeaders() {
+		Set<String> headerValues = getRequest().getHeaders().get("Forwarded");
+
+		if (headerValues == null)
+			return null;
+
+		for (String headerValue : headerValues) {
+			String candidate = extractForwardedForFromHeaderValue(headerValue);
+
+			if (candidate != null)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private String extractForwardedForFromHeaderValue(@Nullable String headerValue) {
+		headerValue = Utilities.trimAggressivelyToNull(headerValue);
+
+		if (headerValue == null)
+			return null;
+
+		for (String forwardedEntry : splitHeaderValueRespectingQuotes(headerValue, ',')) {
+			forwardedEntry = Utilities.trimAggressivelyToNull(forwardedEntry);
+
+			if (forwardedEntry == null)
+				continue;
+
+			for (String component : splitHeaderValueRespectingQuotes(forwardedEntry, ';')) {
+				component = Utilities.trimAggressivelyToNull(component);
+
+				if (component == null)
+					continue;
+
+				String[] nameValue = component.split("=", 2);
+
+				if (nameValue.length != 2)
+					continue;
+
+				String name = Utilities.trimAggressivelyToNull(nameValue[0]);
+
+				if (name == null || !"for".equalsIgnoreCase(name))
+					continue;
+
+				String value = Utilities.trimAggressivelyToNull(nameValue[1]);
+
+				if (value == null)
+					continue;
+
+				value = stripOptionalQuotes(value);
+				value = Utilities.trimAggressivelyToNull(value);
+
+				if (value == null)
+					continue;
+
+				String normalized = normalizeForwardedForValue(value);
+
+				if (normalized != null)
+					return normalized;
+			}
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private String normalizeForwardedForValue(@Nonnull String value) {
+		if (value.startsWith("[")) {
+			int close = value.indexOf(']');
+
+			if (close > 0) {
+				String host = value.substring(1, close);
+				return host.isEmpty() ? null : host;
+			}
+
+			return null;
+		}
+
+		int colonCount = 0;
+
+		for (int i = 0; i < value.length(); i++) {
+			if (value.charAt(i) == ':')
+				colonCount++;
+		}
+
+		if (colonCount == 0)
+			return value;
+
+		if (colonCount == 1) {
+			int colon = value.indexOf(':');
+			String host = value.substring(0, colon).trim();
+			return host.isEmpty() ? null : host;
+		}
+
+		return value;
+	}
+
+	@Nullable
+	private String extractXForwardedForFromHeaders() {
+		Set<String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
+
+		if (headerValues == null)
+			return null;
+
+		for (String headerValue : headerValues) {
+			if (headerValue == null)
+				continue;
+
+			String[] components = headerValue.split(",");
+
+			for (String component : components) {
+				String value = Utilities.trimAggressivelyToNull(component);
+
+				if (value != null)
+					return value;
+			}
+		}
+
+		return null;
 	}
 
 	@Nonnull
@@ -1361,22 +1550,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	public String getRemoteAddr() {
 		if (shouldTrustForwardedHeaders()) {
-			String xForwardedForHeader = getRequest().getHeader("X-Forwarded-For").orElse(null);
+			String forwardedFor = extractForwardedForFromHeaders();
 
-			if (xForwardedForHeader != null) {
-				// Example value: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
-				String[] components = xForwardedForHeader.split(",");
+			if (forwardedFor != null)
+				return forwardedFor;
 
-				for (String component : components) {
-					if (component == null)
-						continue;
+			String xForwardedFor = extractXForwardedForFromHeaders();
 
-					String value = component.trim();
-
-					if (!value.isEmpty())
-						return value;
-				}
-			}
+			if (xForwardedFor != null)
+				return xForwardedFor;
 		}
 
 		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);

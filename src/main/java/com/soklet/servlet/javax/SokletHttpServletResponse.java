@@ -240,6 +240,35 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return this.headers;
 	}
 
+	@Nonnull
+	private List<String> getSetCookieHeaderValues() {
+		if (getCookies().isEmpty())
+			return List.of();
+
+		List<String> values = new ArrayList<>(getCookies().size());
+
+		for (Cookie cookie : getCookies())
+			values.add(toSetCookieHeaderValue(cookie));
+
+		return values;
+	}
+
+	@Nonnull
+	private String toSetCookieHeaderValue(@Nonnull Cookie cookie) {
+		requireNonNull(cookie);
+
+		ResponseCookie.Builder builder = ResponseCookie.with(cookie.getName(), cookie.getValue())
+				.path(cookie.getPath())
+				.secure(cookie.getSecure())
+				.httpOnly(cookie.isHttpOnly())
+				.domain(cookie.getDomain());
+
+		if (cookie.getMaxAge() >= 0)
+			builder.maxAge(Duration.ofSeconds(cookie.getMaxAge()));
+
+		return builder.build().toSetCookieHeaderRepresentation();
+	}
+
 	private void putHeaderValue(@Nonnull String name,
 															@Nonnull String value,
 															boolean replace) {
@@ -422,6 +451,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public boolean containsHeader(@Nullable String name) {
 		if (name == null)
 			return false;
+
+		if ("Set-Cookie".equalsIgnoreCase(name))
+			return !getCookies().isEmpty() || getHeaders().containsKey(name);
 
 		return getHeaders().containsKey(name);
 	}
@@ -817,6 +849,16 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (name == null)
 			return null;
 
+		if ("Set-Cookie".equalsIgnoreCase(name)) {
+			List<String> values = getHeaders().get(name);
+
+			if (values != null && !values.isEmpty())
+				return values.get(0);
+
+			List<String> cookieValues = getSetCookieHeaderValues();
+			return cookieValues.isEmpty() ? null : cookieValues.get(0);
+		}
+
 		List<String> values = getHeaders().get(name);
 		return values == null || values.size() == 0 ? null : values.get(0);
 	}
@@ -827,6 +869,22 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (name == null)
 			return List.of();
 
+		if ("Set-Cookie".equalsIgnoreCase(name)) {
+			List<String> values = getHeaders().get(name);
+			List<String> cookieValues = getSetCookieHeaderValues();
+
+			if ((values == null || values.isEmpty()) && cookieValues.isEmpty())
+				return List.of();
+
+			List<String> combined = new ArrayList<>();
+
+			if (values != null)
+				combined.addAll(values);
+
+			combined.addAll(cookieValues);
+			return Collections.unmodifiableList(combined);
+		}
+
 		List<String> values = getHeaders().get(name);
 		return values == null ? List.of() : Collections.unmodifiableList(values);
 	}
@@ -834,7 +892,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	@Nonnull
 	public Collection<String> getHeaderNames() {
-		return Collections.unmodifiableSet(getHeaders().keySet());
+		Set<String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		names.addAll(getHeaders().keySet());
+
+		if (!getCookies().isEmpty())
+			names.add("Set-Cookie");
+
+		return Collections.unmodifiableSet(names);
 	}
 
 	@Override

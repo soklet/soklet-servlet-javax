@@ -74,13 +74,13 @@ public class ContextDefaultEncodingTests {
 	public void invalidRequestCharacterEncodingIsIgnored() {
 		SokletServletContext context = SokletServletContext.withDefaults();
 		context.setRequestCharacterEncoding("no-such-charset");
-		Assertions.assertEquals("UTF-8", context.getRequestCharacterEncoding());
+		Assertions.assertEquals("ISO-8859-1", context.getRequestCharacterEncoding());
 	}
 
 	@Test
 	public void invalidResponseCharacterEncodingIsIgnored() {
 		SokletServletContext context = SokletServletContext.withDefaults();
 		context.setResponseCharacterEncoding("no-such-charset");
-		Assertions.assertEquals("UTF-8", context.getResponseCharacterEncoding());
+		Assertions.assertEquals("ISO-8859-1", context.getResponseCharacterEncoding());
 	}
 }

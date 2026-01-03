@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.Cookie;
+import java.util.Collection;
 
 /*
  * Verify cookies added via HttpServletResponse are emitted into Soklet MarshaledResponse cookies.
@@ -52,5 +53,26 @@ public class CookieMappingTests {
 		);
 
 		Assertions.assertTrue(any, "Cookie 'sid' does not have correct values in marshaled response");
+	}
+
+	@Test
+	public void setCookieHeadersExposeAddedCookies() {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+
+		Cookie first = new Cookie("a", "1");
+		first.setPath("/");
+		Cookie second = new Cookie("b", "2");
+
+		resp.addCookie(first);
+		resp.addCookie(second);
+
+		Assertions.assertTrue(resp.containsHeader("Set-Cookie"));
+		Assertions.assertNotNull(resp.getHeader("Set-Cookie"));
+
+		Collection<String> values = resp.getHeaders("Set-Cookie");
+		Assertions.assertEquals(2, values.size());
+		Assertions.assertTrue(values.stream().anyMatch(value -> value.startsWith("a=1")));
+		Assertions.assertTrue(values.stream().anyMatch(value -> value.startsWith("b=2")));
+		Assertions.assertTrue(resp.getHeaderNames().stream().anyMatch(name -> "Set-Cookie".equalsIgnoreCase(name)));
 	}
 }

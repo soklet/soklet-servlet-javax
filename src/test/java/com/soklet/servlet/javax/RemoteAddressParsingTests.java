@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 /*
- * Tests for getRemoteAddr() and getRemoteHost() using X-Forwarded-For.
+ * Tests for getRemoteAddr() and getRemoteHost() using Forwarded and X-Forwarded-For.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
@@ -45,6 +45,30 @@ public class RemoteAddressParsingTests {
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
 		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
+	}
+
+	@Test
+	public void picksFirstAddressFromForwarded() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Forwarded", Set.of("for=203.0.113.195, for=198.51.100.178")))
+				.build();
+
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
+		Assertions.assertEquals("203.0.113.195", http.getRemoteAddr());
+	}
+
+	@Test
+	public void forwardedIpv6WithPortIsParsed() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Forwarded", Set.of("for=\"[2001:db8::1]:4711\"")))
+				.build();
+
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
+				.build();
+		Assertions.assertEquals("2001:db8::1", http.getRemoteAddr());
 	}
 
 	@Test

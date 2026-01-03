@@ -18,7 +18,7 @@ package com.soklet.servlet.javax;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionBindingEvent;
@@ -27,12 +27,12 @@ import javax.servlet.http.HttpSessionContext;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
-@NotThreadSafe
+@ThreadSafe
 public final class SokletHttpSession implements HttpSession {
 	@Nonnull
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
@@ -51,15 +51,15 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Nonnull
-	private UUID sessionId;
+	private volatile UUID sessionId;
 	@Nonnull
 	private final Instant createdAt;
 	@Nonnull
 	private final Map<String, Object> attributes;
 	@Nonnull
 	private final ServletContext servletContext;
-	private boolean invalidated;
-	private int maxInactiveInterval;
+	private volatile boolean invalidated;
+	private volatile int maxInactiveInterval;
 
 	@Nonnull
 	public static SokletHttpSession withServletContext(@Nonnull ServletContext servletContext) {
@@ -72,7 +72,7 @@ public final class SokletHttpSession implements HttpSession {
 
 		this.sessionId = UUID.randomUUID();
 		this.createdAt = Instant.now();
-		this.attributes = new HashMap<>();
+		this.attributes = new ConcurrentHashMap<>();
 		this.servletContext = servletContext;
 		this.invalidated = false;
 		this.maxInactiveInterval = 0;

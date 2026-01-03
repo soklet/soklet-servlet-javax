@@ -18,7 +18,6 @@ package com.soklet.servlet.javax;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
@@ -49,12 +48,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.EventListener;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -66,18 +65,20 @@ import static java.util.Objects.requireNonNull;
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
-@NotThreadSafe
+@ThreadSafe
 public final class SokletServletContext implements ServletContext {
 	@Nonnull
 	private final Writer logWriter;
 	@Nonnull
+	private final Object logLock;
+	@Nonnull
 	private final Map<String, Object> attributes;
 	@Nonnull
-	private int sessionTimeout;
+	private volatile int sessionTimeout;
 	@Nullable
-	private Charset requestCharset;
+	private volatile Charset requestCharset;
 	@Nullable
-	private Charset responseCharset;
+	private volatile Charset responseCharset;
 
 	@Nonnull
 	public static SokletServletContext withDefaults() {
@@ -91,10 +92,11 @@ public final class SokletServletContext implements ServletContext {
 
 	private SokletServletContext(@Nullable Writer logWriter) {
 		this.logWriter = logWriter == null ? new NoOpWriter() : logWriter;
-		this.attributes = new HashMap<>();
+		this.logLock = new Object();
+		this.attributes = new ConcurrentHashMap<>();
 		this.sessionTimeout = -1;
-		this.requestCharset = StandardCharsets.UTF_8;
-		this.responseCharset = StandardCharsets.UTF_8;
+		this.requestCharset = StandardCharsets.ISO_8859_1;
+		this.responseCharset = StandardCharsets.ISO_8859_1;
 	}
 
 	@Nonnull
@@ -306,7 +308,9 @@ public final class SokletServletContext implements ServletContext {
 			return;
 
 		try {
-			getLogWriter().write(msg);
+			synchronized (this.logLock) {
+				getLogWriter().write(msg);
+			}
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		}
@@ -340,7 +344,9 @@ public final class SokletServletContext implements ServletContext {
 		String combinedMessage = components.stream().collect(Collectors.joining("\n"));
 
 		try {
-			getLogWriter().write(combinedMessage);
+			synchronized (this.logLock) {
+				getLogWriter().write(combinedMessage);
+			}
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		}
