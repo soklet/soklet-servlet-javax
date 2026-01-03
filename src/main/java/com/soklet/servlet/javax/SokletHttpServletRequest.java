@@ -1239,7 +1239,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public Collection<Part> getParts() throws IOException, ServletException {
 		// Legal if the request body is larger than maxRequestSize, or any Part in the request is larger than maxFileSize,
 		// or there is no @MultipartConfig or multipart-config in deployment descriptors
-		throw new IllegalStateException("Servlet multipart configuration is not supported");
+		throw new ServletException("Servlet multipart configuration is not supported");
 	}
 
 	@Override
@@ -1247,7 +1247,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public Part getPart(@Nullable String name) throws IOException, ServletException {
 		// Legal if the request body is larger than maxRequestSize, or any Part in the request is larger than maxFileSize,
 		// or there is no @MultipartConfig or multipart-config in deployment descriptors
-		throw new IllegalStateException("Servlet multipart configuration is not supported");
+		throw new ServletException("Servlet multipart configuration is not supported");
 	}
 
 	@Override
