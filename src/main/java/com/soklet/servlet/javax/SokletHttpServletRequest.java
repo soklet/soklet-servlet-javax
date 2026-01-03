@@ -468,6 +468,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 	}
 
+	private boolean hasContentLengthHeader() {
+		Set<String> values = getRequest().getHeaders().get("Content-Length");
+		return values != null && !values.isEmpty();
+	}
+
 	private void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
 	}
@@ -1304,16 +1309,36 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public int getContentLength() {
 		Long length = getContentLengthHeaderValue();
 
-		if (length == null || length > Integer.MAX_VALUE)
+		if (length != null) {
+			if (length > Integer.MAX_VALUE)
+				return -1;
+
+			return length.intValue();
+		}
+
+		if (hasContentLengthHeader())
 			return -1;
 
-		return length.intValue();
+		byte[] body = getRequest().getBody().orElse(null);
+
+		if (body == null || body.length > Integer.MAX_VALUE)
+			return -1;
+
+		return body.length;
 	}
 
 	@Override
 	public long getContentLengthLong() {
 		Long length = getContentLengthHeaderValue();
-		return length == null ? -1 : length;
+
+		if (length != null)
+			return length;
+
+		if (hasContentLengthHeader())
+			return -1;
+
+		byte[] body = getRequest().getBody().orElse(null);
+		return body == null ? -1 : body.length;
 	}
 
 	@Override

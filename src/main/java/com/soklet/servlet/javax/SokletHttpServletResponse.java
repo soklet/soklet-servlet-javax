@@ -20,6 +20,7 @@ import com.soklet.MarshaledResponse;
 import com.soklet.Request;
 import com.soklet.Response;
 import com.soklet.ResponseCookie;
+import com.soklet.StatusCode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,7 +46,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -191,7 +193,15 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		byte[] body = getResponseOutputStream().toByteArray();
 
 		Map<String, Set<String>> headers = getHeaders().entrySet().stream()
-				.collect(Collectors.toMap(entry -> entry.getKey(), entry -> new HashSet<>(entry.getValue())));
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> new LinkedHashSet<>(entry.getValue()),
+						(left, right) -> {
+							left.addAll(right);
+							return left;
+						},
+						LinkedHashMap::new
+				));
 
 		Set<ResponseCookie> cookies = getCookies().stream()
 				.map(cookie -> {
@@ -366,6 +376,31 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.responseFinalized = responseFinalized;
 	}
 
+	private void writeDefaultErrorBody(int statusCode,
+																		 @Nullable String message) {
+		if (getResponseOutputStream().size() > 0)
+			return;
+
+		String payload = message;
+
+		if (payload == null || payload.isBlank())
+			payload = StatusCode.fromStatusCode(statusCode)
+					.map(StatusCode::getReasonPhrase)
+					.orElse("Error");
+
+		if (payload.isBlank())
+			return;
+
+		Charset charset = getEffectiveCharset();
+		byte[] bytes = payload.getBytes(charset);
+		getResponseOutputStream().write(bytes, 0, bytes.length);
+
+		String currentContentType = getContentType();
+
+		if (currentContentType == null || currentContentType.isBlank())
+			setContentType("text/plain; charset=" + charset.name());
+	}
+
 	private void maybeCommitOnWrite() {
 		if (!getResponseCommitted() && getResponseOutputStream().size() >= getResponseBufferSizeInBytes())
 			setResponseCommitted(true);
@@ -489,6 +524,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		resetBuffer();
 		setStatus(sc);
 		setErrorMessage(msg);
+		writeDefaultErrorBody(sc, msg);
 		setResponseCommitted(true);
 	}
 
@@ -498,6 +534,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		resetBuffer();
 		setStatus(sc);
 		setErrorMessage(null);
+		writeDefaultErrorBody(sc, null);
 		setResponseCommitted(true);
 	}
 

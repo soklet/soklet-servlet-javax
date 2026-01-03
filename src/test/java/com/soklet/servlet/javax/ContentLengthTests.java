@@ -46,14 +46,14 @@ public class ContentLengthTests {
 	}
 
 	@Test
-	public void contentLengthReturnsMinusOneWhenMissing() {
+	public void contentLengthUsesBodyLengthWhenHeaderMissing() {
 		Request request = Request.withPath(HttpMethod.POST, "/x")
 				.body("abc".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 
-		Assertions.assertEquals(-1, http.getContentLength());
-		Assertions.assertEquals(-1L, http.getContentLengthLong());
+		Assertions.assertEquals(3, http.getContentLength());
+		Assertions.assertEquals(3L, http.getContentLengthLong());
 	}
 
 	@Test
