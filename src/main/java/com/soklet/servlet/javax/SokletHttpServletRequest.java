@@ -140,6 +140,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private Map<String, Set<String>> formParameters;
 	private boolean parametersAccessed;
+	private boolean bodyParametersAccessed;
 	@Nullable
 	private SokletServletInputStream servletInputStream;
 	@Nullable
@@ -426,6 +427,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			return this.formParameters;
 		}
 
+		markBodyParametersAccessed();
+
 		byte[] body = getRequest().getBody().orElse(null);
 
 		if (body == null || body.length == 0) {
@@ -442,6 +445,10 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	private void markParametersAccessed() {
 		this.parametersAccessed = true;
+	}
+
+	private void markBodyParametersAccessed() {
+		this.bodyParametersAccessed = true;
 	}
 
 	@Nonnull
@@ -1056,7 +1063,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.INPUT_STREAM);
-			byte[] body = this.parametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[]{});
+			byte[] body = this.bodyParametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[]{});
 			setServletInputStream(SokletServletInputStream.withInputStream(new ByteArrayInputStream(body)));
 			return getServletInputStream().get();
 		} else if (currentReadMethod == RequestReadMethod.INPUT_STREAM) {
@@ -1259,7 +1266,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.READER);
 			Charset charset = getEffectiveCharset();
-			byte[] body = this.parametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[0]);
+			byte[] body = this.bodyParametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[0]);
 			InputStream inputStream = new ByteArrayInputStream(body);
 			setBufferedReader(new BufferedReader(new InputStreamReader(inputStream, charset)));
 			return getBufferedReader().get();

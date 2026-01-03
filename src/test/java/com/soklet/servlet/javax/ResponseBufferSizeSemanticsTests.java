@@ -59,4 +59,24 @@ public class ResponseBufferSizeSemanticsTests {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		Assertions.assertThrows(IllegalArgumentException.class, () -> resp.setBufferSize(-1));
 	}
+
+	@Test
+	public void writeUnderBufferDoesNotCommitUntilFlush() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.setBufferSize(8);
+		PrintWriter w = resp.getWriter();
+		w.write("ok");
+		Assertions.assertFalse(resp.isCommitted());
+
+		resp.flushBuffer();
+		Assertions.assertTrue(resp.isCommitted());
+	}
+
+	@Test
+	public void writeAtBufferSizeCommitsResponse() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.setBufferSize(4);
+		resp.getOutputStream().write(new byte[]{1, 2, 3, 4});
+		Assertions.assertTrue(resp.isCommitted());
+	}
 }

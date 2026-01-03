@@ -337,6 +337,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.responseFinalized = responseFinalized;
 	}
 
+	private void maybeCommitOnWrite() {
+		if (!getResponseCommitted() && getResponseOutputStream().size() >= getResponseBufferSizeInBytes())
+			setResponseCommitted(true);
+	}
+
 	private void ensureResponseIsUncommitted() {
 		if (getResponseCommitted())
 			throw new IllegalStateException("Response has already been committed.");
@@ -857,10 +862,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
 			setResponseWriteMethod(ResponseWriteMethod.SERVLET_OUTPUT_STREAM);
 			this.servletOutputStream = SokletServletOutputStream.withOutputStream(getResponseOutputStream())
-					.onWriteOccurred((ignored1, ignored2) -> {
-						// Flip to "committed" if any write occurs
-						setResponseCommitted(true);
-					}).onWriteFinalized((ignored) -> {
+					.onWriteOccurred((ignored1, ignored2) -> maybeCommitOnWrite())
+					.onWriteFinalized((ignored) -> {
 						setResponseCommitted(true);
 						setResponseFinalized(true);
 					}).build();
@@ -974,7 +977,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			this.printWriter =
 					SokletServletPrintWriter.withWriter(
 									new OutputStreamWriter(getResponseOutputStream(), enc))
-							.onWriteOccurred((ignored1, ignored2) -> setResponseCommitted(true))   // commit on first write
+							.onWriteOccurred((ignored1, ignored2) -> maybeCommitOnWrite())
 							.onWriteFinalized((ignored) -> {
 								setResponseCommitted(true);
 								setResponseFinalized(true);

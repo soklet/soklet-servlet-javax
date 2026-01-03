@@ -76,6 +76,33 @@ public class ParameterTests {
 	}
 
 	@Test
+	public void queryParametersDoNotConsumeBodyForInputStream() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
+				.headers(Map.of("Content-Type", Set.of("text/plain")))
+				.body("body".getBytes(StandardCharsets.UTF_8))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+
+		Assertions.assertEquals("1", httpServletRequest.getParameter("query"));
+
+		String body = new String(httpServletRequest.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+		Assertions.assertEquals("body", body);
+	}
+
+	@Test
+	public void queryParametersDoNotConsumeBodyForReader() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
+				.headers(Map.of("Content-Type", Set.of("text/plain")))
+				.body("body".getBytes(StandardCharsets.UTF_8))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+
+		Assertions.assertEquals("1", httpServletRequest.getParameter("query"));
+
+		Assertions.assertEquals('b', httpServletRequest.getReader().read());
+	}
+
+	@Test
 	public void inputStreamEmptyAfterParameterAccess() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
 				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
