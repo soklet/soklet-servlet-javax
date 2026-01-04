@@ -1644,7 +1644,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		// Mutable copy of entries
 		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getQueryParameters().entrySet())
-			parameterMap.put(entry.getKey(), new HashSet<>(entry.getValue()));
+			parameterMap.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
 
 		// Add form parameters to entries
 		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getFormParameters().entrySet()) {
@@ -1653,7 +1653,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			if (existingEntries != null)
 				existingEntries.addAll(entry.getValue());
 			else
-				parameterMap.put(entry.getKey(), entry.getValue());
+				parameterMap.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
 		}
 
 		Map<@NonNull String, @NonNull String @NonNull []> finalParameterMap = new HashMap<>();

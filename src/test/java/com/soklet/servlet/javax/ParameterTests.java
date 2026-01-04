@@ -48,6 +48,20 @@ public class ParameterTests {
 	}
 
 	@Test
+	public void parameterMapPreservesValueOrder() {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?one=a&one=b&two=z&one=a")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("one=c&one=d&two=y&one=b".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+
+		Map<String, String[]> parameterMap = httpServletRequest.getParameterMap();
+
+		Assertions.assertArrayEquals(new String[]{"a", "b", "c", "d"}, parameterMap.get("one"));
+		Assertions.assertArrayEquals(new String[]{"z", "y"}, parameterMap.get("two"));
+	}
+
+	@Test
 	public void formParametersIgnoredAfterInputStream() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
 				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
