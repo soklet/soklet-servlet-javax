@@ -327,10 +327,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
-		PrintWriter printWriter = super.printf(format, args);
-		flush();
-
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
+		PrintWriter printWriter = super.printf(format, normalizedArgs);
+		flush();
 		getOnWriteOccurred().accept(this, new PrintfPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -343,9 +342,10 @@ public final class SokletServletPrintWriter extends PrintWriter {
 														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
-		PrintWriter printWriter = super.printf(l, format, args);
+		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
+		PrintWriter printWriter = super.printf(l, format, normalizedArgs);
 		flush();
-		getOnWriteOccurred().accept(this, new PrintfPerformed(l, format, args));
+		getOnWriteOccurred().accept(this, new PrintfPerformed(l, format, normalizedArgs));
 		return printWriter;
 	}
 
@@ -355,10 +355,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
-		PrintWriter printWriter = super.format(format, args);
-		flush();
-
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
+		PrintWriter printWriter = super.format(format, normalizedArgs);
+		flush();
 		getOnWriteOccurred().accept(this, new FormatPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -371,10 +370,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
-		PrintWriter printWriter = super.format(l, format, args);
-		flush();
-
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
+		PrintWriter printWriter = super.format(l, format, normalizedArgs);
+		flush();
 		getOnWriteOccurred().accept(this, new FormatPerformed(l, format, normalizedArgs));
 
 		return printWriter;

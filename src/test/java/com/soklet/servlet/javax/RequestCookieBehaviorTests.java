@@ -75,4 +75,21 @@ public class RequestCookieBehaviorTests {
 
 		Assertions.assertEquals("a%2Fb%3B%20c", values.get("token"));
 	}
+
+	@Test
+	public void cookieEmptyValuesArePreserved() {
+		Request req = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Cookie", Set.of("empty=")))
+				.build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Cookie[] cookies = http.getCookies();
+		Assertions.assertNotNull(cookies);
+
+		Map<String, String> values = new HashMap<>();
+		for (Cookie cookie : cookies)
+			values.put(cookie.getName(), cookie.getValue());
+
+		Assertions.assertTrue(values.containsKey("empty"));
+		Assertions.assertEquals("", values.get("empty"));
+	}
 }

@@ -390,4 +390,36 @@ public class SokletServletPrintWriterTests {
 		writer.close();
 		assertEquals(1, recording.finalizedCount);
 	}
+
+	@Test
+	@DisplayName("printf with null args treats args as empty")
+	void printfWithNullArgsTreatsArgsAsEmpty() {
+		StringWriter underlying = new StringWriter();
+		RecordingListener recording = new RecordingListener();
+		SokletServletPrintWriter writer = newWriter(underlying, recording);
+
+		writer.printf("hello", (Object[]) null);
+
+		assertEquals("hello", underlying.toString());
+
+		List<PrintfPerformed> events = eventsOfType(recording.events, PrintfPerformed.class);
+		assertFalse(events.isEmpty(), "Expected at least one PrintfPerformed event");
+		assertEquals(0, events.get(0).args().length);
+	}
+
+	@Test
+	@DisplayName("format with null args treats args as empty")
+	void formatWithNullArgsTreatsArgsAsEmpty() {
+		StringWriter underlying = new StringWriter();
+		RecordingListener recording = new RecordingListener();
+		SokletServletPrintWriter writer = newWriter(underlying, recording);
+
+		writer.format(Locale.US, "hello", (Object[]) null);
+
+		assertEquals("hello", underlying.toString());
+
+		List<FormatPerformed> events = eventsOfType(recording.events, FormatPerformed.class);
+		assertFalse(events.isEmpty(), "Expected at least one FormatPerformed event");
+		assertEquals(0, events.get(0).args().length);
+	}
 }

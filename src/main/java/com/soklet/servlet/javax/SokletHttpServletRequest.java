@@ -231,18 +231,16 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 					String[] cookiePair = cookieComponent.split("=", 2);
 					String rawName = Utilities.trimAggressivelyToNull(cookiePair[0]);
-					String rawValue = (cookiePair.length == 2 ? Utilities.trimAggressivelyToNull(cookiePair[1]) : null);
+					if (cookiePair.length != 2)
+						continue;
+
+					String rawValue = Utilities.trimAggressivelyToEmpty(cookiePair[1]);
 
 					if (rawName == null)
 						continue;
 
-					String cookieValue = null;
-
-					if (rawValue != null)
-						cookieValue = unquoteCookieValueIfNeeded(rawValue);
-
-					if (cookieValue != null)
-						convertedCookies.add(new Cookie(rawName, cookieValue));
+					String cookieValue = unquoteCookieValueIfNeeded(rawValue);
+					convertedCookies.add(new Cookie(rawName, cookieValue));
 				}
 			}
 		}
