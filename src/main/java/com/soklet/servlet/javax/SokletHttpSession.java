@@ -272,6 +272,7 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	public boolean isNew() {
+		ensureNotInvalidated();
 		return this.isNew;
 	}
 }

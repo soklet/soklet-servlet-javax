@@ -95,6 +95,10 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private static final DateTimeFormatter RFC_1036_PARSER;
 	@NonNull
 	private static final DateTimeFormatter ASCTIME_PARSER;
+	@NonNull
+	private static final String SESSION_COOKIE_NAME;
+	@NonNull
+	private static final String SESSION_URL_PARAM;
 
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
@@ -118,6 +122,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				.appendPattern(" HH:mm:ss yyyy")
 				.toFormatter(US)
 				.withZone(ZoneOffset.UTC);
+
+		SESSION_COOKIE_NAME = "JSESSIONID";
+		SESSION_URL_PARAM = "jsessionid";
 	}
 
 	@NonNull
@@ -640,6 +647,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (normalized.isEmpty())
 			return null;
 
+		if ("unknown".equalsIgnoreCase(normalized) || normalized.startsWith("_"))
+			return null;
+
 		if (normalized.startsWith("[")) {
 			int close = normalized.indexOf(']');
 
@@ -727,8 +737,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 					value = stripOptionalQuotes(value);
 					value = Utilities.trimAggressivelyToNull(value);
 
-					if (value != null)
-						return parseForwardedForValue(value);
+					if (value != null) {
+						ForwardedClient normalized = parseForwardedForValue(value);
+
+						if (normalized != null)
+							return normalized;
+					}
 				}
 			}
 		}
@@ -1189,11 +1203,104 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return null;
 	}
 
+	@Nullable
+	private String extractRequestedSessionIdFromCookie() {
+		for (Cookie cookie : this.cookies) {
+			String name = cookie.getName();
+
+			if (name != null && SESSION_COOKIE_NAME.equalsIgnoreCase(name)) {
+				String value = cookie.getValue();
+
+				if (value != null && !value.isEmpty())
+					return value;
+			}
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private String extractRequestedSessionIdFromUrl() {
+		String rawPath = getRequest().getRawPath();
+		int length = rawPath.length();
+		int index = 0;
+
+		while (index < length) {
+			int semicolon = rawPath.indexOf(';', index);
+
+			if (semicolon < 0)
+				break;
+
+			int nameStart = semicolon + 1;
+
+			if (nameStart >= length)
+				break;
+
+			int nameEnd = nameStart;
+
+			while (nameEnd < length) {
+				char ch = rawPath.charAt(nameEnd);
+
+				if (ch == '=' || ch == ';' || ch == '/')
+					break;
+
+				nameEnd++;
+			}
+
+			if (nameEnd == nameStart) {
+				index = nameEnd + 1;
+				continue;
+			}
+
+			String name = rawPath.substring(nameStart, nameEnd);
+
+			if (!SESSION_URL_PARAM.equalsIgnoreCase(name)) {
+				index = nameEnd + 1;
+				continue;
+			}
+
+			if (nameEnd >= length || rawPath.charAt(nameEnd) != '=') {
+				index = nameEnd + 1;
+				continue;
+			}
+
+			int valueStart = nameEnd + 1;
+			int valueEnd = valueStart;
+
+			while (valueEnd < length) {
+				char ch = rawPath.charAt(valueEnd);
+
+				if (ch == ';' || ch == '/')
+					break;
+
+				valueEnd++;
+			}
+
+			if (valueEnd == valueStart) {
+				index = valueEnd + 1;
+				continue;
+			}
+
+			String value = rawPath.substring(valueStart, valueEnd);
+
+			if (!value.isEmpty())
+				return value;
+
+			index = valueEnd + 1;
+		}
+
+		return null;
+	}
+
 	@Override
 	@Nullable
 	public String getRequestedSessionId() {
-		// This is legal according to spec
-		return null;
+		String cookieSessionId = extractRequestedSessionIdFromCookie();
+
+		if (cookieSessionId != null)
+			return cookieSessionId;
+
+		return extractRequestedSessionIdFromUrl();
 	}
 
 	@Override
@@ -1289,27 +1396,36 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public boolean isRequestedSessionIdValid() {
-		// This is legal according to spec
-		return false;
+		String requestedSessionId = getRequestedSessionId();
+
+		if (requestedSessionId == null)
+			return false;
+
+		HttpSession currentSession = getHttpSession().orElse(null);
+
+		if (currentSession == null)
+			return false;
+
+		return requestedSessionId.equals(currentSession.getId());
 	}
 
 	@Override
 	public boolean isRequestedSessionIdFromCookie() {
-		// This is legal according to spec
-		return false;
+		return extractRequestedSessionIdFromCookie() != null;
 	}
 
 	@Override
 	public boolean isRequestedSessionIdFromURL() {
-		// This is legal according to spec
-		return false;
+		if (extractRequestedSessionIdFromCookie() != null)
+			return false;
+
+		return extractRequestedSessionIdFromUrl() != null;
 	}
 
 	@Override
 	@Deprecated
 	public boolean isRequestedSessionIdFromUrl() {
-		// This is legal according to spec
-		return false;
+		return isRequestedSessionIdFromURL();
 	}
 
 	@Override
