@@ -46,9 +46,9 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public final class SokletServletPrintWriter extends PrintWriter {
 	@NonNull
-	private final BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
+	private final BiConsumer<@NonNull SokletServletPrintWriter, @NonNull SokletServletPrintWriterEvent> onWriteOccurred;
 	@NonNull
-	private final Consumer<SokletServletPrintWriter> onWriteFinalized;
+	private final Consumer<@NonNull SokletServletPrintWriter> onWriteFinalized;
 	@NonNull
 	private Boolean writeFinalized = false;
 
@@ -75,9 +75,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		@NonNull
 		private Writer writer;
 		@Nullable
-		private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
+		private BiConsumer<@NonNull SokletServletPrintWriter, @NonNull SokletServletPrintWriterEvent> onWriteOccurred;
 		@Nullable
-		private Consumer<SokletServletPrintWriter> onWriteFinalized;
+		private Consumer<@NonNull SokletServletPrintWriter> onWriteFinalized;
 
 		@NonNull
 		private Builder(@NonNull Writer writer) {
@@ -93,13 +93,14 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		}
 
 		@NonNull
-		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred) {
+		public Builder onWriteOccurred(
+				@Nullable BiConsumer<@NonNull SokletServletPrintWriter, @NonNull SokletServletPrintWriterEvent> onWriteOccurred) {
 			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
 		@NonNull
-		public Builder onWriteFinalized(@Nullable Consumer<SokletServletPrintWriter> onWriteFinalized) {
+		public Builder onWriteFinalized(@Nullable Consumer<@NonNull SokletServletPrintWriter> onWriteFinalized) {
 			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
@@ -121,12 +122,12 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@NonNull
-	private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> getOnWriteOccurred() {
+	private BiConsumer<@NonNull SokletServletPrintWriter, @NonNull SokletServletPrintWriterEvent> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
 	@NonNull
-	private Consumer<SokletServletPrintWriter> getOnWriteFinalized() {
+	private Consumer<@NonNull SokletServletPrintWriter> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
 
@@ -319,13 +320,13 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	@Override
 	@NonNull
 	public PrintWriter printf(@NonNull String format,
-														@Nullable Object... args) {
+														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
 		PrintWriter printWriter = super.printf(format, args);
 		super.flush();
 
-		Object[] normalizedArgs = args != null ? args : new Object[0];
+		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		getOnWriteOccurred().accept(this, new PrintfPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -335,7 +336,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	@NonNull
 	public PrintWriter printf(@Nullable Locale l,
 														@NonNull String format,
-														@Nullable Object... args) {
+														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
 		PrintWriter printWriter = super.printf(l, format, args);
@@ -347,13 +348,13 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	@Override
 	@NonNull
 	public PrintWriter format(@NonNull String format,
-														@Nullable Object... args) {
+														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
 		PrintWriter printWriter = super.format(format, args);
 		super.flush();
 
-		Object[] normalizedArgs = args != null ? args : new Object[0];
+		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		getOnWriteOccurred().accept(this, new FormatPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -363,13 +364,13 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	@NonNull
 	public PrintWriter format(@Nullable Locale l,
 														@NonNull String format,
-														@Nullable Object... args) {
+														@Nullable Object @Nullable ... args) {
 		requireNonNull(format);
 
 		PrintWriter printWriter = super.format(l, format, args);
 		super.flush();
 
-		Object[] normalizedArgs = args != null ? args : new Object[0];
+		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		getOnWriteOccurred().accept(this, new FormatPerformed(l, format, normalizedArgs));
 
 		return printWriter;

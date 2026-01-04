@@ -56,7 +56,7 @@ public final class SokletHttpSession implements HttpSession {
 	@NonNull
 	private final Instant createdAt;
 	@NonNull
-	private final Map<String, Object> attributes;
+	private final Map<@NonNull String, @NonNull Object> attributes;
 	@NonNull
 	private final ServletContext servletContext;
 	private volatile boolean invalidated;
@@ -95,7 +95,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@NonNull
-	private Map<String, Object> getAttributes() {
+	private Map<@NonNull String, @NonNull Object> getAttributes() {
 		return this.attributes;
 	}
 
@@ -172,17 +172,16 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getAttributeNames() {
+	public Enumeration<@NonNull String> getAttributeNames() {
 		ensureNotInvalidated();
 		return Collections.enumeration(getAttributes().keySet());
 	}
 
 	@Override
-	@NonNull
 	@Deprecated
-	public String[] getValueNames() {
+	public @NonNull String @NonNull [] getValueNames() {
 		ensureNotInvalidated();
-		List<String> valueNames = Collections.list(getAttributeNames());
+		List<@NonNull String> valueNames = Collections.list(getAttributeNames());
 		return valueNames.toArray(new String[0]);
 	}
 
@@ -245,7 +244,7 @@ public final class SokletHttpSession implements HttpSession {
 	@Override
 	public void invalidate() {
 		// Copy to prevent modification while iterating
-		Set<String> namesToRemove = new HashSet<>(getAttributes().keySet());
+		Set<@NonNull String> namesToRemove = new HashSet<>(getAttributes().keySet());
 
 		for (String name : namesToRemove)
 			removeAttribute(name);

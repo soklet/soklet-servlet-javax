@@ -131,23 +131,23 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private HttpSession httpSession;
 	@NonNull
-	private final Map<String, Object> attributes;
+	private final Map<@NonNull String, @NonNull Object> attributes;
 	@NonNull
-	private final List<Cookie> cookies;
+	private final List<@NonNull Cookie> cookies;
 	@Nullable
 	private Charset charset;
 	@Nullable
 	private String contentType;
 	@Nullable
-	private Map<String, Set<String>> queryParameters;
+	private Map<@NonNull String, @NonNull Set<@NonNull String>> queryParameters;
 	@Nullable
-	private Map<String, Set<String>> formParameters;
+	private Map<@NonNull String, @NonNull Set<@NonNull String>> formParameters;
 	private boolean parametersAccessed;
 	private boolean bodyParametersAccessed;
 	@NonNull
 	private final TrustPolicy forwardedHeaderTrustPolicy;
 	@Nullable
-	private final Predicate<InetSocketAddress> trustedProxyPredicate;
+	private final Predicate<@NonNull InetSocketAddress> trustedProxyPredicate;
 	@Nullable
 	private final Boolean allowOriginFallback;
 	@Nullable
@@ -187,24 +187,24 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@NonNull
-	private Map<String, Object> getAttributes() {
+	private Map<@NonNull String, @NonNull Object> getAttributes() {
 		return this.attributes;
 	}
 
 	@NonNull
-	private List<Cookie> parseCookies(@NonNull Request request) {
+	private List<@NonNull Cookie> parseCookies(@NonNull Request request) {
 		requireNonNull(request);
 
-		List<Cookie> convertedCookies = new ArrayList<>();
-		Map<String, Set<String>> headers = request.getHeaders();
+		List<@NonNull Cookie> convertedCookies = new ArrayList<>();
+		Map<@NonNull String, @NonNull Set<@NonNull String>> headers = request.getHeaders();
 
-		for (Entry<String, Set<String>> entry : headers.entrySet()) {
+		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : headers.entrySet()) {
 			String headerName = entry.getKey();
 
 			if (headerName == null || !"cookie".equalsIgnoreCase(headerName.trim()))
 				continue;
 
-			Set<String> headerValues = entry.getValue();
+			Set<@NonNull String> headerValues = entry.getValue();
 
 			if (headerValues == null)
 				continue;
@@ -247,8 +247,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 * Supports backslash-escaped quotes within quoted strings.
 	 */
 	@NonNull
-	private static List<String> splitCookieHeaderRespectingQuotes(@NonNull String headerValue) {
-		List<String> parts = new ArrayList<>();
+	private static List<@NonNull String> splitCookieHeaderRespectingQuotes(@NonNull String headerValue) {
+		List<@NonNull String> parts = new ArrayList<>();
 		StringBuilder current = new StringBuilder(headerValue.length());
 		boolean inQuotes = false;
 		boolean escape = false;
@@ -294,9 +294,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 * Supports backslash-escaped quotes within quoted strings.
 	 */
 	@NonNull
-	private static List<String> splitHeaderValueRespectingQuotes(@NonNull String headerValue,
+	private static List<@NonNull String> splitHeaderValueRespectingQuotes(@NonNull String headerValue,
 																														 char delimiter) {
-		List<String> parts = new ArrayList<>();
+		List<@NonNull String> parts = new ArrayList<>();
 		StringBuilder current = new StringBuilder(headerValue.length());
 		boolean inQuotes = false;
 		boolean escape = false;
@@ -469,7 +469,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	private boolean hasContentLengthHeader() {
-		Set<String> values = getRequest().getHeaders().get("Content-Length");
+		Set<@NonNull String> values = getRequest().getHeaders().get("Content-Length");
 		return values != null && !values.isEmpty();
 	}
 
@@ -478,7 +478,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@NonNull
-	private Map<String, Set<String>> getQueryParameters() {
+	private Map<@NonNull String, @NonNull Set<@NonNull String>> getQueryParameters() {
 		if (this.queryParameters != null)
 			return this.queryParameters;
 
@@ -490,13 +490,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		Charset charset = getEffectiveCharset();
-		Map<String, Set<String>> parsed = Utilities.extractQueryParametersFromQuery(rawQuery, QueryFormat.X_WWW_FORM_URLENCODED, charset);
+		Map<@NonNull String, @NonNull Set<@NonNull String>> parsed =
+				Utilities.extractQueryParametersFromQuery(rawQuery, QueryFormat.X_WWW_FORM_URLENCODED, charset);
 		this.queryParameters = Collections.unmodifiableMap(parsed);
 		return this.queryParameters;
 	}
 
 	@NonNull
-	private Map<String, Set<String>> getFormParameters() {
+	private Map<@NonNull String, @NonNull Set<@NonNull String>> getFormParameters() {
 		if (this.formParameters != null)
 			return this.formParameters;
 
@@ -521,7 +522,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		String bodyAsString = new String(body, StandardCharsets.ISO_8859_1);
 		Charset charset = getEffectiveCharset();
-		Map<String, Set<String>> parsed = Utilities.extractQueryParametersFromQuery(bodyAsString, QueryFormat.X_WWW_FORM_URLENCODED, charset);
+		Map<@NonNull String, @NonNull Set<@NonNull String>> parsed =
+				Utilities.extractQueryParametersFromQuery(bodyAsString, QueryFormat.X_WWW_FORM_URLENCODED, charset);
 		this.formParameters = Collections.unmodifiableMap(parsed);
 		return this.formParameters;
 	}
@@ -550,7 +552,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nullable
 	private String extractForwardedForFromHeaders() {
-		Set<String> headerValues = getRequest().getHeaders().get("Forwarded");
+		Set<@NonNull String> headerValues = getRequest().getHeaders().get("Forwarded");
 
 		if (headerValues == null)
 			return null;
@@ -649,7 +651,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nullable
 	private String extractXForwardedForFromHeaders() {
-		Set<String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
+		Set<@NonNull String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
 
 		if (headerValues == null)
 			return null;
@@ -854,7 +856,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		@NonNull
 		private TrustPolicy forwardedHeaderTrustPolicy;
 		@Nullable
-		private Predicate<InetSocketAddress> trustedProxyPredicate;
+		private Predicate<@NonNull InetSocketAddress> trustedProxyPredicate;
 		@Nullable
 		private Boolean allowOriginFallback;
 
@@ -904,15 +906,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 
 		@NonNull
-		public Builder trustedProxyPredicate(@Nullable Predicate<InetSocketAddress> trustedProxyPredicate) {
+		public Builder trustedProxyPredicate(@Nullable Predicate<@NonNull InetSocketAddress> trustedProxyPredicate) {
 			this.trustedProxyPredicate = trustedProxyPredicate;
 			return this;
 		}
 
 		@NonNull
-		public Builder trustedProxyAddresses(@NonNull Set<InetAddress> trustedProxyAddresses) {
+		public Builder trustedProxyAddresses(@NonNull Set<@NonNull InetAddress> trustedProxyAddresses) {
 			requireNonNull(trustedProxyAddresses);
-			Set<InetAddress> normalizedAddresses = Set.copyOf(trustedProxyAddresses);
+			Set<@NonNull InetAddress> normalizedAddresses = Set.copyOf(trustedProxyAddresses);
 			this.trustedProxyPredicate = remoteAddress -> {
 				if (remoteAddress == null)
 					return false;
@@ -973,8 +975,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nullable
-	public Cookie[] getCookies() {
+	public @NonNull Cookie @Nullable [] getCookies() {
 		return this.cookies.isEmpty() ? null : this.cookies.toArray(new Cookie[0]);
 	}
 
@@ -1014,7 +1015,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		Set<String> values = getRequest().getHeaders().get(name);
+		Set<@NonNull String> values = getRequest().getHeaders().get(name);
 
 		if (values == null || values.isEmpty())
 			return null;
@@ -1024,17 +1025,17 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getHeaders(@Nullable String name) {
+	public Enumeration<@NonNull String> getHeaders(@Nullable String name) {
 		if (name == null)
 			return Collections.emptyEnumeration();
 
-		Set<String> values = request.getHeaders().get(name);
+		Set<@NonNull String> values = request.getHeaders().get(name);
 		return values == null ? Collections.emptyEnumeration() : Collections.enumeration(values);
 	}
 
 	@Override
 	@NonNull
-	public Enumeration<String> getHeaderNames() {
+	public Enumeration<@NonNull String> getHeaderNames() {
 		return Collections.enumeration(getRequest().getHeaders().keySet());
 	}
 
@@ -1236,7 +1237,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@NonNull
-	public Collection<Part> getParts() throws IOException, ServletException {
+	public Collection<@NonNull Part> getParts() throws IOException, ServletException {
 		// Legal if the request body is larger than maxRequestSize, or any Part in the request is larger than maxFileSize,
 		// or there is no @MultipartConfig or multipart-config in deployment descriptors
 		throw new ServletException("Servlet multipart configuration is not supported");
@@ -1268,7 +1269,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getAttributeNames() {
+	public Enumeration<@NonNull String> getAttributeNames() {
 		return Collections.enumeration(getAttributes().keySet());
 	}
 
@@ -1373,12 +1374,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		markParametersAccessed();
 
-		Set<String> queryValues = getQueryParameters().get(name);
+		Set<@NonNull String> queryValues = getQueryParameters().get(name);
 
 		if (queryValues != null && !queryValues.isEmpty())
 			return queryValues.iterator().next();
 
-		Set<String> formValues = getFormParameters().get(name);
+		Set<@NonNull String> formValues = getFormParameters().get(name);
 
 		if (formValues != null && !formValues.isEmpty())
 			return formValues.iterator().next();
@@ -1388,13 +1389,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getParameterNames() {
+	public Enumeration<@NonNull String> getParameterNames() {
 		markParametersAccessed();
 
-		Set<String> queryParameterNames = getQueryParameters().keySet();
-		Set<String> formParameterNames = getFormParameters().keySet();
+		Set<@NonNull String> queryParameterNames = getQueryParameters().keySet();
+		Set<@NonNull String> formParameterNames = getFormParameters().keySet();
 
-		Set<String> parameterNames = new HashSet<>(queryParameterNames.size() + formParameterNames.size());
+		Set<@NonNull String> parameterNames = new HashSet<>(queryParameterNames.size() + formParameterNames.size());
 		parameterNames.addAll(queryParameterNames);
 		parameterNames.addAll(formParameterNames);
 
@@ -1402,21 +1403,20 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nullable
-	public String[] getParameterValues(@Nullable String name) {
+	public @NonNull String @Nullable [] getParameterValues(@Nullable String name) {
 		if (name == null)
 			return null;
 
 		markParametersAccessed();
 
-		List<String> parameterValues = new ArrayList<>();
+		List<@NonNull String> parameterValues = new ArrayList<>();
 
-		Set<String> queryValues = getQueryParameters().get(name);
+		Set<@NonNull String> queryValues = getQueryParameters().get(name);
 
 		if (queryValues != null)
 			parameterValues.addAll(queryValues);
 
-		Set<String> formValues = getFormParameters().get(name);
+		Set<@NonNull String> formValues = getFormParameters().get(name);
 
 		if (formValues != null)
 			parameterValues.addAll(formValues);
@@ -1426,18 +1426,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	@NonNull
-	public Map<String, String[]> getParameterMap() {
+	public Map<@NonNull String, @NonNull String @NonNull []> getParameterMap() {
 		markParametersAccessed();
 
-		Map<String, Set<String>> parameterMap = new HashMap<>();
+		Map<@NonNull String, @NonNull Set<@NonNull String>> parameterMap = new HashMap<>();
 
 		// Mutable copy of entries
-		for (Entry<String, Set<String>> entry : getQueryParameters().entrySet())
+		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getQueryParameters().entrySet())
 			parameterMap.put(entry.getKey(), new HashSet<>(entry.getValue()));
 
 		// Add form parameters to entries
-		for (Entry<String, Set<String>> entry : getFormParameters().entrySet()) {
-			Set<String> existingEntries = parameterMap.get(entry.getKey());
+		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getFormParameters().entrySet()) {
+			Set<@NonNull String> existingEntries = parameterMap.get(entry.getKey());
 
 			if (existingEntries != null)
 				existingEntries.addAll(entry.getValue());
@@ -1445,9 +1445,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				parameterMap.put(entry.getKey(), entry.getValue());
 		}
 
-		Map<String, String[]> finalParameterMap = new HashMap<>();
+		Map<@NonNull String, @NonNull String @NonNull []> finalParameterMap = new HashMap<>();
 
-		for (Entry<String, Set<String>> entry : parameterMap.entrySet())
+		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : parameterMap.entrySet())
 			finalParameterMap.put(entry.getKey(), entry.getValue().toArray(new String[0]));
 
 		return Collections.unmodifiableMap(finalParameterMap);
@@ -1630,14 +1630,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@NonNull
 	public Locale getLocale() {
-		List<Locale> locales = getRequest().getLocales();
+		List<@NonNull Locale> locales = getRequest().getLocales();
 		return locales.size() == 0 ? getDefault() : locales.get(0);
 	}
 
 	@Override
 	@NonNull
-	public Enumeration<Locale> getLocales() {
-		List<Locale> locales = getRequest().getLocales();
+	public Enumeration<@NonNull Locale> getLocales() {
+		List<@NonNull Locale> locales = getRequest().getLocales();
 		return Collections.enumeration(locales.size() == 0 ? List.of(getDefault()) : locales);
 	}
 

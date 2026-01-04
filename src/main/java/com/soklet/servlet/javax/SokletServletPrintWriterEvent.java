@@ -98,7 +98,7 @@ public sealed interface SokletServletPrintWriterEvent permits
 	record PrintfPerformed(
 			@Nullable Locale locale,
 			@NonNull String format,
-			@NonNull Object[] args
+			@Nullable Object @NonNull [] args
 	) implements SokletServletPrintWriterEvent {
 		public PrintfPerformed {
 			requireNonNull(format);
@@ -112,7 +112,7 @@ public sealed interface SokletServletPrintWriterEvent permits
 	record FormatPerformed(
 			@Nullable Locale locale,
 			@NonNull String format,
-			@NonNull Object[] args
+			@Nullable Object @NonNull [] args
 	) implements SokletServletPrintWriterEvent {
 		public FormatPerformed {
 			requireNonNull(format);

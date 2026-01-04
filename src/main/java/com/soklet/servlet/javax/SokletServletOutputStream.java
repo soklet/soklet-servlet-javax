@@ -40,9 +40,9 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	@NonNull
 	private final OutputStream outputStream;
 	@NonNull
-	private final BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
+	private final BiConsumer<@NonNull SokletServletOutputStream, @NonNull Integer> onWriteOccurred;
 	@NonNull
-	private final Consumer<SokletServletOutputStream> onWriteFinalized;
+	private final Consumer<@NonNull SokletServletOutputStream> onWriteFinalized;
 	@NonNull
 	private Boolean writeFinalized;
 
@@ -73,9 +73,9 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		@NonNull
 		private OutputStream outputStream;
 		@Nullable
-		private BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
+		private BiConsumer<@NonNull SokletServletOutputStream, @NonNull Integer> onWriteOccurred;
 		@Nullable
-		private Consumer<SokletServletOutputStream> onWriteFinalized;
+		private Consumer<@NonNull SokletServletOutputStream> onWriteFinalized;
 
 		@NonNull
 		private Builder(@NonNull OutputStream outputStream) {
@@ -91,13 +91,13 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		}
 
 		@NonNull
-		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred) {
+		public Builder onWriteOccurred(@Nullable BiConsumer<@NonNull SokletServletOutputStream, @NonNull Integer> onWriteOccurred) {
 			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
 		@NonNull
-		public Builder onWriteFinalized(@Nullable Consumer<SokletServletOutputStream> onWriteFinalized) {
+		public Builder onWriteFinalized(@Nullable Consumer<@NonNull SokletServletOutputStream> onWriteFinalized) {
 			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
@@ -114,12 +114,12 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	}
 
 	@NonNull
-	private BiConsumer<SokletServletOutputStream, Integer> getOnWriteOccurred() {
+	private BiConsumer<@NonNull SokletServletOutputStream, @NonNull Integer> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
 	@NonNull
-	private Consumer<SokletServletOutputStream> getOnWriteFinalized() {
+	private Consumer<@NonNull SokletServletOutputStream> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
 

@@ -88,9 +88,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@NonNull
 	private final ServletContext servletContext;
 	@NonNull
-	private final List<Cookie> cookies;
+	private final List<@NonNull Cookie> cookies;
 	@NonNull
-	private final Map<String, List<String>> headers;
+	private final Map<@NonNull String, @NonNull List<@NonNull String>> headers;
 	@NonNull
 	private ByteArrayOutputStream responseOutputStream;
 	@NonNull
@@ -192,7 +192,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public MarshaledResponse toMarshaledResponse() {
 		byte[] body = getResponseOutputStream().toByteArray();
 
-		Map<String, Set<String>> headers = getHeaders().entrySet().stream()
+		Map<@NonNull String, @NonNull Set<@NonNull String>> headers = getHeaders().entrySet().stream()
 				.collect(Collectors.toMap(
 						Map.Entry::getKey,
 						entry -> new LinkedHashSet<>(entry.getValue()),
@@ -203,7 +203,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 						LinkedHashMap::new
 				));
 
-		Set<ResponseCookie> cookies = getCookies().stream()
+		Set<@NonNull ResponseCookie> cookies = getCookies().stream()
 				.map(cookie -> {
 					ResponseCookie.Builder builder = ResponseCookie.with(cookie.getName(), cookie.getValue())
 							.path(cookie.getPath())
@@ -241,21 +241,21 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@NonNull
-	private List<Cookie> getCookies() {
+	private List<@NonNull Cookie> getCookies() {
 		return this.cookies;
 	}
 
 	@NonNull
-	private Map<String, List<String>> getHeaders() {
+	private Map<@NonNull String, @NonNull List<@NonNull String>> getHeaders() {
 		return this.headers;
 	}
 
 	@NonNull
-	private List<String> getSetCookieHeaderValues() {
+	private List<@NonNull String> getSetCookieHeaderValues() {
 		if (getCookies().isEmpty())
 			return List.of();
 
-		List<String> values = new ArrayList<>(getCookies().size());
+		List<@NonNull String> values = new ArrayList<>(getCookies().size());
 
 		for (Cookie cookie : getCookies())
 			values.add(toSetCookieHeaderValue(cookie));
@@ -286,7 +286,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		requireNonNull(value);
 
 		if (replace) {
-			List<String> values = new ArrayList<>();
+			List<@NonNull String> values = new ArrayList<>();
 			values.add(value);
 			getHeaders().put(name, values);
 		} else {
@@ -887,33 +887,33 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			return null;
 
 		if ("Set-Cookie".equalsIgnoreCase(name)) {
-			List<String> values = getHeaders().get(name);
+			List<@NonNull String> values = getHeaders().get(name);
 
 			if (values != null && !values.isEmpty())
 				return values.get(0);
 
-			List<String> cookieValues = getSetCookieHeaderValues();
+			List<@NonNull String> cookieValues = getSetCookieHeaderValues();
 			return cookieValues.isEmpty() ? null : cookieValues.get(0);
 		}
 
-		List<String> values = getHeaders().get(name);
+		List<@NonNull String> values = getHeaders().get(name);
 		return values == null || values.size() == 0 ? null : values.get(0);
 	}
 
 	@Override
 	@NonNull
-	public Collection<String> getHeaders(@Nullable String name) {
+	public Collection<@NonNull String> getHeaders(@Nullable String name) {
 		if (name == null)
 			return List.of();
 
 		if ("Set-Cookie".equalsIgnoreCase(name)) {
-			List<String> values = getHeaders().get(name);
-			List<String> cookieValues = getSetCookieHeaderValues();
+			List<@NonNull String> values = getHeaders().get(name);
+			List<@NonNull String> cookieValues = getSetCookieHeaderValues();
 
 			if ((values == null || values.isEmpty()) && cookieValues.isEmpty())
 				return List.of();
 
-			List<String> combined = new ArrayList<>();
+			List<@NonNull String> combined = new ArrayList<>();
 
 			if (values != null)
 				combined.addAll(values);
@@ -922,14 +922,14 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			return Collections.unmodifiableList(combined);
 		}
 
-		List<String> values = getHeaders().get(name);
+		List<@NonNull String> values = getHeaders().get(name);
 		return values == null ? List.of() : Collections.unmodifiableList(values);
 	}
 
 	@Override
 	@NonNull
-	public Collection<String> getHeaderNames() {
-		Set<String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	public Collection<@NonNull String> getHeaderNames() {
+		Set<@NonNull String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 		names.addAll(getHeaders().keySet());
 
 		if (!getCookies().isEmpty())
@@ -1012,7 +1012,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 		String[] parts = type.split(";");
 		String base = parts[0].trim();
-		List<String> kept = new ArrayList<>();
+		List<@NonNull String> kept = new ArrayList<>();
 
 		for (int i = 1; i < parts.length; i++) {
 			String p = parts[i].trim();

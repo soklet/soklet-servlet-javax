@@ -73,7 +73,7 @@ public final class SokletServletContext implements ServletContext {
 	@NonNull
 	private final Object logLock;
 	@NonNull
-	private final Map<String, Object> attributes;
+	private final Map<@NonNull String, @NonNull Object> attributes;
 	@NonNull
 	private volatile int sessionTimeout;
 	@Nullable
@@ -106,7 +106,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@NonNull
-	private Map<String, Object> getAttributes() {
+	private Map<@NonNull String, @NonNull Object> getAttributes() {
 		return this.attributes;
 	}
 
@@ -184,7 +184,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@Nullable
-	public Set<String> getResourcePaths(@Nullable String path) {
+	public Set<@NonNull String> getResourcePaths(@Nullable String path) {
 		// TODO: revisit https://javaee.github.io/javaee-spec/javadocs/javax/servlet/ServletContext.html#getResourcePaths-java.lang.String-
 		if (path == null || !path.startsWith("/"))
 			return null;
@@ -195,10 +195,10 @@ public final class SokletServletContext implements ServletContext {
 			if (!normalized.endsWith("/") && !normalized.isEmpty())
 				normalized += "/";
 
-			Enumeration<URL> roots =
+			Enumeration<@NonNull URL> roots =
 					Thread.currentThread().getContextClassLoader().getResources(normalized);
 
-			Set<String> out = new java.util.TreeSet<>();
+			Set<@NonNull String> out = new java.util.TreeSet<>();
 
 			while (roots.hasMoreElements()) {
 				URL url = roots.nextElement();
@@ -290,7 +290,7 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Deprecated
 	@NonNull
-	public Enumeration<Servlet> getServlets() {
+	public Enumeration<@NonNull Servlet> getServlets() {
 		// Deliberately empty per spec b/c this method is deprecated
 		return Collections.emptyEnumeration();
 	}
@@ -298,7 +298,7 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Deprecated
 	@NonNull
-	public Enumeration<String> getServletNames() {
+	public Enumeration<@NonNull String> getServletNames() {
 		// Deliberately empty per spec b/c this method is deprecated
 		return Collections.emptyEnumeration();
 	}
@@ -330,7 +330,7 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	public void log(@Nullable String message,
 									@Nullable Throwable throwable) {
-		List<String> components = new ArrayList<>(2);
+		List<@NonNull String> components = new ArrayList<>(2);
 
 		if (message != null)
 			components.add(message);
@@ -375,7 +375,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getInitParameterNames() {
+	public Enumeration<@NonNull String> getInitParameterNames() {
 		// Soklet has no concept of init parameters
 		return Collections.emptyEnumeration();
 	}
@@ -395,7 +395,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@NonNull
-	public Enumeration<String> getAttributeNames() {
+	public Enumeration<@NonNull String> getAttributeNames() {
 		return Collections.enumeration(getAttributes().keySet());
 	}
 
@@ -424,30 +424,26 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nullable
-	public ServletRegistration.Dynamic addServlet(@Nullable String servletName,
-																								@Nullable String className) {
+	public ServletRegistration.@Nullable Dynamic addServlet(@Nullable String servletName,
+																													@Nullable String className) {
 		throw new IllegalStateException("Soklet does not support adding Servlets");
 	}
 
 	@Override
-	@Nullable
-	public ServletRegistration.Dynamic addServlet(@Nullable String servletName,
-																								@Nullable Servlet servlet) {
+	public ServletRegistration.@Nullable Dynamic addServlet(@Nullable String servletName,
+																													@Nullable Servlet servlet) {
 		throw new IllegalStateException("Soklet does not support adding Servlets");
 	}
 
 	@Override
-	@Nullable
-	public ServletRegistration.Dynamic addServlet(@Nullable String servletName,
-																								@Nullable Class<? extends Servlet> servletClass) {
+	public ServletRegistration.@Nullable Dynamic addServlet(@Nullable String servletName,
+																													@Nullable Class<? extends Servlet> servletClass) {
 		throw new IllegalStateException("Soklet does not support adding Servlets");
 	}
 
 	@Override
-	@Nullable
-	public ServletRegistration.Dynamic addJspFile(@Nullable String servletName,
-																								@Nullable String jspFile) {
+	public ServletRegistration.@Nullable Dynamic addJspFile(@Nullable String servletName,
+																													@Nullable String jspFile) {
 		throw new IllegalStateException("Soklet does not support adding JSP files");
 	}
 
@@ -466,28 +462,25 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@NonNull
-	public Map<String, ? extends ServletRegistration> getServletRegistrations() {
+	public Map<@NonNull String, ? extends @NonNull ServletRegistration> getServletRegistrations() {
 		return Map.of();
 	}
 
 	@Override
-	@Nullable
-	public FilterRegistration.Dynamic addFilter(@Nullable String filterName,
-																							@Nullable String className) {
+	public FilterRegistration.@Nullable Dynamic addFilter(@Nullable String filterName,
+																												@Nullable String className) {
 		throw new IllegalStateException("Soklet does not support adding Filters");
 	}
 
 	@Override
-	@Nullable
-	public FilterRegistration.Dynamic addFilter(@Nullable String filterName,
-																							@Nullable Filter filter) {
+	public FilterRegistration.@Nullable Dynamic addFilter(@Nullable String filterName,
+																												@Nullable Filter filter) {
 		throw new IllegalStateException("Soklet does not support adding Filters");
 	}
 
 	@Override
-	@Nullable
-	public FilterRegistration.Dynamic addFilter(@Nullable String filterName,
-																							@Nullable Class<? extends Filter> filterClass) {
+	public FilterRegistration.@Nullable Dynamic addFilter(@Nullable String filterName,
+																												@Nullable Class<? extends Filter> filterClass) {
 		throw new IllegalStateException("Soklet does not support adding Filters");
 	}
 
@@ -506,7 +499,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@NonNull
-	public Map<String, ? extends FilterRegistration> getFilterRegistrations() {
+	public Map<@NonNull String, ? extends @NonNull FilterRegistration> getFilterRegistrations() {
 		return Map.of();
 	}
 
@@ -518,19 +511,19 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	public void setSessionTrackingModes(@Nullable Set<SessionTrackingMode> sessionTrackingModes) {
+	public void setSessionTrackingModes(@Nullable Set<@NonNull SessionTrackingMode> sessionTrackingModes) {
 		throw new IllegalStateException("Soklet does not support session tracking");
 	}
 
 	@Override
 	@NonNull
-	public Set<SessionTrackingMode> getDefaultSessionTrackingModes() {
+	public Set<@NonNull SessionTrackingMode> getDefaultSessionTrackingModes() {
 		return Set.of();
 	}
 
 	@Override
 	@NonNull
-	public Set<SessionTrackingMode> getEffectiveSessionTrackingModes() {
+	public Set<@NonNull SessionTrackingMode> getEffectiveSessionTrackingModes() {
 		return Set.of();
 	}
 
@@ -540,7 +533,6 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nullable
 	public <T extends EventListener> void addListener(@Nullable T t) {
 		throw new IllegalStateException("Soklet does not support listeners");
 	}
@@ -570,7 +562,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	public void declareRoles(@Nullable String... strings) {
+	public void declareRoles(@Nullable String @Nullable ... strings) {
 		throw new IllegalStateException("Soklet does not support Servlet roles");
 	}
 

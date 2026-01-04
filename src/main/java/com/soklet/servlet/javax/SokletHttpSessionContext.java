@@ -57,7 +57,7 @@ public final class SokletHttpSessionContext implements HttpSessionContext {
 	@Override
 	@NonNull
 	@Deprecated
-	public Enumeration<String> getIds() {
+	public Enumeration<@NonNull String> getIds() {
 		// Per spec
 		return Collections.emptyEnumeration();
 	}
