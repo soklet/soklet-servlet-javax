@@ -38,6 +38,8 @@ public final class SokletServletInputStream extends ServletInputStream {
 	private final InputStream inputStream;
 	@NonNull
 	private Boolean finished;
+	@NonNull
+	private Boolean closed;
 
 	@NonNull
 	public static SokletServletInputStream withInputStream(@NonNull InputStream inputStream) {
@@ -51,6 +53,7 @@ public final class SokletServletInputStream extends ServletInputStream {
 
 		this.inputStream = inputStream;
 		this.finished = false;
+		this.closed = false;
 
 		try {
 			if (inputStream.available() == 0)
@@ -75,6 +78,21 @@ public final class SokletServletInputStream extends ServletInputStream {
 		this.finished = finished;
 	}
 
+	@NonNull
+	private Boolean getClosed() {
+		return this.closed;
+	}
+
+	private void setClosed(@NonNull Boolean closed) {
+		requireNonNull(closed);
+		this.closed = closed;
+	}
+
+	private void ensureOpen() throws IOException {
+		if (getClosed())
+			throw new IOException("Stream is closed");
+	}
+
 	// Implementation of ServletInputStream methods below:
 
 	@Override
@@ -84,18 +102,27 @@ public final class SokletServletInputStream extends ServletInputStream {
 
 	@Override
 	public boolean isReady() {
-		return true;
+		return !getClosed();
 	}
 
 	@Override
 	public int available() throws IOException {
+		ensureOpen();
 		return getInputStream().available();
 	}
 
 	@Override
 	public void close() throws IOException {
-		super.close();
-		getInputStream().close();
+		if (getClosed())
+			return;
+
+		try {
+			super.close();
+			getInputStream().close();
+		} finally {
+			setClosed(true);
+			setFinished(true);
+		}
 	}
 
 	@Override
@@ -106,11 +133,26 @@ public final class SokletServletInputStream extends ServletInputStream {
 
 	@Override
 	public int read() throws IOException {
+		ensureOpen();
 		int data = getInputStream().read();
 
 		if (data == -1)
 			setFinished(true);
 
 		return data;
+	}
+
+	@Override
+	public int read(@NonNull byte[] b,
+									int off,
+									int len) throws IOException {
+		requireNonNull(b);
+		ensureOpen();
+		int count = getInputStream().read(b, off, len);
+
+		if (count == -1)
+			setFinished(true);
+
+		return count;
 	}
 }

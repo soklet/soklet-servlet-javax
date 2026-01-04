@@ -45,6 +45,8 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	private final Consumer<@NonNull SokletServletOutputStream> onWriteFinalized;
 	@NonNull
 	private Boolean writeFinalized;
+	@NonNull
+	private Boolean closed;
 
 	@NonNull
 	public static Builder withOutputStream(@NonNull OutputStream outputStream) {
@@ -59,6 +61,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		this.onWriteOccurred = builder.onWriteOccurred != null ? builder.onWriteOccurred : (ignored1, ignored2) -> {};
 		this.onWriteFinalized = builder.onWriteFinalized != null ? builder.onWriteFinalized : (ignored) -> {};
 		this.writeFinalized = false;
+		this.closed = false;
 	}
 
 	/**
@@ -133,21 +136,51 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 		this.writeFinalized = writeFinalized;
 	}
 
+	@NonNull
+	private Boolean getClosed() {
+		return this.closed;
+	}
+
+	private void setClosed(@NonNull Boolean closed) {
+		requireNonNull(closed);
+		this.closed = closed;
+	}
+
+	private void ensureOpen() throws IOException {
+		if (getClosed())
+			throw new IOException("Stream is closed");
+	}
+
 // Implementation of ServletOutputStream methods below:
 
 	@Override
 	public void write(int b) throws IOException {
+		ensureOpen();
 		getOutputStream().write(b);
 		getOnWriteOccurred().accept(this, b);
 	}
 
 	@Override
 	public boolean isReady() {
-		return true;
+		return !getClosed();
+	}
+
+	@Override
+	public void write(@NonNull byte[] b,
+										int off,
+										int len) throws IOException {
+		requireNonNull(b);
+		ensureOpen();
+		if (len == 0)
+			return;
+
+		getOutputStream().write(b, off, len);
+		getOnWriteOccurred().accept(this, len);
 	}
 
 	@Override
 	public void flush() throws IOException {
+		ensureOpen();
 		super.flush();
 		getOutputStream().flush();
 
@@ -159,12 +192,18 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 
 	@Override
 	public void close() throws IOException {
-		super.close();
-		getOutputStream().close();
+		if (getClosed())
+			return;
 
-		if (!getWriteFinalized()) {
-			setWriteFinalized(true);
-			getOnWriteFinalized().accept(this);
+		try {
+			super.close();
+			getOutputStream().close();
+		} finally {
+			setClosed(true);
+			if (!getWriteFinalized()) {
+				setWriteFinalized(true);
+				getOnWriteFinalized().accept(this);
+			}
 		}
 	}
 

@@ -64,7 +64,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1606,7 +1607,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		Set<@NonNull String> queryParameterNames = getQueryParameters().keySet();
 		Set<@NonNull String> formParameterNames = getFormParameters().keySet();
 
-		Set<@NonNull String> parameterNames = new HashSet<>(queryParameterNames.size() + formParameterNames.size());
+		Set<@NonNull String> parameterNames = new LinkedHashSet<>(queryParameterNames.size() + formParameterNames.size());
 		parameterNames.addAll(queryParameterNames);
 		parameterNames.addAll(formParameterNames);
 
@@ -1640,7 +1641,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public Map<@NonNull String, @NonNull String @NonNull []> getParameterMap() {
 		markParametersAccessed();
 
-		Map<@NonNull String, @NonNull Set<@NonNull String>> parameterMap = new HashMap<>();
+		Map<@NonNull String, @NonNull Set<@NonNull String>> parameterMap = new LinkedHashMap<>();
 
 		// Mutable copy of entries
 		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getQueryParameters().entrySet())
@@ -1656,7 +1657,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				parameterMap.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
 		}
 
-		Map<@NonNull String, @NonNull String @NonNull []> finalParameterMap = new HashMap<>();
+		Map<@NonNull String, @NonNull String @NonNull []> finalParameterMap = new LinkedHashMap<>();
 
 		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : parameterMap.entrySet())
 			finalParameterMap.put(entry.getKey(), entry.getValue().toArray(new String[0]));

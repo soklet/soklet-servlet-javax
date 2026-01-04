@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,6 +47,18 @@ public class ParameterTests {
 
 		String[] missing = httpServletRequest.getParameterValues("none");
 		Assertions.assertNull(missing);
+	}
+
+	@Test
+	public void parameterNamesPreserveQueryThenFormOrder() {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?b=2&a=1&b=2")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("c=3&a=4&b=5".getBytes(StandardCharsets.US_ASCII))
+				.build();
+		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
+
+		List<String> names = Collections.list(httpServletRequest.getParameterNames());
+		Assertions.assertEquals(List.of("b", "a", "c"), names);
 	}
 
 	@Test
