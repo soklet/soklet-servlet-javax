@@ -21,9 +21,9 @@ import com.soklet.Request;
 import com.soklet.Utilities;
 import com.soklet.Utilities.EffectiveOriginResolver;
 import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.AsyncContext;
 import javax.servlet.DispatcherType;
@@ -87,13 +87,13 @@ import static java.util.Objects.requireNonNull;
  */
 @NotThreadSafe
 public final class SokletHttpServletRequest implements HttpServletRequest {
-	@Nonnull
+	@NonNull
 	private static final Charset DEFAULT_CHARSET;
-	@Nonnull
+	@NonNull
 	private static final DateTimeFormatter RFC_1123_PARSER;
-	@Nonnull
+	@NonNull
 	private static final DateTimeFormatter RFC_1036_PARSER;
-	@Nonnull
+	@NonNull
 	private static final DateTimeFormatter ASCTIME_PARSER;
 
 	static {
@@ -120,19 +120,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				.withZone(ZoneOffset.UTC);
 	}
 
-	@Nonnull
+	@NonNull
 	private final Request request;
 	@Nullable
 	private final String host;
 	@Nullable
 	private final Integer port;
-	@Nonnull
+	@NonNull
 	private final ServletContext servletContext;
 	@Nullable
 	private HttpSession httpSession;
-	@Nonnull
+	@NonNull
 	private final Map<String, Object> attributes;
-	@Nonnull
+	@NonNull
 	private final List<Cookie> cookies;
 	@Nullable
 	private Charset charset;
@@ -144,7 +144,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private Map<String, Set<String>> formParameters;
 	private boolean parametersAccessed;
 	private boolean bodyParametersAccessed;
-	@Nonnull
+	@NonNull
 	private final TrustPolicy forwardedHeaderTrustPolicy;
 	@Nullable
 	private final Predicate<InetSocketAddress> trustedProxyPredicate;
@@ -154,15 +154,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private SokletServletInputStream servletInputStream;
 	@Nullable
 	private BufferedReader reader;
-	@Nonnull
+	@NonNull
 	private RequestReadMethod requestReadMethod;
 
-	@Nonnull
-	public static Builder withRequest(@Nonnull Request request) {
+	@NonNull
+	public static Builder withRequest(@NonNull Request request) {
 		return new Builder(request);
 	}
 
-	private SokletHttpServletRequest(@Nonnull Builder builder) {
+	private SokletHttpServletRequest(@NonNull Builder builder) {
 		requireNonNull(builder);
 		requireNonNull(builder.request);
 
@@ -181,18 +181,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.requestReadMethod = RequestReadMethod.UNSPECIFIED;
 	}
 
-	@Nonnull
+	@NonNull
 	private Request getRequest() {
 		return this.request;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
 
-	@Nonnull
-	private List<Cookie> parseCookies(@Nonnull Request request) {
+	@NonNull
+	private List<Cookie> parseCookies(@NonNull Request request) {
 		requireNonNull(request);
 
 		List<Cookie> convertedCookies = new ArrayList<>();
@@ -246,8 +246,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 * Splits a Cookie header string into components on ';' but ONLY when not inside a quoted value.
 	 * Supports backslash-escaped quotes within quoted strings.
 	 */
-	@Nonnull
-	private static List<String> splitCookieHeaderRespectingQuotes(@Nonnull String headerValue) {
+	@NonNull
+	private static List<String> splitCookieHeaderRespectingQuotes(@NonNull String headerValue) {
 		List<String> parts = new ArrayList<>();
 		StringBuilder current = new StringBuilder(headerValue.length());
 		boolean inQuotes = false;
@@ -293,8 +293,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 * Splits a header value on the given delimiter, ignoring delimiters inside quoted strings.
 	 * Supports backslash-escaped quotes within quoted strings.
 	 */
-	@Nonnull
-	private static List<String> splitHeaderValueRespectingQuotes(@Nonnull String headerValue,
+	@NonNull
+	private static List<String> splitHeaderValueRespectingQuotes(@NonNull String headerValue,
 																														 char delimiter) {
 		List<String> parts = new ArrayList<>();
 		StringBuilder current = new StringBuilder(headerValue.length());
@@ -341,8 +341,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 * If the cookie value is a quoted-string, remove surrounding quotes and unescape \" \\ and \; .
 	 * Otherwise returns the input as-is.
 	 */
-	@Nonnull
-	private static String unquoteCookieValueIfNeeded(@Nonnull String rawValue) {
+	@NonNull
+	private static String unquoteCookieValueIfNeeded(@NonNull String rawValue) {
 		requireNonNull(rawValue);
 
 		if (rawValue.length() >= 2 && rawValue.charAt(0) == '"' && rawValue.charAt(rawValue.length() - 1) == '"') {
@@ -375,8 +375,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	/**
 	 * Remove a single pair of surrounding quotes if present.
 	 */
-	@Nonnull
-	private static String stripOptionalQuotes(@Nonnull String value) {
+	@NonNull
+	private static String stripOptionalQuotes(@NonNull String value) {
 		requireNonNull(value);
 
 		if (value.length() >= 2) {
@@ -390,19 +390,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return value;
 	}
 
-	@Nonnull
-	private Optional<Charset> parseCharacterEncoding(@Nonnull Request request) {
+	@NonNull
+	private Optional<Charset> parseCharacterEncoding(@NonNull Request request) {
 		requireNonNull(request);
 		return Utilities.extractCharsetFromHeaders(request.getHeaders());
 	}
 
-	@Nonnull
-	private Optional<String> parseContentType(@Nonnull Request request) {
+	@NonNull
+	private Optional<String> parseContentType(@NonNull Request request) {
 		requireNonNull(request);
 		return Utilities.extractContentTypeFromHeaders(request.getHeaders());
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<HttpSession> getHttpSession() {
 		HttpSession current = this.httpSession;
 
@@ -418,7 +418,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.httpSession = httpSession;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<Charset> getCharset() {
 		return Optional.ofNullable(this.charset);
 	}
@@ -437,7 +437,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private Charset getEffectiveCharset() {
 		Charset explicit = this.charset;
 
@@ -477,7 +477,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.charset = charset;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, Set<String>> getQueryParameters() {
 		if (this.queryParameters != null)
 			return this.queryParameters;
@@ -495,7 +495,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return this.queryParameters;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, Set<String>> getFormParameters() {
 		if (this.formParameters != null)
 			return this.formParameters;
@@ -616,7 +616,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nullable
-	private String normalizeForwardedForValue(@Nonnull String value) {
+	private String normalizeForwardedForValue(@NonNull String value) {
 		if (value.startsWith("[")) {
 			int close = value.indexOf(']');
 
@@ -671,17 +671,17 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return null;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<String> getHost() {
 		return Optional.ofNullable(this.host);
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<Integer> getPort() {
 		return Optional.ofNullable(this.port);
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<String> getEffectiveOrigin() {
 		EffectiveOriginResolver resolver = EffectiveOriginResolver.withRequest(
 				getRequest(),
@@ -697,7 +697,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return Utilities.extractEffectiveOrigin(resolver);
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<URI> getEffectiveOriginUri() {
 		String effectiveOrigin = getEffectiveOrigin().orElse(null);
 
@@ -798,7 +798,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return null;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<SokletServletInputStream> getServletInputStream() {
 		return Optional.ofNullable(this.servletInputStream);
 	}
@@ -807,7 +807,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.servletInputStream = servletInputStream;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<BufferedReader> getBufferedReader() {
 		return Optional.ofNullable(this.reader);
 	}
@@ -816,12 +816,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.reader = reader;
 	}
 
-	@Nonnull
+	@NonNull
 	private RequestReadMethod getRequestReadMethod() {
 		return this.requestReadMethod;
 	}
 
-	private void setRequestReadMethod(@Nonnull RequestReadMethod requestReadMethod) {
+	private void setRequestReadMethod(@NonNull RequestReadMethod requestReadMethod) {
 		requireNonNull(requestReadMethod);
 		this.requestReadMethod = requestReadMethod;
 	}
@@ -841,7 +841,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	 */
 	@NotThreadSafe
 	public static class Builder {
-		@Nonnull
+		@NonNull
 		private Request request;
 		@Nullable
 		private Integer port;
@@ -851,66 +851,66 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		private ServletContext servletContext;
 		@Nullable
 		private HttpSession httpSession;
-		@Nonnull
+		@NonNull
 		private TrustPolicy forwardedHeaderTrustPolicy;
 		@Nullable
 		private Predicate<InetSocketAddress> trustedProxyPredicate;
 		@Nullable
 		private Boolean allowOriginFallback;
 
-		@Nonnull
-		private Builder(@Nonnull Request request) {
+		@NonNull
+		private Builder(@NonNull Request request) {
 			requireNonNull(request);
 			this.request = request;
 			this.forwardedHeaderTrustPolicy = TrustPolicy.TRUST_NONE;
 		}
 
-		@Nonnull
-		public Builder request(@Nonnull Request request) {
+		@NonNull
+		public Builder request(@NonNull Request request) {
 			requireNonNull(request);
 			this.request = request;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder host(@Nullable String host) {
 			this.host = host;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder port(@Nullable Integer port) {
 			this.port = port;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder servletContext(@Nullable ServletContext servletContext) {
 			this.servletContext = servletContext;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder httpSession(@Nullable HttpSession httpSession) {
 			this.httpSession = httpSession;
 			return this;
 		}
 
-		@Nonnull
-		public Builder forwardedHeaderTrustPolicy(@Nonnull TrustPolicy forwardedHeaderTrustPolicy) {
+		@NonNull
+		public Builder forwardedHeaderTrustPolicy(@NonNull TrustPolicy forwardedHeaderTrustPolicy) {
 			requireNonNull(forwardedHeaderTrustPolicy);
 			this.forwardedHeaderTrustPolicy = forwardedHeaderTrustPolicy;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder trustedProxyPredicate(@Nullable Predicate<InetSocketAddress> trustedProxyPredicate) {
 			this.trustedProxyPredicate = trustedProxyPredicate;
 			return this;
 		}
 
-		@Nonnull
-		public Builder trustedProxyAddresses(@Nonnull Set<InetAddress> trustedProxyAddresses) {
+		@NonNull
+		public Builder trustedProxyAddresses(@NonNull Set<InetAddress> trustedProxyAddresses) {
 			requireNonNull(trustedProxyAddresses);
 			Set<InetAddress> normalizedAddresses = Set.copyOf(trustedProxyAddresses);
 			this.trustedProxyPredicate = remoteAddress -> {
@@ -923,13 +923,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder allowOriginFallback(@Nullable Boolean allowOriginFallback) {
 			this.allowOriginFallback = allowOriginFallback;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public SokletHttpServletRequest build() {
 			if (this.forwardedHeaderTrustPolicy == TrustPolicy.TRUST_PROXY_ALLOWLIST
 					&& this.trustedProxyPredicate == null) {
@@ -1023,7 +1023,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getHeaders(@Nullable String name) {
 		if (name == null)
 			return Collections.emptyEnumeration();
@@ -1033,7 +1033,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getHeaderNames() {
 		return Collections.enumeration(getRequest().getHeaders().keySet());
 	}
@@ -1053,7 +1053,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getMethod() {
 		return getRequest().getHttpMethod().name();
 	}
@@ -1071,7 +1071,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getContextPath() {
 		return "";
 	}
@@ -1110,13 +1110,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getRequestURI() {
 		return getRequest().getRawPath();
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public StringBuffer getRequestURL() {
 		// Try forwarded/synthesized absolute prefix first
 		String effectiveOrigin = getEffectiveOrigin().orElse(null);
@@ -1140,7 +1140,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getServletPath() {
 		// This is legal according to spec
 		return "";
@@ -1160,7 +1160,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public HttpSession getSession() {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
@@ -1173,7 +1173,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String changeSessionId() {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
 
@@ -1215,7 +1215,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	public boolean authenticate(@Nonnull HttpServletResponse httpServletResponse) throws IOException, ServletException {
+	public boolean authenticate(@NonNull HttpServletResponse httpServletResponse) throws IOException, ServletException {
 		requireNonNull(httpServletResponse);
 		// TODO: perhaps revisit this in the future
 		throw new ServletException("Authentication is not supported");
@@ -1235,7 +1235,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Collection<Part> getParts() throws IOException, ServletException {
 		// Legal if the request body is larger than maxRequestSize, or any Part in the request is larger than maxFileSize,
 		// or there is no @MultipartConfig or multipart-config in deployment descriptors
@@ -1251,7 +1251,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public <T extends HttpUpgradeHandler> T upgrade(@Nullable Class<T> handlerClass) throws IOException, ServletException {
 		// Legal if the given handlerClass fails to be instantiated
 		throw new ServletException("HTTP upgrade is not supported");
@@ -1267,7 +1267,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getAttributeNames() {
 		return Collections.enumeration(getAttributes().keySet());
 	}
@@ -1349,7 +1349,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public ServletInputStream getInputStream() throws IOException {
 		RequestReadMethod currentReadMethod = getRequestReadMethod();
 
@@ -1387,7 +1387,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getParameterNames() {
 		markParametersAccessed();
 
@@ -1425,7 +1425,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Map<String, String[]> getParameterMap() {
 		markParametersAccessed();
 
@@ -1454,13 +1454,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getProtocol() {
 		return "HTTP/1.1";
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getScheme() {
 		URI effectiveOriginUri = getEffectiveOriginUri().orElse(null);
 
@@ -1482,7 +1482,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getServerName() {
 		URI effectiveOriginUri = getEffectiveOriginUri().orElse(null);
 
@@ -1553,7 +1553,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public BufferedReader getReader() throws IOException {
 		RequestReadMethod currentReadMethod = getRequestReadMethod();
 
@@ -1628,14 +1628,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Locale getLocale() {
 		List<Locale> locales = getRequest().getLocales();
 		return locales.size() == 0 ? getDefault() : locales.get(0);
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<Locale> getLocales() {
 		List<Locale> locales = getRequest().getLocales();
 		return Collections.enumeration(locales.size() == 0 ? List.of(getDefault()) : locales);
@@ -1668,7 +1668,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getLocalName() {
 		if (getHost().isPresent())
 			return getHost().get();
@@ -1690,7 +1690,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getLocalAddr() {
 		try {
 			String hostAddress = InetAddress.getLocalHost().getHostAddress();
@@ -1715,21 +1715,21 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public ServletContext getServletContext() {
 		return this.servletContext;
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public AsyncContext startAsync() throws IllegalStateException {
 		throw new IllegalStateException("Soklet does not support async servlet operations");
 	}
 
 	@Override
-	@Nonnull
-	public AsyncContext startAsync(@Nonnull ServletRequest servletRequest,
-																 @Nonnull ServletResponse servletResponse) throws IllegalStateException {
+	@NonNull
+	public AsyncContext startAsync(@NonNull ServletRequest servletRequest,
+																 @NonNull ServletResponse servletResponse) throws IllegalStateException {
 		requireNonNull(servletRequest);
 		requireNonNull(servletResponse);
 
@@ -1747,13 +1747,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public AsyncContext getAsyncContext() {
 		throw new IllegalStateException("Soklet does not support async servlet operations");
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public DispatcherType getDispatcherType() {
 		// Currently Soklet does not support RequestDispatcher, so this is safe to hardcode
 		return DispatcherType.REQUEST;

@@ -26,9 +26,9 @@ import com.soklet.servlet.javax.SokletServletPrintWriterEvent.PrintfPerformed;
 import com.soklet.servlet.javax.SokletServletPrintWriterEvent.StringWritten;
 import com.soklet.servlet.javax.SokletServletPrintWriterEvent.ValuePrinted;
 import com.soklet.servlet.javax.SokletServletPrintWriterEvent.ValueWithNewlinePrinted;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -45,19 +45,19 @@ import static java.util.Objects.requireNonNull;
  */
 @NotThreadSafe
 public final class SokletServletPrintWriter extends PrintWriter {
-	@Nonnull
+	@NonNull
 	private final BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
-	@Nonnull
+	@NonNull
 	private final Consumer<SokletServletPrintWriter> onWriteFinalized;
-	@Nonnull
+	@NonNull
 	private Boolean writeFinalized = false;
 
-	@Nonnull
-	public static Builder withWriter(@Nonnull Writer writer) {
+	@NonNull
+	public static Builder withWriter(@NonNull Writer writer) {
 		return new Builder(writer);
 	}
 
-	private SokletServletPrintWriter(@Nonnull Builder builder) {
+	private SokletServletPrintWriter(@NonNull Builder builder) {
 		super(requireNonNull(builder.writer), true);
 		this.onWriteOccurred = builder.onWriteOccurred != null ? builder.onWriteOccurred : (ignored1, ignored2) -> {};
 		this.onWriteFinalized = builder.onWriteFinalized != null ? builder.onWriteFinalized : (ignored) -> {};
@@ -72,60 +72,60 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	 */
 	@NotThreadSafe
 	public static class Builder {
-		@Nonnull
+		@NonNull
 		private Writer writer;
 		@Nullable
 		private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred;
 		@Nullable
 		private Consumer<SokletServletPrintWriter> onWriteFinalized;
 
-		@Nonnull
-		private Builder(@Nonnull Writer writer) {
+		@NonNull
+		private Builder(@NonNull Writer writer) {
 			requireNonNull(writer);
 			this.writer = writer;
 		}
 
-		@Nonnull
-		public Builder writer(@Nonnull Writer writer) {
+		@NonNull
+		public Builder writer(@NonNull Writer writer) {
 			requireNonNull(writer);
 			this.writer = writer;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> onWriteOccurred) {
 			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder onWriteFinalized(@Nullable Consumer<SokletServletPrintWriter> onWriteFinalized) {
 			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public SokletServletPrintWriter build() {
 			return new SokletServletPrintWriter(this);
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean getWriteFinalized() {
 		return this.writeFinalized;
 	}
 
-	private void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+	private void setWriteFinalized(@NonNull Boolean writeFinalized) {
 		requireNonNull(writeFinalized);
 		this.writeFinalized = writeFinalized;
 	}
 
-	@Nonnull
+	@NonNull
 	private BiConsumer<SokletServletPrintWriter, SokletServletPrintWriterEvent> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
-	@Nonnull
+	@NonNull
 	private Consumer<SokletServletPrintWriter> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
@@ -133,7 +133,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 // Implementation of PrintWriter methods below:
 
 	@Override
-	public void write(@Nonnull char[] buf,
+	public void write(@NonNull char[] buf,
 										int off,
 										int len) {
 		requireNonNull(buf);
@@ -144,7 +144,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	public void write(@Nonnull String s,
+	public void write(@NonNull String s,
 										int off,
 										int len) {
 		requireNonNull(s);
@@ -162,7 +162,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	public void write(@Nonnull char[] buf) {
+	public void write(@NonNull char[] buf) {
 		requireNonNull(buf);
 
 		super.write(buf);
@@ -171,7 +171,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	public void write(@Nonnull String s) {
+	public void write(@NonNull String s) {
 		requireNonNull(s);
 
 		super.write(s);
@@ -222,7 +222,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	public void print(@Nonnull char[] s) {
+	public void print(@NonNull char[] s) {
 		requireNonNull(s);
 
 		super.print(s);
@@ -317,8 +317,8 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
-	public PrintWriter printf(@Nonnull String format,
+	@NonNull
+	public PrintWriter printf(@NonNull String format,
 														@Nullable Object... args) {
 		requireNonNull(format);
 
@@ -332,9 +332,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public PrintWriter printf(@Nullable Locale l,
-														@Nonnull String format,
+														@NonNull String format,
 														@Nullable Object... args) {
 		requireNonNull(format);
 
@@ -345,8 +345,8 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
-	public PrintWriter format(@Nonnull String format,
+	@NonNull
+	public PrintWriter format(@NonNull String format,
 														@Nullable Object... args) {
 		requireNonNull(format);
 
@@ -360,9 +360,9 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public PrintWriter format(@Nullable Locale l,
-														@Nonnull String format,
+														@NonNull String format,
 														@Nullable Object... args) {
 		requireNonNull(format);
 
@@ -376,7 +376,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public PrintWriter append(@Nullable CharSequence csq) {
 		// JDK does this, we mirror it
 		if (csq == null)
@@ -389,7 +389,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public PrintWriter append(@Nullable CharSequence csq,
 														int start,
 														int end) {
@@ -404,7 +404,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public PrintWriter append(char c) {
 		PrintWriter printWriter = super.append(c);
 		super.flush();

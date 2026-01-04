@@ -16,7 +16,8 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ReadListener;
 import javax.servlet.ServletInputStream;
@@ -33,18 +34,18 @@ import static java.util.Objects.requireNonNull;
  */
 @NotThreadSafe
 public final class SokletServletInputStream extends ServletInputStream {
-	@Nonnull
+	@NonNull
 	private final InputStream inputStream;
-	@Nonnull
+	@NonNull
 	private Boolean finished;
 
-	@Nonnull
-	public static SokletServletInputStream withInputStream(@Nonnull InputStream inputStream) {
+	@NonNull
+	public static SokletServletInputStream withInputStream(@NonNull InputStream inputStream) {
 		requireNonNull(inputStream);
 		return new SokletServletInputStream(inputStream);
 	}
 
-	private SokletServletInputStream(@Nonnull InputStream inputStream) {
+	private SokletServletInputStream(@NonNull InputStream inputStream) {
 		super();
 		requireNonNull(inputStream);
 
@@ -59,17 +60,17 @@ public final class SokletServletInputStream extends ServletInputStream {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private InputStream getInputStream() {
 		return this.inputStream;
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean getFinished() {
 		return this.finished;
 	}
 
-	private void setFinished(@Nonnull Boolean finished) {
+	private void setFinished(@NonNull Boolean finished) {
 		requireNonNull(finished);
 		this.finished = finished;
 	}
@@ -98,7 +99,7 @@ public final class SokletServletInputStream extends ServletInputStream {
 	}
 
 	@Override
-	public void setReadListener(@Nonnull ReadListener readListener) {
+	public void setReadListener(@NonNull ReadListener readListener) {
 		requireNonNull(readListener);
 		throw new IllegalStateException(format("%s functionality is not supported", ReadListener.class.getSimpleName()));
 	}

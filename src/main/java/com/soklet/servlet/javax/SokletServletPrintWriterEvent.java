@@ -16,8 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
@@ -43,7 +44,7 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 * Event emitted when a {@code char[]} is written to the {@link SokletServletPrintWriter}.
 	 */
 	record CharsWritten(
-			@Nonnull char[] chars,
+			@NonNull char[] chars,
 			int offset,
 			int length
 	) implements SokletServletPrintWriterEvent {
@@ -63,7 +64,7 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 * Event emitted when a {@link String} is written to the {@link SokletServletPrintWriter}.
 	 */
 	record StringWritten(
-			@Nonnull String string,
+			@NonNull String string,
 			int offset,
 			int length
 	) implements SokletServletPrintWriterEvent {
@@ -96,8 +97,8 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 */
 	record PrintfPerformed(
 			@Nullable Locale locale,
-			@Nonnull String format,
-			@Nonnull Object[] args
+			@NonNull String format,
+			@NonNull Object[] args
 	) implements SokletServletPrintWriterEvent {
 		public PrintfPerformed {
 			requireNonNull(format);
@@ -110,8 +111,8 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 */
 	record FormatPerformed(
 			@Nullable Locale locale,
-			@Nonnull String format,
-			@Nonnull Object[] args
+			@NonNull String format,
+			@NonNull Object[] args
 	) implements SokletServletPrintWriterEvent {
 		public FormatPerformed {
 			requireNonNull(format);
@@ -123,7 +124,7 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 * Event emitted when a {@link CharSequence} is appended to the {@link SokletServletPrintWriter}.
 	 */
 	record CharSequenceAppended(
-			@Nonnull CharSequence charSequence,
+			@NonNull CharSequence charSequence,
 			int start,
 			int end
 	) implements SokletServletPrintWriterEvent {

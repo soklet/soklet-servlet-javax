@@ -16,8 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.WriteListener;
@@ -36,21 +37,21 @@ import static java.util.Objects.requireNonNull;
  */
 @NotThreadSafe
 public final class SokletServletOutputStream extends ServletOutputStream {
-	@Nonnull
+	@NonNull
 	private final OutputStream outputStream;
-	@Nonnull
+	@NonNull
 	private final BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
-	@Nonnull
+	@NonNull
 	private final Consumer<SokletServletOutputStream> onWriteFinalized;
-	@Nonnull
+	@NonNull
 	private Boolean writeFinalized;
 
-	@Nonnull
-	public static Builder withOutputStream(@Nonnull OutputStream outputStream) {
+	@NonNull
+	public static Builder withOutputStream(@NonNull OutputStream outputStream) {
 		return new Builder(outputStream);
 	}
 
-	private SokletServletOutputStream(@Nonnull Builder builder) {
+	private SokletServletOutputStream(@NonNull Builder builder) {
 		requireNonNull(builder);
 		requireNonNull(builder.outputStream);
 
@@ -69,65 +70,65 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	 */
 	@NotThreadSafe
 	public static class Builder {
-		@Nonnull
+		@NonNull
 		private OutputStream outputStream;
 		@Nullable
 		private BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred;
 		@Nullable
 		private Consumer<SokletServletOutputStream> onWriteFinalized;
 
-		@Nonnull
-		private Builder(@Nonnull OutputStream outputStream) {
+		@NonNull
+		private Builder(@NonNull OutputStream outputStream) {
 			requireNonNull(outputStream);
 			this.outputStream = outputStream;
 		}
 
-		@Nonnull
-		public Builder outputStream(@Nonnull OutputStream outputStream) {
+		@NonNull
+		public Builder outputStream(@NonNull OutputStream outputStream) {
 			requireNonNull(outputStream);
 			this.outputStream = outputStream;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder onWriteOccurred(@Nullable BiConsumer<SokletServletOutputStream, Integer> onWriteOccurred) {
 			this.onWriteOccurred = onWriteOccurred;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public Builder onWriteFinalized(@Nullable Consumer<SokletServletOutputStream> onWriteFinalized) {
 			this.onWriteFinalized = onWriteFinalized;
 			return this;
 		}
 
-		@Nonnull
+		@NonNull
 		public SokletServletOutputStream build() {
 			return new SokletServletOutputStream(this);
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private OutputStream getOutputStream() {
 		return this.outputStream;
 	}
 
-	@Nonnull
+	@NonNull
 	private BiConsumer<SokletServletOutputStream, Integer> getOnWriteOccurred() {
 		return this.onWriteOccurred;
 	}
 
-	@Nonnull
+	@NonNull
 	private Consumer<SokletServletOutputStream> getOnWriteFinalized() {
 		return this.onWriteFinalized;
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean getWriteFinalized() {
 		return this.writeFinalized;
 	}
 
-	private void setWriteFinalized(@Nonnull Boolean writeFinalized) {
+	private void setWriteFinalized(@NonNull Boolean writeFinalized) {
 		requireNonNull(writeFinalized);
 		this.writeFinalized = writeFinalized;
 	}
@@ -168,7 +169,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	}
 
 	@Override
-	public void setWriteListener(@Nonnull WriteListener writeListener) {
+	public void setWriteListener(@NonNull WriteListener writeListener) {
 		requireNonNull(writeListener);
 		throw new IllegalStateException(format("%s functionality is not supported", WriteListener.class.getSimpleName()));
 	}

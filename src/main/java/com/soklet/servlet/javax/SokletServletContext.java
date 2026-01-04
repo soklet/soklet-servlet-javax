@@ -16,8 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
@@ -51,9 +52,9 @@ import java.util.EventListener;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -67,25 +68,25 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 public final class SokletServletContext implements ServletContext {
-	@Nonnull
+	@NonNull
 	private final Writer logWriter;
-	@Nonnull
+	@NonNull
 	private final Object logLock;
-	@Nonnull
+	@NonNull
 	private final Map<String, Object> attributes;
-	@Nonnull
+	@NonNull
 	private volatile int sessionTimeout;
 	@Nullable
 	private volatile Charset requestCharset;
 	@Nullable
 	private volatile Charset responseCharset;
 
-	@Nonnull
+	@NonNull
 	public static SokletServletContext withDefaults() {
 		return new SokletServletContext(null);
 	}
 
-	@Nonnull
+	@NonNull
 	public static SokletServletContext withLogWriter(@Nullable Writer logWriter) {
 		return new SokletServletContext(logWriter);
 	}
@@ -99,12 +100,12 @@ public final class SokletServletContext implements ServletContext {
 		this.responseCharset = StandardCharsets.ISO_8859_1;
 	}
 
-	@Nonnull
+	@NonNull
 	private Writer getLogWriter() {
 		return this.logWriter;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
@@ -112,7 +113,7 @@ public final class SokletServletContext implements ServletContext {
 	@ThreadSafe
 	private static class NoOpWriter extends Writer {
 		@Override
-		public void write(@Nonnull char[] cbuf,
+		public void write(@NonNull char[] cbuf,
 											int off,
 											int len) throws IOException {
 			requireNonNull(cbuf);
@@ -288,7 +289,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@Deprecated
-	@Nonnull
+	@NonNull
 	public Enumeration<Servlet> getServlets() {
 		// Deliberately empty per spec b/c this method is deprecated
 		return Collections.emptyEnumeration();
@@ -296,7 +297,7 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	@Deprecated
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getServletNames() {
 		// Deliberately empty per spec b/c this method is deprecated
 		return Collections.emptyEnumeration();
@@ -360,7 +361,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getServerInfo() {
 		return "Soklet/Undefined";
 	}
@@ -373,7 +374,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getInitParameterNames() {
 		// Soklet has no concept of init parameters
 		return Collections.emptyEnumeration();
@@ -393,7 +394,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getAttributeNames() {
 		return Collections.enumeration(getAttributes().keySet());
 	}
@@ -464,7 +465,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Map<String, ? extends ServletRegistration> getServletRegistrations() {
 		return Map.of();
 	}
@@ -504,7 +505,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Map<String, ? extends FilterRegistration> getFilterRegistrations() {
 		return Map.of();
 	}
@@ -522,13 +523,13 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Set<SessionTrackingMode> getDefaultSessionTrackingModes() {
 		return Set.of();
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Set<SessionTrackingMode> getEffectiveSessionTrackingModes() {
 		return Set.of();
 	}
@@ -563,7 +564,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public ClassLoader getClassLoader() {
 		return this.getClass().getClassLoader();
 	}
@@ -574,7 +575,7 @@ public final class SokletServletContext implements ServletContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getVirtualServerName() {
 		return "soklet";
 	}

@@ -16,8 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
@@ -43,31 +44,31 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 public final class SokletHttpSession implements HttpSession {
-	@Nonnull
+	@NonNull
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 
 	static {
 		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.withDefaults();
 	}
 
-	@Nonnull
+	@NonNull
 	private volatile UUID sessionId;
-	@Nonnull
+	@NonNull
 	private final Instant createdAt;
-	@Nonnull
+	@NonNull
 	private final Map<String, Object> attributes;
-	@Nonnull
+	@NonNull
 	private final ServletContext servletContext;
 	private volatile boolean invalidated;
 	private volatile int maxInactiveInterval;
 
-	@Nonnull
-	public static SokletHttpSession withServletContext(@Nonnull ServletContext servletContext) {
+	@NonNull
+	public static SokletHttpSession withServletContext(@NonNull ServletContext servletContext) {
 		requireNonNull(servletContext);
 		return new SokletHttpSession(servletContext);
 	}
 
-	private SokletHttpSession(@Nonnull ServletContext servletContext) {
+	private SokletHttpSession(@NonNull ServletContext servletContext) {
 		requireNonNull(servletContext);
 
 		this.sessionId = UUID.randomUUID();
@@ -78,22 +79,22 @@ public final class SokletHttpSession implements HttpSession {
 		this.maxInactiveInterval = 0;
 	}
 
-	public void setSessionId(@Nonnull UUID sessionId) {
+	public void setSessionId(@NonNull UUID sessionId) {
 		requireNonNull(sessionId);
 		this.sessionId = sessionId;
 	}
 
-	@Nonnull
+	@NonNull
 	private UUID getSessionId() {
 		return this.sessionId;
 	}
 
-	@Nonnull
+	@NonNull
 	private Instant getCreatedAt() {
 		return this.createdAt;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, Object> getAttributes() {
 		return this.attributes;
 	}
@@ -120,7 +121,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getId() {
 		return getSessionId().toString();
 	}
@@ -132,7 +133,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public ServletContext getServletContext() {
 		return this.servletContext;
 	}
@@ -148,7 +149,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	@Deprecated
 	public HttpSessionContext getSessionContext() {
 		return SHARED_HTTP_SESSION_CONTEXT;
@@ -170,14 +171,14 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Enumeration<String> getAttributeNames() {
 		ensureNotInvalidated();
 		return Collections.enumeration(getAttributes().keySet());
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	@Deprecated
 	public String[] getValueNames() {
 		ensureNotInvalidated();
@@ -186,7 +187,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	public void setAttribute(@Nonnull String name,
+	public void setAttribute(@NonNull String name,
 													 @Nullable Object value) {
 		requireNonNull(name);
 
@@ -209,8 +210,8 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	@Deprecated
-	public void putValue(@Nonnull String name,
-											 @Nonnull Object value) {
+	public void putValue(@NonNull String name,
+											 @NonNull Object value) {
 		requireNonNull(name);
 		requireNonNull(value);
 
@@ -219,7 +220,7 @@ public final class SokletHttpSession implements HttpSession {
 	}
 
 	@Override
-	public void removeAttribute(@Nonnull String name) {
+	public void removeAttribute(@NonNull String name) {
 		requireNonNull(name);
 
 		ensureNotInvalidated();
@@ -234,7 +235,7 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	@Deprecated
-	public void removeValue(@Nonnull String name) {
+	public void removeValue(@NonNull String name) {
 		requireNonNull(name);
 
 		ensureNotInvalidated();

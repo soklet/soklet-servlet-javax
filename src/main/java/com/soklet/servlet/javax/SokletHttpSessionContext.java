@@ -16,8 +16,9 @@
 
 package com.soklet.servlet.javax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionContext;
@@ -34,7 +35,7 @@ import java.util.Enumeration;
 @Immutable
 @Deprecated
 public final class SokletHttpSessionContext implements HttpSessionContext {
-	@Nonnull
+	@NonNull
 	public static SokletHttpSessionContext withDefaults() {
 		return new SokletHttpSessionContext();
 	}
@@ -54,7 +55,7 @@ public final class SokletHttpSessionContext implements HttpSessionContext {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	@Deprecated
 	public Enumeration<String> getIds() {
 		// Per spec

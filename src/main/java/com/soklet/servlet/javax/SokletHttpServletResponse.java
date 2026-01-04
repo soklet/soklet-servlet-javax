@@ -21,9 +21,9 @@ import com.soklet.Request;
 import com.soklet.Response;
 import com.soklet.ResponseCookie;
 import com.soklet.StatusCode;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletOutputStream;
@@ -66,11 +66,11 @@ import static java.util.Objects.requireNonNull;
  */
 @NotThreadSafe
 public final class SokletHttpServletResponse implements HttpServletResponse {
-	@Nonnull
+	@NonNull
 	private static final Integer DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
-	@Nonnull
+	@NonNull
 	private static final Charset DEFAULT_CHARSET;
-	@Nonnull
+	@NonNull
 	private static final DateTimeFormatter DATE_TIME_FORMATTER;
 
 	static {
@@ -81,25 +81,25 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				.withZone(ZoneId.of("GMT"));
 	}
 
-	@Nonnull
+	@NonNull
 	private final String rawPath; // Raw path (no query), e.g. "/test/abc" or "*"
 	@Nullable
 	private final HttpServletRequest httpServletRequest;
-	@Nonnull
+	@NonNull
 	private final ServletContext servletContext;
-	@Nonnull
+	@NonNull
 	private final List<Cookie> cookies;
-	@Nonnull
+	@NonNull
 	private final Map<String, List<String>> headers;
-	@Nonnull
+	@NonNull
 	private ByteArrayOutputStream responseOutputStream;
-	@Nonnull
+	@NonNull
 	private ResponseWriteMethod responseWriteMethod;
-	@Nonnull
+	@NonNull
 	private Integer statusCode;
-	@Nonnull
+	@NonNull
 	private Boolean responseCommitted;
-	@Nonnull
+	@NonNull
 	private Boolean responseFinalized;
 	@Nullable
 	private Locale locale;
@@ -111,15 +111,15 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private Charset charset;
 	@Nullable
 	private String contentType;
-	@Nonnull
+	@NonNull
 	private Integer responseBufferSizeInBytes;
 	@Nullable
 	private SokletServletOutputStream servletOutputStream;
 	@Nullable
 	private SokletServletPrintWriter printWriter;
 
-	@Nonnull
-	public static SokletHttpServletResponse withRequest(@Nonnull HttpServletRequest request) {
+	@NonNull
+	public static SokletHttpServletResponse withRequest(@NonNull HttpServletRequest request) {
 		requireNonNull(request);
 		String rawPath = request.getRequestURI();
 		if (rawPath == null || rawPath.isEmpty())
@@ -128,9 +128,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return new SokletHttpServletResponse(request, rawPath, servletContext);
 	}
 
-	@Nonnull
-	public static SokletHttpServletResponse withRequest(@Nonnull Request request,
-																											@Nonnull ServletContext servletContext) {
+	@NonNull
+	public static SokletHttpServletResponse withRequest(@NonNull Request request,
+																											@NonNull ServletContext servletContext) {
 		requireNonNull(request);
 		requireNonNull(servletContext);
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request)
@@ -149,17 +149,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * @param servletContext servlet context for this response
 	 * @return a response bound to the raw request path
 	 */
-	@Nonnull
-	public static SokletHttpServletResponse withRawPath(@Nonnull String rawPath,
-																											@Nonnull ServletContext servletContext) {
+	@NonNull
+	public static SokletHttpServletResponse withRawPath(@NonNull String rawPath,
+																											@NonNull ServletContext servletContext) {
 		requireNonNull(rawPath);
 		requireNonNull(servletContext);
 		return new SokletHttpServletResponse(null, rawPath, servletContext);
 	}
 
 	private SokletHttpServletResponse(@Nullable HttpServletRequest httpServletRequest,
-																		@Nonnull String rawPath,
-																		@Nonnull ServletContext servletContext) {
+																		@NonNull String rawPath,
+																		@NonNull ServletContext servletContext) {
 		requireNonNull(rawPath);
 		requireNonNull(servletContext);
 
@@ -176,7 +176,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.responseFinalized = false;
 	}
 
-	@Nonnull
+	@NonNull
 	public Response toResponse() {
 		// In the servlet world, there is really no difference between Response and MarshaledResponse
 		MarshaledResponse marshaledResponse = toMarshaledResponse();
@@ -188,7 +188,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				.build();
 	}
 
-	@Nonnull
+	@NonNull
 	public MarshaledResponse toMarshaledResponse() {
 		byte[] body = getResponseOutputStream().toByteArray();
 
@@ -225,32 +225,32 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				.build();
 	}
 
-	@Nonnull
+	@NonNull
 	private String getRawPath() {
 		return this.rawPath;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<HttpServletRequest> getHttpServletRequest() {
 		return Optional.ofNullable(this.httpServletRequest);
 	}
 
-	@Nonnull
+	@NonNull
 	private ServletContext getServletContext() {
 		return this.servletContext;
 	}
 
-	@Nonnull
+	@NonNull
 	private List<Cookie> getCookies() {
 		return this.cookies;
 	}
 
-	@Nonnull
+	@NonNull
 	private Map<String, List<String>> getHeaders() {
 		return this.headers;
 	}
 
-	@Nonnull
+	@NonNull
 	private List<String> getSetCookieHeaderValues() {
 		if (getCookies().isEmpty())
 			return List.of();
@@ -263,8 +263,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return values;
 	}
 
-	@Nonnull
-	private String toSetCookieHeaderValue(@Nonnull Cookie cookie) {
+	@NonNull
+	private String toSetCookieHeaderValue(@NonNull Cookie cookie) {
 		requireNonNull(cookie);
 
 		ResponseCookie.Builder builder = ResponseCookie.with(cookie.getName(), cookie.getValue())
@@ -279,8 +279,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return builder.build().toSetCookieHeaderRepresentation();
 	}
 
-	private void putHeaderValue(@Nonnull String name,
-															@Nonnull String value,
+	private void putHeaderValue(@NonNull String name,
+															@NonNull String value,
 															boolean replace) {
 		requireNonNull(name);
 		requireNonNull(value);
@@ -294,17 +294,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private Integer getStatusCode() {
 		return this.statusCode;
 	}
 
-	private void setStatusCode(@Nonnull Integer statusCode) {
+	private void setStatusCode(@NonNull Integer statusCode) {
 		requireNonNull(statusCode);
 		this.statusCode = statusCode;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<String> getErrorMessage() {
 		return Optional.ofNullable(this.errorMessage);
 	}
@@ -313,7 +313,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.errorMessage = errorMessage;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<String> getRedirectUrl() {
 		return Optional.ofNullable(this.redirectUrl);
 	}
@@ -322,7 +322,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.redirectUrl = redirectUrl;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<Charset> getCharset() {
 		return Optional.ofNullable(this.charset);
 	}
@@ -341,7 +341,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private Charset getEffectiveCharset() {
 		Charset explicit = this.charset;
 
@@ -356,22 +356,22 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.charset = charset;
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean getResponseCommitted() {
 		return this.responseCommitted;
 	}
 
-	private void setResponseCommitted(@Nonnull Boolean responseCommitted) {
+	private void setResponseCommitted(@NonNull Boolean responseCommitted) {
 		requireNonNull(responseCommitted);
 		this.responseCommitted = responseCommitted;
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean getResponseFinalized() {
 		return this.responseFinalized;
 	}
 
-	private void setResponseFinalized(@Nonnull Boolean responseFinalized) {
+	private void setResponseFinalized(@NonNull Boolean responseFinalized) {
 		requireNonNull(responseFinalized);
 		this.responseFinalized = responseFinalized;
 	}
@@ -411,13 +411,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			throw new IllegalStateException("Response has already been committed.");
 	}
 
-	@Nonnull
-	private String dateHeaderRepresentation(@Nonnull Long millisSinceEpoch) {
+	@NonNull
+	private String dateHeaderRepresentation(@NonNull Long millisSinceEpoch) {
 		requireNonNull(millisSinceEpoch);
 		return DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(millisSinceEpoch));
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<SokletServletOutputStream> getServletOutputStream() {
 		return Optional.ofNullable(this.servletOutputStream);
 	}
@@ -426,7 +426,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.servletOutputStream = servletOutputStream;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<SokletServletPrintWriter> getPrintWriter() {
 		return Optional.ofNullable(this.printWriter);
 	}
@@ -435,32 +435,32 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.printWriter = printWriter;
 	}
 
-	@Nonnull
+	@NonNull
 	private ByteArrayOutputStream getResponseOutputStream() {
 		return this.responseOutputStream;
 	}
 
-	private void setResponseOutputStream(@Nonnull ByteArrayOutputStream responseOutputStream) {
+	private void setResponseOutputStream(@NonNull ByteArrayOutputStream responseOutputStream) {
 		requireNonNull(responseOutputStream);
 		this.responseOutputStream = responseOutputStream;
 	}
 
-	@Nonnull
+	@NonNull
 	private Integer getResponseBufferSizeInBytes() {
 		return this.responseBufferSizeInBytes;
 	}
 
-	private void setResponseBufferSizeInBytes(@Nonnull Integer responseBufferSizeInBytes) {
+	private void setResponseBufferSizeInBytes(@NonNull Integer responseBufferSizeInBytes) {
 		requireNonNull(responseBufferSizeInBytes);
 		this.responseBufferSizeInBytes = responseBufferSizeInBytes;
 	}
 
-	@Nonnull
+	@NonNull
 	private ResponseWriteMethod getResponseWriteMethod() {
 		return this.responseWriteMethod;
 	}
 
-	private void setResponseWriteMethod(@Nonnull ResponseWriteMethod responseWriteMethod) {
+	private void setResponseWriteMethod(@NonNull ResponseWriteMethod responseWriteMethod) {
 		requireNonNull(responseWriteMethod);
 		this.responseWriteMethod = responseWriteMethod;
 	}
@@ -538,7 +538,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseCommitted(true);
 	}
 
-	private boolean isAbsoluteUri(@Nonnull String location) {
+	private boolean isAbsoluteUri(@NonNull String location) {
 		requireNonNull(location);
 
 		try {
@@ -548,7 +548,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private String getRedirectBaseUrl() {
 		HttpServletRequest httpServletRequest = getHttpServletRequest().orElse(null);
 
@@ -588,7 +588,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		private final String scheme;
 		@Nullable
 		private final String rawAuthority;
-		@Nonnull
+		@NonNull
 		private final String rawPath;
 		@Nullable
 		private final String rawQuery;
@@ -598,7 +598,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 		private ParsedLocation(@Nullable String scheme,
 													 @Nullable String rawAuthority,
-													 @Nonnull String rawPath,
+													 @NonNull String rawPath,
 													 @Nullable String rawQuery,
 													 @Nullable String rawFragment,
 													 boolean opaque) {
@@ -611,8 +611,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
-	private ParsedLocation parseLocation(@Nonnull String location) {
+	@NonNull
+	private ParsedLocation parseLocation(@NonNull String location) {
 		requireNonNull(location);
 
 		try {
@@ -640,7 +640,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private String buildSuffix(@Nullable String rawQuery,
 														 @Nullable String rawFragment) {
 		StringBuilder suffix = new StringBuilder();
@@ -654,8 +654,8 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return suffix.toString();
 	}
 
-	@Nonnull
-	private String normalizePath(@Nonnull String path) {
+	@NonNull
+	private String normalizePath(@NonNull String path) {
 		requireNonNull(path);
 
 		if (path.isEmpty())
@@ -698,7 +698,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return output.toString();
 	}
 
-	private void removeLastSegment(@Nonnull StringBuilder output) {
+	private void removeLastSegment(@NonNull StringBuilder output) {
 		requireNonNull(output);
 
 		int length = output.length();
@@ -901,7 +901,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Collection<String> getHeaders(@Nullable String name) {
 		if (name == null)
 			return List.of();
@@ -927,7 +927,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public Collection<String> getHeaderNames() {
 		Set<String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 		names.addAll(getHeaders().keySet());
@@ -939,7 +939,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public String getCharacterEncoding() {
 		return getEffectiveCharset().name();
 	}
@@ -952,7 +952,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@Override
-	@Nonnull
+	@NonNull
 	public ServletOutputStream getOutputStream() throws IOException {
 		// Returns a ServletOutputStream suitable for writing binary data in the response.
 		// The servlet container does not encode the binary data.
@@ -977,12 +977,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
-	@Nonnull
+	@NonNull
 	private Boolean writerObtained() {
 		return getResponseWriteMethod() == ResponseWriteMethod.PRINT_WRITER;
 	}
 
-	@Nonnull
+	@NonNull
 	private Optional<String> extractCharsetFromContentType(@Nullable String type) {
 		if (type == null)
 			return Optional.empty();
@@ -1005,7 +1005,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	// Helper: remove any charset=... from Content-Type (preserve other params)
-	@Nonnull
+	@NonNull
 	private Optional<String> stripCharsetParam(@Nullable String type) {
 		if (type == null)
 			return Optional.empty();
@@ -1025,9 +1025,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	// Helper: ensure Content-Type includes the given charset (replacing any existing one)
-	@Nonnull
+	@NonNull
 	private Optional<String> withCharset(@Nullable String type,
-																				 @Nonnull String charsetName) {
+																				 @NonNull String charsetName) {
 		requireNonNull(charsetName);
 
 		if (type == null)
