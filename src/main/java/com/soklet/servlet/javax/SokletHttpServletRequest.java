@@ -144,6 +144,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private Map<@NonNull String, @NonNull Set<@NonNull String>> formParameters;
 	private boolean parametersAccessed;
 	private boolean bodyParametersAccessed;
+	private boolean sessionCreated;
 	@NonNull
 	private final TrustPolicy forwardedHeaderTrustPolicy;
 	@Nullable
@@ -418,6 +419,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.httpSession = httpSession;
 	}
 
+	private void touchSession(@NonNull HttpSession httpSession,
+														boolean createdNow) {
+		requireNonNull(httpSession);
+
+		if (httpSession instanceof SokletHttpSession) {
+			SokletHttpSession sokletSession = (SokletHttpSession) httpSession;
+			sokletSession.markAccessed();
+
+			if (!createdNow && !this.sessionCreated)
+				sokletSession.markNotNew();
+		}
+	}
+
 	@NonNull
 	private Optional<Charset> getCharset() {
 		return Optional.ofNullable(this.charset);
@@ -551,14 +565,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nullable
-	private String extractForwardedForFromHeaders() {
+	private ForwardedClient extractForwardedClientFromHeaders() {
 		Set<@NonNull String> headerValues = getRequest().getHeaders().get("Forwarded");
 
 		if (headerValues == null)
 			return null;
 
 		for (String headerValue : headerValues) {
-			String candidate = extractForwardedForFromHeaderValue(headerValue);
+			ForwardedClient candidate = extractForwardedClientFromHeaderValue(headerValue);
 
 			if (candidate != null)
 				return candidate;
@@ -568,7 +582,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nullable
-	private String extractForwardedForFromHeaderValue(@Nullable String headerValue) {
+	private ForwardedClient extractForwardedClientFromHeaderValue(@Nullable String headerValue) {
 		headerValue = Utilities.trimAggressivelyToNull(headerValue);
 
 		if (headerValue == null)
@@ -607,7 +621,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				if (value == null)
 					continue;
 
-				String normalized = normalizeForwardedForValue(value);
+				ForwardedClient normalized = parseForwardedForValue(value);
 
 				if (normalized != null)
 					return normalized;
@@ -618,13 +632,42 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Nullable
-	private String normalizeForwardedForValue(@NonNull String value) {
-		if (value.startsWith("[")) {
-			int close = value.indexOf(']');
+	private ForwardedClient parseForwardedForValue(@NonNull String value) {
+		requireNonNull(value);
+
+		String normalized = value.trim();
+
+		if (normalized.isEmpty())
+			return null;
+
+		if (normalized.startsWith("[")) {
+			int close = normalized.indexOf(']');
 
 			if (close > 0) {
-				String host = value.substring(1, close);
-				return host.isEmpty() ? null : host;
+				String host = normalized.substring(1, close);
+
+				if (host.isEmpty())
+					return null;
+
+				Integer port = null;
+				String rest = normalized.substring(close + 1).trim();
+
+				if (!rest.isEmpty()) {
+					if (!rest.startsWith(":"))
+						return null;
+
+					String portToken = Utilities.trimAggressivelyToNull(rest.substring(1));
+
+					if (portToken != null) {
+						try {
+							port = Integer.parseInt(portToken, 10);
+						} catch (Exception ignored) {
+							// Ignore invalid port.
+						}
+					}
+				}
+
+				return new ForwardedClient(host, port);
 			}
 
 			return null;
@@ -632,25 +675,40 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 		int colonCount = 0;
 
-		for (int i = 0; i < value.length(); i++) {
-			if (value.charAt(i) == ':')
+		for (int i = 0; i < normalized.length(); i++) {
+			if (normalized.charAt(i) == ':')
 				colonCount++;
 		}
 
 		if (colonCount == 0)
-			return value;
+			return new ForwardedClient(normalized, null);
 
 		if (colonCount == 1) {
-			int colon = value.indexOf(':');
-			String host = value.substring(0, colon).trim();
-			return host.isEmpty() ? null : host;
+			int colon = normalized.indexOf(':');
+			String host = normalized.substring(0, colon).trim();
+
+			if (host.isEmpty())
+				return null;
+
+			String portToken = Utilities.trimAggressivelyToNull(normalized.substring(colon + 1));
+			Integer port = null;
+
+			if (portToken != null) {
+				try {
+					port = Integer.parseInt(portToken, 10);
+				} catch (Exception ignored) {
+					// Ignore invalid port.
+				}
+			}
+
+			return new ForwardedClient(host, port);
 		}
 
-		return value;
+		return new ForwardedClient(normalized, null);
 	}
 
 	@Nullable
-	private String extractXForwardedForFromHeaders() {
+	private ForwardedClient extractXForwardedClientFromHeaders() {
 		Set<@NonNull String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
 
 		if (headerValues == null)
@@ -665,12 +723,40 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			for (String component : components) {
 				String value = Utilities.trimAggressivelyToNull(component);
 
-				if (value != null)
-					return value;
+				if (value != null) {
+					value = stripOptionalQuotes(value);
+					value = Utilities.trimAggressivelyToNull(value);
+
+					if (value != null)
+						return parseForwardedForValue(value);
+				}
 			}
 		}
 
 		return null;
+	}
+
+	private static final class ForwardedClient {
+		@NonNull
+		private final String host;
+		@Nullable
+		private final Integer port;
+
+		private ForwardedClient(@NonNull String host,
+														@Nullable Integer port) {
+			this.host = requireNonNull(host);
+			this.port = port;
+		}
+
+		@NonNull
+		private String getHost() {
+			return this.host;
+		}
+
+		@Nullable
+		private Integer getPort() {
+			return this.port;
+		}
 	}
 
 	@NonNull
@@ -1151,11 +1237,17 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	public HttpSession getSession(boolean create) {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
+		boolean createdNow = false;
 
 		if (create && currentHttpSession == null) {
 			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
+			this.sessionCreated = true;
+			createdNow = true;
 		}
+
+		if (currentHttpSession != null)
+			touchSession(currentHttpSession, createdNow);
 
 		return currentHttpSession;
 	}
@@ -1164,11 +1256,16 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@NonNull
 	public HttpSession getSession() {
 		HttpSession currentHttpSession = getHttpSession().orElse(null);
+		boolean createdNow = false;
 
 		if (currentHttpSession == null) {
 			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
+			this.sessionCreated = true;
+			createdNow = true;
 		}
+
+		touchSession(currentHttpSession, createdNow);
 
 		return currentHttpSession;
 	}
@@ -1575,15 +1672,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	public String getRemoteAddr() {
 		if (shouldTrustForwardedHeaders()) {
-			String forwardedFor = extractForwardedForFromHeaders();
+			ForwardedClient forwardedFor = extractForwardedClientFromHeaders();
 
 			if (forwardedFor != null)
-				return forwardedFor;
+				return forwardedFor.getHost();
 
-			String xForwardedFor = extractXForwardedForFromHeaders();
+			ForwardedClient xForwardedFor = extractXForwardedClientFromHeaders();
 
 			if (xForwardedFor != null)
-				return xForwardedFor;
+				return xForwardedFor.getHost();
 		}
 
 		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
@@ -1663,6 +1760,22 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getRemotePort() {
+		if (shouldTrustForwardedHeaders()) {
+			ForwardedClient forwardedFor = extractForwardedClientFromHeaders();
+
+			if (forwardedFor != null) {
+				Integer port = forwardedFor.getPort();
+				return port == null ? 0 : port;
+			}
+
+			ForwardedClient xForwardedFor = extractXForwardedClientFromHeaders();
+
+			if (xForwardedFor != null) {
+				Integer port = xForwardedFor.getPort();
+				return port == null ? 0 : port;
+			}
+		}
+
 		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
 		return remoteAddress == null ? 0 : remoteAddress.getPort();
 	}

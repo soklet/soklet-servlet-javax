@@ -56,11 +56,14 @@ public final class SokletHttpSession implements HttpSession {
 	@NonNull
 	private final Instant createdAt;
 	@NonNull
+	private volatile Instant lastAccessedAt;
+	@NonNull
 	private final Map<@NonNull String, @NonNull Object> attributes;
 	@NonNull
 	private final ServletContext servletContext;
 	private volatile boolean invalidated;
 	private volatile int maxInactiveInterval;
+	private volatile boolean isNew;
 
 	@NonNull
 	public static SokletHttpSession withServletContext(@NonNull ServletContext servletContext) {
@@ -73,10 +76,12 @@ public final class SokletHttpSession implements HttpSession {
 
 		this.sessionId = UUID.randomUUID();
 		this.createdAt = Instant.now();
+		this.lastAccessedAt = this.createdAt;
 		this.attributes = new ConcurrentHashMap<>();
 		this.servletContext = servletContext;
 		this.invalidated = false;
 		this.maxInactiveInterval = 0;
+		this.isNew = true;
 	}
 
 	public void setSessionId(@NonNull UUID sessionId) {
@@ -92,6 +97,11 @@ public final class SokletHttpSession implements HttpSession {
 	@NonNull
 	private Instant getCreatedAt() {
 		return this.createdAt;
+	}
+
+	@NonNull
+	private Instant getLastAccessedAt() {
+		return this.lastAccessedAt;
 	}
 
 	@NonNull
@@ -112,6 +122,14 @@ public final class SokletHttpSession implements HttpSession {
 			throw new IllegalStateException("Session is invalidated");
 	}
 
+	void markAccessed() {
+		this.lastAccessedAt = Instant.now();
+	}
+
+	void markNotNew() {
+		this.isNew = false;
+	}
+
 	// Implementation of HttpSession methods below:
 
 	@Override
@@ -129,7 +147,7 @@ public final class SokletHttpSession implements HttpSession {
 	@Override
 	public long getLastAccessedTime() {
 		ensureNotInvalidated();
-		return getCreatedAt().toEpochMilli();
+		return getLastAccessedAt().toEpochMilli();
 	}
 
 	@Override
@@ -254,6 +272,6 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	public boolean isNew() {
-		return true;
+		return this.isNew;
 	}
 }

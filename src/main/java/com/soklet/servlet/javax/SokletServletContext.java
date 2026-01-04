@@ -413,6 +413,9 @@ public final class SokletServletContext implements ServletContext {
 
 	@Override
 	public void removeAttribute(@Nullable String name) {
+		if (name == null)
+			return;
+
 		getAttributes().remove(name);
 	}
 
