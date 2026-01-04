@@ -93,6 +93,7 @@
                         <link>https://docs.oracle.com/en/java/javase/25/docs/api/</link>
                         <link>https://javadoc.io/doc/com.google.code.findbugs/jsr305/3.0.2/</link>
                         <link>https://javadoc.io/doc/javax.servlet/javax.servlet-api/4.0.1/</link>
+                        <link>https://javadoc.io/doc/org.jspecify/jspecify/1.0.0/</link>
                         <link>https://javadoc.soklet.com/</link>
                     </links>
                     <quiet>true</quiet>
@@ -174,18 +175,22 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>1.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <version>3.0.2</version>
-            <scope>compile</scope>
-            <optional>true</optional>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <version>5.13.3</version>
             <scope>test</scope>
-            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>
