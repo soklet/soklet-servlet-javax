@@ -141,6 +141,7 @@ public final class SokletHttpSession implements HttpSession {
 	@Override
 	@NonNull
 	public String getId() {
+		ensureNotInvalidated();
 		return getSessionId().toString();
 	}
 
@@ -153,16 +154,19 @@ public final class SokletHttpSession implements HttpSession {
 	@Override
 	@NonNull
 	public ServletContext getServletContext() {
+		ensureNotInvalidated();
 		return this.servletContext;
 	}
 
 	@Override
 	public void setMaxInactiveInterval(int interval) {
+		ensureNotInvalidated();
 		this.maxInactiveInterval = interval;
 	}
 
 	@Override
 	public int getMaxInactiveInterval() {
+		ensureNotInvalidated();
 		return this.maxInactiveInterval;
 	}
 
@@ -170,6 +174,7 @@ public final class SokletHttpSession implements HttpSession {
 	@NonNull
 	@Deprecated
 	public HttpSessionContext getSessionContext() {
+		ensureNotInvalidated();
 		return SHARED_HTTP_SESSION_CONTEXT;
 	}
 
@@ -261,6 +266,7 @@ public final class SokletHttpSession implements HttpSession {
 
 	@Override
 	public void invalidate() {
+		ensureNotInvalidated();
 		// Copy to prevent modification while iterating
 		Set<@NonNull String> namesToRemove = new HashSet<>(getAttributes().keySet());
 

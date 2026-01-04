@@ -58,4 +58,28 @@ public class SessionInvalidationTests {
 		Assertions.assertNotEquals(sessionId, newSession.getId());
 		Assertions.assertSame(newSession, http.getSession(false));
 	}
+
+	@Test
+	public void invalidatePreventsSessionMetadataAccess() {
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
+		HttpSession session = http.getSession(true);
+		session.invalidate();
+
+		Assertions.assertThrows(IllegalStateException.class, session::getId);
+		Assertions.assertThrows(IllegalStateException.class, session::getCreationTime);
+		Assertions.assertThrows(IllegalStateException.class, session::getLastAccessedTime);
+		Assertions.assertThrows(IllegalStateException.class, session::getServletContext);
+		Assertions.assertThrows(IllegalStateException.class, () -> session.setMaxInactiveInterval(1));
+		Assertions.assertThrows(IllegalStateException.class, session::getMaxInactiveInterval);
+		Assertions.assertThrows(IllegalStateException.class, session::isNew);
+	}
+
+	@Test
+	public void invalidateTwiceThrows() {
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
+		HttpSession session = http.getSession(true);
+		session.invalidate();
+
+		Assertions.assertThrows(IllegalStateException.class, session::invalidate);
+	}
 }

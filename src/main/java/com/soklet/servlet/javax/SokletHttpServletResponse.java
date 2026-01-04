@@ -1239,11 +1239,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			throw new IllegalArgumentException("Buffer size must be greater than 0");
 
 		// Per Servlet spec, setBufferSize must be called before any content is written
-		if (writerObtained() || getServletOutputStream().isPresent() || getResponseOutputStream().size() > 0)
+		if (getResponseOutputStream().size() > 0)
 			throw new IllegalStateException("setBufferSize must be called before any content is written");
 
 		setResponseBufferSizeInBytes(size);
-		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
+
+		if (!writerObtained() && getServletOutputStream().isEmpty())
+			setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
 	}
 
 	@Override
@@ -1255,7 +1257,17 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public void flushBuffer() throws IOException {
 		if (!isCommitted())
 			setResponseCommitted(true);
-		getResponseOutputStream().flush();
+
+		SokletServletPrintWriter currentWriter = getPrintWriter().orElse(null);
+		SokletServletOutputStream currentOutputStream = getServletOutputStream().orElse(null);
+
+		if (currentWriter != null) {
+			currentWriter.flush();
+		} else if (currentOutputStream != null) {
+			currentOutputStream.flush();
+		} else {
+			getResponseOutputStream().flush();
+		}
 	}
 
 	@Override

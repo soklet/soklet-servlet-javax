@@ -49,6 +49,22 @@ public class ResponseBufferSizeSemanticsTests {
 	}
 
 	@Test
+	public void setBufferSizeAfterWriterObtainedBeforeWritingIsAllowed() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.getWriter();
+		resp.setBufferSize(2048);
+		Assertions.assertEquals(2048, resp.getBufferSize());
+	}
+
+	@Test
+	public void setBufferSizeAfterOutputStreamObtainedBeforeWritingIsAllowed() throws Exception {
+		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		resp.getOutputStream();
+		resp.setBufferSize(2048);
+		Assertions.assertEquals(2048, resp.getBufferSize());
+	}
+
+	@Test
 	public void setBufferSizeZeroThrows() {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
 		Assertions.assertThrows(IllegalArgumentException.class, () -> resp.setBufferSize(0));
