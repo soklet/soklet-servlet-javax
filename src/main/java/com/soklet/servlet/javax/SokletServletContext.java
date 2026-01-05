@@ -40,6 +40,7 @@ import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLClassLoader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -357,6 +358,67 @@ public final class SokletServletContext implements ServletContext {
 			return Optional.of(lookup);
 		}
 
+		private void addFilesystemEntries(@NonNull Path dir,
+																			@NonNull String prefix,
+																			@NonNull Set<@NonNull String> out) throws IOException {
+			if (!Files.isDirectory(dir))
+				return;
+
+			try (Stream<Path> stream = Files.list(dir)) {
+				stream.forEach(child -> {
+					String name = child.getFileName().toString();
+					boolean isDir = Files.isDirectory(child);
+					out.add(prefix + name + (isDir ? "/" : ""));
+				});
+			}
+		}
+
+		private void addJarEntries(@NonNull JarFile jar,
+															 @NonNull String jarPrefix,
+															 @NonNull String prefix,
+															 @NonNull Set<@NonNull String> out) {
+			jar.stream()
+					.map(JarEntry::getName)
+					.filter(name -> name.startsWith(jarPrefix) && !name.equals(jarPrefix))
+					.map(name -> {
+						String remainder = name.substring(jarPrefix.length());
+						int slash = remainder.indexOf('/');
+						if (slash == -1)
+							return prefix + remainder;
+
+						return prefix + remainder.substring(0, slash + 1);
+					})
+					.forEach(out::add);
+		}
+
+		private void addClasspathRootEntries(@NonNull URL rootUrl,
+																				 @NonNull String classpathPath,
+																				 @NonNull String prefix,
+																				 @NonNull Set<@NonNull String> out) throws Exception {
+			String protocol = rootUrl.getProtocol();
+
+			if ("file".equals(protocol)) {
+				Path rootPath = Paths.get(rootUrl.toURI());
+				if (Files.isDirectory(rootPath)) {
+					Path dir = classpathPath.isEmpty() ? rootPath : rootPath.resolve(classpathPath);
+					addFilesystemEntries(dir, prefix, out);
+				} else if (Files.isRegularFile(rootPath)) {
+					try (JarFile jar = new JarFile(rootPath.toFile())) {
+						addJarEntries(jar, classpathPath, prefix, out);
+					}
+				}
+			} else if ("jar".equals(protocol)) {
+				String spec = rootUrl.getFile();
+				int bang = spec.indexOf("!");
+				String jarPath = bang >= 0 ? spec.substring(0, bang) : spec;
+				URL jarUrl = new URL(jarPath);
+
+				try (JarFile jar = new JarFile(new java.io.File(jarUrl.toURI()))) {
+					addJarEntries(jar, classpathPath, prefix, out);
+				}
+			}
+		}
+
 		@Override
 		@Nullable
 		public Set<@NonNull String> getResourcePaths(@NonNull String path) {
@@ -371,20 +433,21 @@ public final class SokletServletContext implements ServletContext {
 				Enumeration<@NonNull URL> roots = classLoader.getResources(classpathPath);
 				Set<@NonNull String> out = new java.util.TreeSet<>();
 				String prefix = path.endsWith("/") ? path : path + "/";
+				boolean sawRoot = false;
 
 				while (roots.hasMoreElements()) {
+					sawRoot = true;
 					URL url = roots.nextElement();
 					String protocol = url.getProtocol();
 
 					if ("file".equals(protocol)) {
 						Path rootPath = Paths.get(url.toURI());
-
-						try (Stream<Path> stream = Files.list(rootPath)) {
-							stream.forEach(child -> {
-								String name = child.getFileName().toString();
-								boolean isDir = Files.isDirectory(child);
-								out.add(prefix + name + (isDir ? "/" : ""));
-							});
+						if (Files.isDirectory(rootPath)) {
+							addFilesystemEntries(rootPath, prefix, out);
+						} else if (Files.isRegularFile(rootPath)) {
+							try (JarFile jar = new JarFile(rootPath.toFile())) {
+								addJarEntries(jar, classpathPath, prefix, out);
+							}
 						}
 					} else if ("jar".equals(protocol)) {
 						String spec = url.getFile();
@@ -394,20 +457,25 @@ public final class SokletServletContext implements ServletContext {
 
 						try (JarFile jar = new JarFile(new java.io.File(jarUrl.toURI()))) {
 							String jarPrefix = classpathPath;
-							jar.stream()
-									.map(JarEntry::getName)
-									.filter(name -> name.startsWith(jarPrefix) && !name.equals(jarPrefix))
-									.map(name -> {
-										String remainder = name.substring(jarPrefix.length());
-										int slash = remainder.indexOf('/');
-										if (slash == -1)
-											return prefix + remainder;
-
-										return prefix + remainder.substring(0, slash + 1);
-									})
-									.forEach(out::add);
+							addJarEntries(jar, jarPrefix, prefix, out);
 						}
 					}
+				}
+
+				if (!sawRoot) {
+					Enumeration<@NonNull URL> classpathRoots = classLoader.getResources("");
+
+					while (classpathRoots.hasMoreElements()) {
+						URL rootUrl = classpathRoots.nextElement();
+						addClasspathRootEntries(rootUrl, classpathPath, prefix, out);
+					}
+				}
+
+				if (out.isEmpty() && classLoader instanceof URLClassLoader) {
+					URL[] urls = ((URLClassLoader) classLoader).getURLs();
+
+					for (URL rootUrl : urls)
+						addClasspathRootEntries(rootUrl, classpathPath, prefix, out);
 				}
 
 				return out.isEmpty() ? null : out;

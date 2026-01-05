@@ -28,13 +28,18 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 /*
  * Additional tests to cover servlet interop odds-and-ends semantics that were not exercised elsewhere.
@@ -125,6 +130,17 @@ public class AdditionalInteropTests {
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
 		Assertions.assertEquals(443, https.getServerPort());
+	}
+
+	@Test
+	public void getServerPortUsesLocalPortWhenHostOmitsPort() {
+		Request req = Request.withPath(HttpMethod.GET, "/p")
+				.headers(Map.of("Host", Set.of("example.com")))
+				.build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
+				.port(8081)
+				.build();
+		Assertions.assertEquals(8081, http.getServerPort());
 	}
 
 	@Test
@@ -266,6 +282,36 @@ public class AdditionalInteropTests {
 
 		try (InputStream in = ctx.getResourceAsStream("/hello.txt")) {
 			Assertions.assertNotNull(in);
+		}
+	}
+
+	@Test
+	public void classpathResourceRootListsJarEntriesWithoutDirectoryEntry(@TempDir Path tempDir) throws Exception {
+		Path jarPath = tempDir.resolve("test.jar");
+
+		try (OutputStream out = Files.newOutputStream(jarPath);
+				 JarOutputStream jar = new JarOutputStream(out)) {
+			JarEntry entry = new JarEntry("root/child.txt");
+			jar.putNextEntry(entry);
+			jar.write("child".getBytes(StandardCharsets.UTF_8));
+			jar.closeEntry();
+		}
+
+		ClassLoader previous = Thread.currentThread().getContextClassLoader();
+
+		try (URLClassLoader loader = new URLClassLoader(new URL[]{jarPath.toUri().toURL()}, previous)) {
+			Thread.currentThread().setContextClassLoader(loader);
+
+			SokletServletContext ctx = SokletServletContext.builder()
+					.classpathResourceRoot("root")
+					.build();
+
+			Set<String> rootPaths = ctx.getResourcePaths("/");
+			Assertions.assertNotNull(rootPaths);
+			Assertions.assertTrue(rootPaths.contains("/child.txt"));
+			Assertions.assertNotNull(ctx.getResource("/child.txt"));
+		} finally {
+			Thread.currentThread().setContextClassLoader(previous);
 		}
 	}
 

@@ -825,6 +825,47 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return 0;
 	}
 
+	@NonNull
+	private String stripIpv6Brackets(@NonNull String host) {
+		requireNonNull(host);
+
+		if (host.startsWith("[") && host.endsWith("]") && host.length() > 2)
+			return host.substring(1, host.length() - 1);
+
+		return host;
+	}
+
+	private boolean isIpv4Literal(@NonNull String value) {
+		requireNonNull(value);
+		String[] parts = value.split("\\.", -1);
+
+		if (parts.length != 4)
+			return false;
+
+		for (String part : parts) {
+			if (part.isEmpty())
+				return false;
+
+			int acc = 0;
+
+			for (int i = 0; i < part.length(); i++) {
+				char c = part.charAt(i);
+				if (c < '0' || c > '9')
+					return false;
+				acc = acc * 10 + (c - '0');
+				if (acc > 255)
+					return false;
+			}
+		}
+
+		return true;
+	}
+
+	private boolean isIpv6Literal(@NonNull String value) {
+		requireNonNull(value);
+		return value.indexOf(':') >= 0;
+	}
+
 	@Nullable
 	private String hostFromAuthority(@Nullable String authority) {
 		if (authority == null)
@@ -1752,11 +1793,6 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 			if (hostPort != null)
 				return hostPort;
-
-			int defaultPort = defaultPortForScheme(getScheme());
-
-			if (defaultPort > 0)
-				return defaultPort;
 		}
 
 		Integer port = getPort().orElse(null);
@@ -1902,21 +1938,10 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@NonNull
 	public String getLocalName() {
-		if (getHost().isPresent())
-			return getHost().get();
+		String host = getHost().orElse(null);
 
-		try {
-			String hostName = InetAddress.getLocalHost().getHostName();
-
-			if (hostName != null) {
-				hostName = hostName.trim();
-
-				if (hostName.length() > 0)
-					return hostName;
-			}
-		} catch (Exception e) {
-			// Ignored
-		}
+		if (host != null && !host.isBlank())
+			return stripIpv6Brackets(host);
 
 		return "localhost";
 	}
@@ -1924,17 +1949,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@NonNull
 	public String getLocalAddr() {
-		try {
-			String hostAddress = InetAddress.getLocalHost().getHostAddress();
+		String host = getHost().orElse(null);
 
-			if (hostAddress != null) {
-				hostAddress = hostAddress.trim();
+		if (host != null) {
+			String normalized = stripIpv6Brackets(host).trim();
 
-				if (hostAddress.length() > 0)
-					return hostAddress;
-			}
-		} catch (Exception e) {
-			// Ignored
+			if (!normalized.isEmpty() && (isIpv4Literal(normalized) || isIpv6Literal(normalized)))
+				return normalized;
 		}
 
 		return "127.0.0.1";
