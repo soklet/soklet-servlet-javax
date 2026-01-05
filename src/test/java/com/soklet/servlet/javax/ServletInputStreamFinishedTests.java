@@ -47,7 +47,7 @@ public class ServletInputStreamFinishedTests {
 		Assertions.assertEquals(1, inputStream.read());
 		Assertions.assertFalse(inputStream.isFinished());
 		Assertions.assertEquals(2, inputStream.read());
-		Assertions.assertFalse(inputStream.isFinished());
+		Assertions.assertTrue(inputStream.isFinished());
 		Assertions.assertEquals(-1, inputStream.read());
 		Assertions.assertTrue(inputStream.isFinished());
 	}

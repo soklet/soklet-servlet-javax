@@ -90,6 +90,19 @@ public final class SokletServletInputStream extends ServletInputStream {
 			throw new IOException("Stream is closed");
 	}
 
+	private void updateFinishedAfterRead(int bytesRead,
+																			 boolean bytesConsumed) {
+		if (bytesRead == -1) {
+			setFinished(true);
+			return;
+		}
+
+		if (bytesConsumed && getInputStream() instanceof ByteArrayInputStream
+				&& ((ByteArrayInputStream) getInputStream()).available() == 0) {
+			setFinished(true);
+		}
+	}
+
 	// Implementation of ServletInputStream methods below:
 
 	@Override
@@ -132,9 +145,7 @@ public final class SokletServletInputStream extends ServletInputStream {
 	public int read() throws IOException {
 		ensureOpen();
 		int data = getInputStream().read();
-
-		if (data == -1)
-			setFinished(true);
+		updateFinishedAfterRead(data, data != -1);
 
 		return data;
 	}
@@ -146,9 +157,7 @@ public final class SokletServletInputStream extends ServletInputStream {
 		requireNonNull(b);
 		ensureOpen();
 		int count = getInputStream().read(b, off, len);
-
-		if (count == -1)
-			setFinished(true);
+		updateFinishedAfterRead(count, count > 0);
 
 		return count;
 	}

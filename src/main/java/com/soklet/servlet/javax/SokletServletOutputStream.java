@@ -157,7 +157,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	public void write(int b) throws IOException {
 		ensureOpen();
 		getOutputStream().write(b);
-		getOnWriteOccurred().accept(this, b);
+		getOnWriteOccurred().accept(this, 1);
 	}
 
 	@Override
