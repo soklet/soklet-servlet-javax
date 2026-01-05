@@ -27,6 +27,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.IDN;
 import java.util.Map;
 import java.util.Set;
 
@@ -51,6 +52,53 @@ public class RedirectTests {
 		Set<String> locations = mr.getHeaders().get("Location");
 		Assertions.assertTrue(locations != null && !locations.isEmpty(), "Location header missing");
 		Assertions.assertTrue(locations.contains("https://example.com/root/next"), "Location header wrong");
+	}
+
+	@Test
+	public void relativeRedirectEncodesSpaces() throws IOException {
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
+		response.sendRedirect("a b");
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/root/a%20b"), mr.getHeaders().get("Location"));
+	}
+
+	@Test
+	public void relativeRedirectNormalizesInternationalHost() throws IOException {
+		String unicodeHost = "ex\u00E4mple.com";
+		String asciiHost = IDN.toASCII(unicodeHost);
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of(unicodeHost),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
+		response.sendRedirect("next");
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://" + asciiHost + "/root/next"), mr.getHeaders().get("Location"));
+	}
+
+	@Test
+	public void rootedRedirectEncodesQuery() throws IOException {
+		Request request = Request.withPath(HttpMethod.GET, "/root/path")
+				.headers(Map.of(
+						"Host", Set.of("example.com"),
+						"X-Forwarded-Proto", Set.of("https")
+				))
+				.build();
+		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
+		response.sendRedirect("/search?q=a b");
+
+		MarshaledResponse mr = response.toMarshaledResponse();
+		Assertions.assertEquals(Set.of("https://example.com/search?q=a%20b"), mr.getHeaders().get("Location"));
 	}
 
 	@Test

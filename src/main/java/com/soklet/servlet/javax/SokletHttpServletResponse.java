@@ -34,7 +34,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.IDN;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
@@ -538,16 +540,6 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseCommitted(true);
 	}
 
-	private boolean isAbsoluteUri(@NonNull String location) {
-		requireNonNull(location);
-
-		try {
-			return java.net.URI.create(location).isAbsolute();
-		} catch (Exception ignored) {
-			return false;
-		}
-	}
-
 	@NonNull
 	private String getRedirectBaseUrl() {
 		HttpServletRequest httpServletRequest = getHttpServletRequest().orElse(null);
@@ -561,6 +553,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		String host = httpServletRequest.getServerName();
 		if (host == null || host.isBlank())
 			host = "localhost";
+		host = normalizeHostForLocation(host);
 		int port = httpServletRequest.getServerPort();
 		boolean defaultPort = port <= 0 || ("https".equalsIgnoreCase(scheme) && port == 443) || ("http".equalsIgnoreCase(scheme) && port == 80);
 		String authorityHost = host;
@@ -569,6 +562,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			authorityHost = "[" + host + "]";
 
 		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
+		validateAuthority(scheme, authority);
 		return format("%s://%s", scheme, authority);
 	}
 
@@ -611,6 +605,311 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
+	private static final class ParsedPath {
+		@NonNull
+		private final String rawPath;
+		@Nullable
+		private final String rawQuery;
+		@Nullable
+		private final String rawFragment;
+
+		private ParsedPath(@NonNull String rawPath,
+											 @Nullable String rawQuery,
+											 @Nullable String rawFragment) {
+			this.rawPath = rawPath;
+			this.rawQuery = rawQuery;
+			this.rawFragment = rawFragment;
+		}
+	}
+
+	@NonNull
+	private ParsedPath parsePathAndSuffix(@NonNull String rawPath) {
+		String path = rawPath;
+		String rawQuery = null;
+		String rawFragment = null;
+
+		int hash = path.indexOf('#');
+		if (hash >= 0) {
+			rawFragment = path.substring(hash + 1);
+			path = path.substring(0, hash);
+		}
+
+		int question = path.indexOf('?');
+		if (question >= 0) {
+			rawQuery = path.substring(question + 1);
+			path = path.substring(0, question);
+		}
+
+		return new ParsedPath(path, rawQuery, rawFragment);
+	}
+
+	private boolean isAsciiAlpha(char c) {
+		return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+	}
+
+	private boolean isAsciiDigit(char c) {
+		return c >= '0' && c <= '9';
+	}
+
+	private boolean isSchemeChar(char c) {
+		return isAsciiAlpha(c) || isAsciiDigit(c) || c == '+' || c == '-' || c == '.';
+	}
+
+	private boolean isValidScheme(@NonNull String scheme) {
+		if (scheme.isEmpty())
+			return false;
+
+		if (!isAsciiAlpha(scheme.charAt(0)))
+			return false;
+
+		for (int i = 1; i < scheme.length(); i++) {
+			if (!isSchemeChar(scheme.charAt(i)))
+				return false;
+		}
+
+		return true;
+	}
+
+	private boolean containsNonAscii(@NonNull String value) {
+		for (int i = 0; i < value.length(); i++) {
+			if (value.charAt(i) > 0x7F)
+				return true;
+		}
+
+		return false;
+	}
+
+	@NonNull
+	private String normalizeHostForLocation(@NonNull String host) {
+		requireNonNull(host);
+		String normalized = host.trim();
+
+		if (normalized.isEmpty())
+			throw new IllegalArgumentException("Redirect host is invalid");
+
+		if (normalized.startsWith("[") && normalized.endsWith("]"))
+			return normalized;
+
+		if (normalized.indexOf(':') >= 0)
+			return normalized;
+
+		if (containsNonAscii(normalized)) {
+			try {
+				normalized = IDN.toASCII(normalized);
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("Redirect host is invalid", e);
+			}
+		}
+
+		return normalized;
+	}
+
+	private int countColons(@NonNull String value) {
+		int count = 0;
+
+		for (int i = 0; i < value.length(); i++) {
+			if (value.charAt(i) == ':')
+				count++;
+		}
+
+		return count;
+	}
+
+	@Nullable
+	private String normalizeAuthority(@NonNull String scheme,
+																		@Nullable String rawAuthority) {
+		requireNonNull(scheme);
+
+		if (rawAuthority == null || rawAuthority.isBlank())
+			return null;
+
+		String authority = rawAuthority.trim();
+		String userInfo = null;
+		String hostPort = authority;
+		int at = authority.lastIndexOf('@');
+
+		if (at >= 0) {
+			userInfo = authority.substring(0, at);
+			hostPort = authority.substring(at + 1);
+		}
+
+		String normalizedHostPort;
+
+		if (hostPort.startsWith("[")) {
+			int close = hostPort.indexOf(']');
+			if (close < 0)
+				throw new IllegalArgumentException("Redirect location is invalid");
+
+			normalizedHostPort = hostPort;
+		} else {
+			int colonCount = countColons(hostPort);
+			String host = hostPort;
+			String port = null;
+
+			if (colonCount > 1) {
+				host = hostPort;
+			} else if (colonCount == 1) {
+				int colon = hostPort.lastIndexOf(':');
+
+				if (colon <= 0 || colon == hostPort.length() - 1)
+					throw new IllegalArgumentException("Redirect location is invalid");
+
+				String portCandidate = hostPort.substring(colon + 1);
+				boolean allDigits = true;
+
+				for (int i = 0; i < portCandidate.length(); i++) {
+					if (!isAsciiDigit(portCandidate.charAt(i))) {
+						allDigits = false;
+						break;
+					}
+				}
+
+				if (!allDigits)
+					throw new IllegalArgumentException("Redirect location is invalid");
+
+				host = hostPort.substring(0, colon);
+				port = portCandidate;
+			}
+
+			String normalizedHost = normalizeHostForLocation(host);
+
+			if (normalizedHost.indexOf(':') >= 0 && !normalizedHost.startsWith("["))
+				normalizedHost = "[" + normalizedHost + "]";
+
+			normalizedHostPort = port == null ? normalizedHost : normalizedHost + ":" + port;
+		}
+
+		String normalized = userInfo == null ? normalizedHostPort : userInfo + "@" + normalizedHostPort;
+		validateAuthority(scheme, normalized);
+		return normalized;
+	}
+
+	private void validateAuthority(@NonNull String scheme,
+																 @Nullable String authority) {
+		requireNonNull(scheme);
+
+		try {
+			new URI(scheme, authority, null, null, null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("Redirect location is invalid", e);
+		}
+	}
+
+	private boolean isUnreserved(char c) {
+		return isAsciiAlpha(c) || isAsciiDigit(c) || c == '-' || c == '.' || c == '_' || c == '~';
+	}
+
+	private boolean isSubDelim(char c) {
+		return c == '!' || c == '$' || c == '&' || c == '\'' || c == '(' || c == ')'
+				|| c == '*' || c == '+' || c == ',' || c == ';' || c == '=';
+	}
+
+	private boolean isPchar(char c) {
+		return isUnreserved(c) || isSubDelim(c) || c == ':' || c == '@';
+	}
+
+	private boolean isAllowedInPath(char c) {
+		return isPchar(c) || c == '/';
+	}
+
+	private boolean isAllowedInQueryOrFragment(char c) {
+		return isPchar(c) || c == '/' || c == '?';
+	}
+
+	private boolean isHexDigit(char c) {
+		return (c >= '0' && c <= '9')
+				|| (c >= 'A' && c <= 'F')
+				|| (c >= 'a' && c <= 'f');
+	}
+
+	@NonNull
+	private String encodePreservingEscapes(@NonNull String input,
+																				 boolean allowQueryOrFragmentChars) {
+		requireNonNull(input);
+
+		StringBuilder out = new StringBuilder(input.length());
+		int length = input.length();
+
+		for (int i = 0; i < length; ) {
+			char c = input.charAt(i);
+
+			if (c == '%' && i + 2 < length
+					&& isHexDigit(input.charAt(i + 1)) && isHexDigit(input.charAt(i + 2))) {
+				out.append('%').append(input.charAt(i + 1)).append(input.charAt(i + 2));
+				i += 3;
+				continue;
+			}
+
+			boolean allowed = allowQueryOrFragmentChars ? isAllowedInQueryOrFragment(c) : isAllowedInPath(c);
+
+			if (allowed) {
+				out.append(c);
+				i++;
+				continue;
+			}
+
+			int codePoint = input.codePointAt(i);
+			byte[] bytes = new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8);
+
+			for (byte b : bytes) {
+				out.append('%');
+				int v = b & 0xFF;
+				out.append(Character.toUpperCase(Character.forDigit((v >> 4) & 0xF, 16)));
+				out.append(Character.toUpperCase(Character.forDigit(v & 0xF, 16)));
+			}
+
+			i += Character.charCount(codePoint);
+		}
+
+		return out.toString();
+	}
+
+	private int firstDelimiterIndex(@NonNull String value) {
+		int slash = value.indexOf('/');
+		int question = value.indexOf('?');
+		int hash = value.indexOf('#');
+		int index = -1;
+
+		if (slash >= 0)
+			index = slash;
+		if (question >= 0 && (index == -1 || question < index))
+			index = question;
+		if (hash >= 0 && (index == -1 || hash < index))
+			index = hash;
+
+		return index;
+	}
+
+	@Nullable
+	private ParsedLocation parseLocationFallback(@NonNull String location) {
+		int colon = location.indexOf(':');
+		if (colon <= 0)
+			return null;
+
+		String scheme = location.substring(0, colon);
+		if (!isValidScheme(scheme))
+			return null;
+
+		String rest = location.substring(colon + 1);
+
+		if (rest.startsWith("//")) {
+			String authorityAndPath = rest.substring(2);
+			int delimiterIndex = firstDelimiterIndex(authorityAndPath);
+			String rawAuthority = delimiterIndex == -1 ? authorityAndPath : authorityAndPath.substring(0, delimiterIndex);
+			String remainder = delimiterIndex == -1 ? "" : authorityAndPath.substring(delimiterIndex);
+			ParsedPath parsedPath = parsePathAndSuffix(remainder);
+			return new ParsedLocation(scheme, rawAuthority.isEmpty() ? null : rawAuthority,
+					parsedPath.rawPath, parsedPath.rawQuery, parsedPath.rawFragment, false);
+		}
+
+		if (rest.startsWith("/")) {
+			ParsedPath parsedPath = parsePathAndSuffix(rest);
+			return new ParsedLocation(scheme, null, parsedPath.rawPath, parsedPath.rawQuery, parsedPath.rawFragment, false);
+		}
+
+		return new ParsedLocation(scheme, null, rest, null, null, true);
+	}
+
 	@NonNull
 	private ParsedLocation parseLocation(@NonNull String location) {
 		requireNonNull(location);
@@ -620,38 +919,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			String rawPath = uri.getRawPath() == null ? "" : uri.getRawPath();
 			return new ParsedLocation(uri.getScheme(), uri.getRawAuthority(), rawPath, uri.getRawQuery(), uri.getRawFragment(), uri.isOpaque());
 		} catch (Exception ignored) {
-			String rawPath = location;
-			String rawQuery = null;
-			String rawFragment = null;
+			ParsedLocation fallback = parseLocationFallback(location);
+			if (fallback != null)
+				return fallback;
 
-			int hash = rawPath.indexOf('#');
-			if (hash >= 0) {
-				rawFragment = rawPath.substring(hash + 1);
-				rawPath = rawPath.substring(0, hash);
-			}
-
-			int question = rawPath.indexOf('?');
-			if (question >= 0) {
-				rawQuery = rawPath.substring(question + 1);
-				rawPath = rawPath.substring(0, question);
-			}
-
-			return new ParsedLocation(null, null, rawPath, rawQuery, rawFragment, false);
+			ParsedPath parsedPath = parsePathAndSuffix(location);
+			return new ParsedLocation(null, null, parsedPath.rawPath, parsedPath.rawQuery, parsedPath.rawFragment, false);
 		}
-	}
-
-	@NonNull
-	private String buildSuffix(@Nullable String rawQuery,
-														 @Nullable String rawFragment) {
-		StringBuilder suffix = new StringBuilder();
-
-		if (rawQuery != null)
-			suffix.append('?').append(rawQuery);
-
-		if (rawFragment != null)
-			suffix.append('#').append(rawFragment);
-
-		return suffix.toString();
 	}
 
 	@NonNull
@@ -724,6 +998,48 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			output.setLength(0);
 	}
 
+	@NonNull
+	private String buildAbsoluteLocation(@NonNull String scheme,
+																			 @Nullable String rawAuthority,
+																			 @NonNull String rawPath,
+																			 @Nullable String rawQuery,
+																			 @Nullable String rawFragment) {
+		requireNonNull(scheme);
+		requireNonNull(rawPath);
+
+		String encodedPath = encodePreservingEscapes(rawPath, false);
+		String encodedQuery = rawQuery == null ? null : encodePreservingEscapes(rawQuery, true);
+		String encodedFragment = rawFragment == null ? null : encodePreservingEscapes(rawFragment, true);
+
+		StringBuilder out = new StringBuilder();
+		out.append(scheme).append(':');
+
+		if (rawAuthority != null) {
+			out.append("//").append(rawAuthority);
+		}
+
+		out.append(encodedPath);
+
+		if (encodedQuery != null)
+			out.append('?').append(encodedQuery);
+
+		if (encodedFragment != null)
+			out.append('#').append(encodedFragment);
+
+		return out.toString();
+	}
+
+	@NonNull
+	private String buildOpaqueLocation(@NonNull String location) {
+		requireNonNull(location);
+
+		try {
+			return URI.create(location).toASCIIString();
+		} catch (Exception e) {
+			throw new IllegalArgumentException("Redirect location is invalid", e);
+		}
+	}
+
 	@Override
 	public void sendRedirect(@Nullable String location) throws IOException {
 		ensureResponseIsUncommitted();
@@ -741,29 +1057,31 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		// leading '/' the container interprets it as a network-path reference (see RFC 3986: Uniform Resource
 		// Identifier (URI): Generic Syntax, section 4.2 "Relative Reference").
 		String baseUrl = getRedirectBaseUrl();
-		int schemeIndex = baseUrl.indexOf("://");
-		String scheme = schemeIndex > 0 ? baseUrl.substring(0, schemeIndex) : "http";
+		URI baseUri = URI.create(baseUrl);
+		String scheme = baseUri.getScheme();
+		String baseAuthority = baseUri.getRawAuthority();
 		String finalLocation;
 		ParsedLocation parsed = parseLocation(location);
-		String suffix = buildSuffix(parsed.rawQuery, parsed.rawFragment);
 
 		if (parsed.opaque) {
-			finalLocation = location;
+			finalLocation = buildOpaqueLocation(location);
 		} else if (location.startsWith("//")) {
 			// Network-path reference: keep host from location but inherit scheme
-			if (parsed.rawAuthority == null) {
-				finalLocation = scheme + ":" + location;
-			} else {
-				String normalized = normalizePath(parsed.rawPath);
-				finalLocation = scheme + "://" + parsed.rawAuthority + normalized + suffix;
-			}
-		} else if (isAbsoluteUri(location)) {
+			String normalizedAuthority = normalizeAuthority(scheme, parsed.rawAuthority);
+
+			if (normalizedAuthority == null || normalizedAuthority.isBlank())
+				throw new IllegalArgumentException("Redirect location is invalid");
+
+			String normalized = normalizePath(parsed.rawPath);
+			finalLocation = buildAbsoluteLocation(scheme, normalizedAuthority, normalized, parsed.rawQuery, parsed.rawFragment);
+		} else if (parsed.scheme != null) {
 			// URL is already absolute
-			finalLocation = location;
+			String normalizedAuthority = normalizeAuthority(parsed.scheme, parsed.rawAuthority);
+			finalLocation = buildAbsoluteLocation(parsed.scheme, normalizedAuthority, parsed.rawPath, parsed.rawQuery, parsed.rawFragment);
 		} else if (location.startsWith("/")) {
 			// URL is relative with leading /
 			String normalized = normalizePath(parsed.rawPath);
-			finalLocation = baseUrl + normalized + suffix;
+			finalLocation = buildAbsoluteLocation(scheme, baseAuthority, normalized, parsed.rawQuery, parsed.rawFragment);
 		} else {
 			// URL is relative but does not have leading '/', resolve against the parent of the current path
 			String base = getRawPath();
@@ -773,17 +1091,15 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			if (path.isEmpty() && query == null)
 				query = getRawQuery();
 
-			String relativeSuffix = buildSuffix(query, parsed.rawFragment);
-
 			if (path.isEmpty()) {
 				String normalized = normalizePath(base);
-				finalLocation = baseUrl + normalized + relativeSuffix;
+				finalLocation = buildAbsoluteLocation(scheme, baseAuthority, normalized, query, parsed.rawFragment);
 			} else {
 				int idx = base.lastIndexOf('/');
 				String parent = (idx <= 0) ? "/" : base.substring(0, idx);
 				String resolvedPath = parent.endsWith("/") ? parent + path : parent + "/" + path;
 				String normalized = normalizePath(resolvedPath);
-				finalLocation = baseUrl + normalized + relativeSuffix;
+				finalLocation = buildAbsoluteLocation(scheme, baseAuthority, normalized, query, parsed.rawFragment);
 			}
 		}
 

@@ -22,10 +22,16 @@ import com.soklet.Request;
 import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -191,6 +197,12 @@ public class AdditionalInteropTests {
 	}
 
 	@Test
+	public void getResourceThrowsOnInvalidPath() {
+		var ctx = SokletServletContext.withDefaults();
+		Assertions.assertThrows(MalformedURLException.class, () -> ctx.getResource("relative"));
+	}
+
+	@Test
 	public void getResourcePathsReturnsNullWhenMissing() {
 		var ctx = SokletServletContext.withDefaults();
 		Assertions.assertNull(ctx.getResourcePaths("/definitely-not-present"));
@@ -206,6 +218,55 @@ public class AdditionalInteropTests {
 	public void requestDispatcherIsNullWhenUnsupported() {
 		var ctx = SokletServletContext.withDefaults();
 		Assertions.assertNull(ctx.getRequestDispatcher("/x"));
+	}
+
+	@Test
+	public void requestDispatcherFromRequestIsNullWhenUnsupported() {
+		Request req = Request.withPath(HttpMethod.GET, "/p").build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
+		Assertions.assertNull(http.getRequestDispatcher("/x"));
+	}
+
+	@Test
+	public void filesystemResourceRootResolvesResources(@TempDir Path tempDir) throws Exception {
+		Path rootFile = tempDir.resolve("root.txt");
+		Path dir = Files.createDirectories(tempDir.resolve("dir"));
+		Path childFile = dir.resolve("child.txt");
+
+		Files.writeString(rootFile, "root", StandardCharsets.UTF_8);
+		Files.writeString(childFile, "child", StandardCharsets.UTF_8);
+
+		SokletServletContext ctx = SokletServletContext.builder()
+				.filesystemResourceRoot(tempDir)
+				.build();
+		Set<String> rootPaths = ctx.getResourcePaths("/");
+		Assertions.assertTrue(rootPaths.contains("/root.txt"));
+		Assertions.assertTrue(rootPaths.contains("/dir/"));
+		Assertions.assertNotNull(ctx.getResource("/root.txt"));
+		Assertions.assertNotNull(ctx.getResource("/dir/child.txt"));
+		Assertions.assertNull(ctx.getResource("/../root.txt"));
+
+		Set<String> dirPaths = ctx.getResourcePaths("/dir/");
+		Assertions.assertTrue(dirPaths.contains("/dir/child.txt"));
+
+		try (InputStream in = ctx.getResourceAsStream("/root.txt")) {
+			Assertions.assertNotNull(in);
+		}
+	}
+
+	@Test
+	public void classpathResourceRootResolvesResources() throws Exception {
+		SokletServletContext ctx = SokletServletContext.builder()
+				.classpathResourceRoot("testdata")
+				.build();
+		Assertions.assertNotNull(ctx.getResource("/hello.txt"));
+
+		Set<String> rootPaths = ctx.getResourcePaths("/");
+		Assertions.assertTrue(rootPaths.contains("/hello.txt"));
+
+		try (InputStream in = ctx.getResourceAsStream("/hello.txt")) {
+			Assertions.assertNotNull(in);
+		}
 	}
 
 	@Test
