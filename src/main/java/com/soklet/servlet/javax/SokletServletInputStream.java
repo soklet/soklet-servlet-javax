@@ -21,6 +21,7 @@ import org.jspecify.annotations.NonNull;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.servlet.ReadListener;
 import javax.servlet.ServletInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -55,12 +56,8 @@ public final class SokletServletInputStream extends ServletInputStream {
 		this.finished = false;
 		this.closed = false;
 
-		try {
-			if (inputStream.available() == 0)
-				this.finished = true;
-		} catch (IOException ignored) {
-			// Ignore, default is "not finished"
-		}
+		if (inputStream instanceof ByteArrayInputStream && ((ByteArrayInputStream) inputStream).available() == 0)
+			this.finished = true;
 	}
 
 	@NonNull

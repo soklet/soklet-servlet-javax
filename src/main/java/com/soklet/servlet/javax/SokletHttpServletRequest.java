@@ -1311,9 +1311,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@NonNull
 	public StringBuffer getRequestURL() {
+		String rawPath = getRequest().getRawPath();
+
+		if ("*".equals(rawPath))
+			return new StringBuffer(rawPath);
+
 		// Try forwarded/synthesized absolute prefix first
 		String effectiveOrigin = getEffectiveOrigin().orElse(null);
-		String rawPath = getRequest().getRawPath();
 
 		if (effectiveOrigin != null)
 			return new StringBuffer(format("%s%s", effectiveOrigin, rawPath));
