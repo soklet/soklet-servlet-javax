@@ -14,7 +14,7 @@ However, there is a large body of existing code that relies on the Servlet API. 
 * [`HttpServletRequest`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletRequest.html)
 * [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html)
 * [`HttpSession`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpSession.html)
-* [`HttpSessionContext`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpSessionContext.html)
+* [`HttpSessionContext`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpSessionContext.html) (only available for `javax.servlet`)
 * [`ServletContext`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletContext.html)
 * [`ServletInputStream`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletInputStream.html)
 * [`ServletOutputStream`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletServletOutputStream.html)
@@ -57,20 +57,20 @@ dependencies {
 
 A normal Servlet API integration looks like the following:
 
-1. Given a Soklet [`Request`](https://javadoc.soklet.com/com/soklet/core/Request.html), create both an [`HttpServletRequest`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletRequest.html) and an [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html).
+1. Given a Soklet [`Request`](https://javadoc.soklet.com/com/soklet/Request.html), create both an [`HttpServletRequest`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletRequest.html) and an [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html).
 2. Write whatever is needed to [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html)
-3. Convert the [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html) to a Soklet [`MarshaledResponse`](https://javadoc.soklet.com/com/soklet/core/MarshaledResponse.html)
+3. Convert the [`HttpServletResponse`](https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html) to a Soklet [`MarshaledResponse`](https://javadoc.soklet.com/com/soklet/MarshaledResponse.html)
 
 ```java
 @GET("/servlet-example")
 public MarshaledResponse servletExample(Request request) {
   // Create an HttpServletRequest from the Soklet Request
-  HttpServletRequest httpServletRequest = 
-    SokletHttpServletRequest.withRequest(request).build();
+  HttpServletRequest httpServletRequest =
+    SokletHttpServletRequest.fromRequest(request);
 
-  // Create an HttpServletResponse from the Soklet Request
+  // Create an HttpServletResponse from the HttpServletRequest
   SokletHttpServletResponse httpServletResponse = 
-    SokletHttpServletResponse.withRequest(request);
+    SokletHttpServletResponse.fromRequest(httpServletRequest);
 
   // Write some data to the response using Servlet APIs
   Cookie cookie = new Cookie("name", "value");
