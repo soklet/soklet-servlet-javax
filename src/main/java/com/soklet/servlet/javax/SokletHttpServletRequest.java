@@ -167,6 +167,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private RequestReadMethod requestReadMethod;
 
 	@NonNull
+	public static SokletHttpServletRequest fromRequest(@NonNull Request request) {
+		requireNonNull(request);
+		return withRequest(request).build();
+	}
+
+	@NonNull
 	public static Builder withRequest(@NonNull Request request) {
 		return new Builder(request);
 	}
@@ -182,7 +188,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.contentType = parseContentType(request).orElse(null);
 		this.host = builder.host;
 		this.port = builder.port;
-		this.servletContext = builder.servletContext == null ? SokletServletContext.withDefaults() : builder.servletContext;
+		this.servletContext = builder.servletContext == null ? SokletServletContext.fromDefaults() : builder.servletContext;
 		this.httpSession = builder.httpSession;
 		this.forwardedHeaderTrustPolicy = builder.forwardedHeaderTrustPolicy;
 		this.trustedProxyPredicate = builder.trustedProxyPredicate;
@@ -1391,7 +1397,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		boolean createdNow = false;
 
 		if (create && currentHttpSession == null) {
-			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
+			currentHttpSession = SokletHttpSession.fromServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
 			this.sessionCreated = true;
 			createdNow = true;
@@ -1410,7 +1416,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		boolean createdNow = false;
 
 		if (currentHttpSession == null) {
-			currentHttpSession = SokletHttpSession.withServletContext(getServletContext());
+			currentHttpSession = SokletHttpSession.fromServletContext(getServletContext());
 			setHttpSession(currentHttpSession);
 			this.sessionCreated = true;
 			createdNow = true;
@@ -1614,7 +1620,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
 			setRequestReadMethod(RequestReadMethod.INPUT_STREAM);
 			byte[] body = this.bodyParametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[]{});
-			setServletInputStream(SokletServletInputStream.withInputStream(new ByteArrayInputStream(body)));
+			setServletInputStream(SokletServletInputStream.fromInputStream(new ByteArrayInputStream(body)));
 			return getServletInputStream().get();
 		} else if (currentReadMethod == RequestReadMethod.INPUT_STREAM) {
 			return getServletInputStream().get();

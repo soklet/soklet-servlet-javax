@@ -121,7 +121,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private SokletServletPrintWriter printWriter;
 
 	@NonNull
-	public static SokletHttpServletResponse withRequest(@NonNull HttpServletRequest request) {
+	public static SokletHttpServletResponse fromRequest(@NonNull HttpServletRequest request) {
 		requireNonNull(request);
 		String rawPath = request.getRequestURI();
 		if (rawPath == null || rawPath.isEmpty())
@@ -131,14 +131,14 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	}
 
 	@NonNull
-	public static SokletHttpServletResponse withRequest(@NonNull Request request,
+	public static SokletHttpServletResponse fromRequest(@NonNull Request request,
 																											@NonNull ServletContext servletContext) {
 		requireNonNull(request);
 		requireNonNull(servletContext);
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request)
 				.servletContext(servletContext)
 				.build();
-		return withRequest(httpServletRequest);
+		return fromRequest(httpServletRequest);
 	}
 
 	/**
@@ -152,7 +152,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * @return a response bound to the raw request path
 	 */
 	@NonNull
-	public static SokletHttpServletResponse withRawPath(@NonNull String rawPath,
+	public static SokletHttpServletResponse fromRawPath(@NonNull String rawPath,
 																											@NonNull ServletContext servletContext) {
 		requireNonNull(rawPath);
 		requireNonNull(servletContext);

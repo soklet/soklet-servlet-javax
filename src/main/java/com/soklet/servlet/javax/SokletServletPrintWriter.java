@@ -53,6 +53,12 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	private Boolean writeFinalized = false;
 
 	@NonNull
+	public static SokletServletPrintWriter fromWriter(@NonNull Writer writer) {
+		requireNonNull(writer);
+		return withWriter(writer).build();
+	}
+
+	@NonNull
 	public static Builder withWriter(@NonNull Writer writer) {
 		return new Builder(writer);
 	}

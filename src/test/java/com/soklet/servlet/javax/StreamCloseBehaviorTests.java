@@ -35,7 +35,7 @@ import java.io.IOException;
 public class StreamCloseBehaviorTests {
 	@Test
 	public void inputStreamReadAfterCloseThrows() throws Exception {
-		ServletInputStream inputStream = SokletServletInputStream.withInputStream(new ByteArrayInputStream(new byte[]{1, 2}));
+		ServletInputStream inputStream = SokletServletInputStream.fromInputStream(new ByteArrayInputStream(new byte[]{1, 2}));
 		inputStream.close();
 
 		Assertions.assertThrows(IOException.class, inputStream::read);

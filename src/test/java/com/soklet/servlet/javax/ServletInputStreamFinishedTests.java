@@ -32,7 +32,7 @@ import java.io.ByteArrayInputStream;
 public class ServletInputStreamFinishedTests {
 	@Test
 	public void emptyStreamIsFinishedImmediately() throws Exception {
-		ServletInputStream inputStream = SokletServletInputStream.withInputStream(new ByteArrayInputStream(new byte[]{}));
+		ServletInputStream inputStream = SokletServletInputStream.fromInputStream(new ByteArrayInputStream(new byte[]{}));
 
 		Assertions.assertTrue(inputStream.isFinished());
 		Assertions.assertEquals(-1, inputStream.read());
@@ -41,7 +41,7 @@ public class ServletInputStreamFinishedTests {
 
 	@Test
 	public void streamIsFinishedAfterReadingToEof() throws Exception {
-		ServletInputStream inputStream = SokletServletInputStream.withInputStream(new ByteArrayInputStream(new byte[]{1, 2}));
+		ServletInputStream inputStream = SokletServletInputStream.fromInputStream(new ByteArrayInputStream(new byte[]{1, 2}));
 
 		Assertions.assertFalse(inputStream.isFinished());
 		Assertions.assertEquals(1, inputStream.read());

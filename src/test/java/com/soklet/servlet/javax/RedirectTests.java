@@ -176,7 +176,7 @@ public class RedirectTests {
 
 	@Test
 	public void relativeRedirectUsesFallbackBaseWithoutRequest() throws IOException {
-		SokletHttpServletResponse response = SokletHttpServletResponse.withRawPath("/root/path", SokletServletContext.withDefaults());
+		SokletHttpServletResponse response = SokletHttpServletResponse.fromRawPath("/root/path", SokletServletContext.fromDefaults());
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
@@ -187,6 +187,6 @@ public class RedirectTests {
 		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
-		return SokletHttpServletResponse.withRequest(httpRequest);
+		return SokletHttpServletResponse.fromRequest(httpRequest);
 	}
 }

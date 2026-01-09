@@ -37,7 +37,7 @@ import java.util.Set;
 public class ContextDefaultEncodingTests {
 	@Test
 	public void requestUsesContextDefaultEncoding() throws Exception {
-		SokletServletContext context = SokletServletContext.withDefaults();
+		SokletServletContext context = SokletServletContext.fromDefaults();
 		context.setRequestCharacterEncoding("UTF-16BE");
 
 		String text = "café";
@@ -57,13 +57,13 @@ public class ContextDefaultEncodingTests {
 
 	@Test
 	public void responseUsesContextDefaultEncoding() throws Exception {
-		SokletServletContext context = SokletServletContext.withDefaults();
+		SokletServletContext context = SokletServletContext.fromDefaults();
 		context.setResponseCharacterEncoding("UTF-16LE");
 
 		String text = "café";
 		Charset charset = Charset.forName("UTF-16LE");
 
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", context);
+		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", context);
 		resp.getWriter().write(text);
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
@@ -72,14 +72,14 @@ public class ContextDefaultEncodingTests {
 
 	@Test
 	public void invalidRequestCharacterEncodingIsIgnored() {
-		SokletServletContext context = SokletServletContext.withDefaults();
+		SokletServletContext context = SokletServletContext.fromDefaults();
 		context.setRequestCharacterEncoding("no-such-charset");
 		Assertions.assertEquals("ISO-8859-1", context.getRequestCharacterEncoding());
 	}
 
 	@Test
 	public void invalidResponseCharacterEncodingIsIgnored() {
-		SokletServletContext context = SokletServletContext.withDefaults();
+		SokletServletContext context = SokletServletContext.fromDefaults();
 		context.setResponseCharacterEncoding("no-such-charset");
 		Assertions.assertEquals("ISO-8859-1", context.getResponseCharacterEncoding());
 	}

@@ -33,7 +33,7 @@ import java.util.Locale;
 public class SendErrorTests {
 	@Test
 	public void sendErrorUsesReasonPhraseWhenMessageMissing() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 		resp.sendError(404);
 		MarshaledResponse mr = resp.toMarshaledResponse();
 
@@ -47,7 +47,7 @@ public class SendErrorTests {
 
 	@Test
 	public void sendErrorUsesProvidedMessage() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 		resp.sendError(400, "Bad Request");
 		MarshaledResponse mr = resp.toMarshaledResponse();
 

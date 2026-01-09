@@ -36,7 +36,7 @@ import java.io.ByteArrayOutputStream;
 public class ServletInputOutputUnsupportedTests {
 	@Test
 	public void setReadListenerThrows() {
-		ServletInputStream in = SokletServletInputStream.withInputStream(new ByteArrayInputStream(new byte[]{}));
+		ServletInputStream in = SokletServletInputStream.fromInputStream(new ByteArrayInputStream(new byte[]{}));
 		Assertions.assertThrows(IllegalStateException.class, () -> in.setReadListener(new ReadListener() {
 			@Override
 			public void onDataAvailable() {}

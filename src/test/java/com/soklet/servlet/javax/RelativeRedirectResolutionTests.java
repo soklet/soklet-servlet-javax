@@ -115,6 +115,6 @@ public class RelativeRedirectResolutionTests {
 		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
-		return SokletHttpServletResponse.withRequest(httpRequest);
+		return SokletHttpServletResponse.fromRequest(httpRequest);
 	}
 }

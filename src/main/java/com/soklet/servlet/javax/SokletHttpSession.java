@@ -48,7 +48,7 @@ public final class SokletHttpSession implements HttpSession {
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 
 	static {
-		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.withDefaults();
+		SHARED_HTTP_SESSION_CONTEXT = SokletHttpSessionContext.fromDefaults();
 	}
 
 	@NonNull
@@ -66,7 +66,7 @@ public final class SokletHttpSession implements HttpSession {
 	private volatile boolean isNew;
 
 	@NonNull
-	public static SokletHttpSession withServletContext(@NonNull ServletContext servletContext) {
+	public static SokletHttpSession fromServletContext(@NonNull ServletContext servletContext) {
 		requireNonNull(servletContext);
 		return new SokletHttpSession(servletContext);
 	}

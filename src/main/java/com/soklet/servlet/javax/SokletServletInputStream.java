@@ -43,7 +43,7 @@ public final class SokletServletInputStream extends ServletInputStream {
 	private Boolean closed;
 
 	@NonNull
-	public static SokletServletInputStream withInputStream(@NonNull InputStream inputStream) {
+	public static SokletServletInputStream fromInputStream(@NonNull InputStream inputStream) {
 		requireNonNull(inputStream);
 		return new SokletServletInputStream(inputStream);
 	}

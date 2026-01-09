@@ -43,6 +43,6 @@ public class AsyncAndAuthUnsupportedTests {
 	public void authenticateThrowsServletException() {
 		Request req = Request.withPath(HttpMethod.GET, "/x").build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
-		Assertions.assertThrows(ServletException.class, () -> http.authenticate(SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults())));
+		Assertions.assertThrows(ServletException.class, () -> http.authenticate(SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults())));
 	}
 }

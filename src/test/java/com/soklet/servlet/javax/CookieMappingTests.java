@@ -33,7 +33,7 @@ import java.util.Collection;
 public class CookieMappingTests {
 	@Test
 	public void responseCookiesAppearInMarshaledResponse() throws Exception {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 		Cookie c = new Cookie("sid", "abc123");
 		c.setHttpOnly(true);
 		c.setSecure(true);
@@ -57,7 +57,7 @@ public class CookieMappingTests {
 
 	@Test
 	public void setCookieHeadersExposeAddedCookies() {
-		SokletHttpServletResponse resp = SokletHttpServletResponse.withRawPath("/x", SokletServletContext.withDefaults());
+		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 
 		Cookie first = new Cookie("a", "1");
 		first.setPath("/");

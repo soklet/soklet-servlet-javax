@@ -84,8 +84,7 @@ public final class SokletServletContext implements ServletContext {
 	@Nullable
 	private volatile Charset responseCharset;
 
-	@NonNull
-	public static SokletServletContext withDefaults() {
+	public static SokletServletContext fromDefaults() {
 		return builder().build();
 	}
 
@@ -176,14 +175,14 @@ public final class SokletServletContext implements ServletContext {
 		}
 
 		@NonNull
-		public Builder requestCharacterEncoding(@Nullable String encoding) {
-			this.requestCharset = parseCharset(encoding, this.requestCharset);
+		public Builder requestCharacterEncoding(@Nullable Charset charset) {
+			this.requestCharset = charset;
 			return this;
 		}
 
 		@NonNull
-		public Builder responseCharacterEncoding(@Nullable String encoding) {
-			this.responseCharset = parseCharset(encoding, this.responseCharset);
+		public Builder responseCharacterEncoding(@Nullable Charset charset) {
+			this.responseCharset = charset;
 			return this;
 		}
 
@@ -197,18 +196,6 @@ public final class SokletServletContext implements ServletContext {
 					this.responseCharset);
 		}
 
-		@Nullable
-		private static Charset parseCharset(@Nullable String encoding,
-																				@Nullable Charset fallback) {
-			if (encoding == null)
-				return null;
-
-			try {
-				return Charset.forName(encoding);
-			} catch (Exception ignored) {
-				return fallback;
-			}
-		}
 	}
 
 	@ThreadSafe

@@ -49,6 +49,12 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 	private Boolean closed;
 
 	@NonNull
+	public static SokletServletOutputStream fromOutputStream(@NonNull OutputStream outputStream) {
+		requireNonNull(outputStream);
+		return withOutputStream(outputStream).build();
+	}
+
+	@NonNull
 	public static Builder withOutputStream(@NonNull OutputStream outputStream) {
 		return new Builder(outputStream);
 	}
