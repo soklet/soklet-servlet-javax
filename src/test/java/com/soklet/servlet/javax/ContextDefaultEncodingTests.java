@@ -28,6 +28,8 @@ import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Set;
 
+import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrEmpty;
+
 /*
  * Verify that ServletContext default encodings are honored.
  *
@@ -67,7 +69,7 @@ public class ContextDefaultEncodingTests {
 		resp.getWriter().write(text);
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertArrayEquals(text.getBytes(charset), mr.getBody().orElse(new byte[]{}));
+		Assertions.assertArrayEquals(text.getBytes(charset), bodyBytesOrEmpty(mr));
 	}
 
 	@Test

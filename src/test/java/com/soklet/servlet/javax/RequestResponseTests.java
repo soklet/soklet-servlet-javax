@@ -19,6 +19,7 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
+import com.soklet.Response;
 import com.soklet.ResponseCookie;
 import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrEmpty;
 
 /**
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
@@ -115,7 +117,7 @@ public class RequestResponseTests {
 
 		MarshaledResponse marshaledResponse = httpServletResponse.toMarshaledResponse();
 
-		String marshaledResponseBodyAsString = new String(marshaledResponse.getBody().get(), charset);
+		String marshaledResponseBodyAsString = new String(bodyBytesOrEmpty(marshaledResponse), charset);
 		ResponseCookie responseCookie = marshaledResponse.getCookies().stream().findFirst().orElse(null);
 
 		Assertions.assertEquals(201, (int) marshaledResponse.getStatusCode(), "Status mismatch");
@@ -126,6 +128,22 @@ public class RequestResponseTests {
 		Assertions.assertEquals(Duration.ofSeconds(60L), responseCookie.getMaxAge().get(), "Cookie maxage mismatch");
 		Assertions.assertEquals("/", responseCookie.getPath().get(), "Cookie path mismatch");
 		Assertions.assertEquals(responseBodyAsString, marshaledResponseBodyAsString, "Body content mismatch");
+	}
+
+	@Test
+	public void toResponsePreservesByteArrayBody() throws IOException {
+		Charset charset = StandardCharsets.UTF_8;
+		String responseBodyAsString = "response test";
+
+		SokletHttpServletResponse httpServletResponse = SokletHttpServletResponse.fromRawPath("/test", SokletServletContext.fromDefaults());
+		httpServletResponse.setCharacterEncoding(charset.name());
+		httpServletResponse.getWriter().print(responseBodyAsString);
+
+		Response response = httpServletResponse.toResponse();
+		Object body = response.getBody().orElse(null);
+
+		Assertions.assertTrue(body instanceof byte[], "Body should remain a byte array");
+		Assertions.assertEquals(responseBodyAsString, new String((byte[]) body, charset), "Body content mismatch");
 	}
 
 	@Test

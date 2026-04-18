@@ -24,6 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
+import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrEmpty;
+
 /*
  * Verify sendError emits a default body.
  *
@@ -38,7 +40,7 @@ public class SendErrorTests {
 		MarshaledResponse mr = resp.toMarshaledResponse();
 
 		Assertions.assertArrayEquals("Not Found".getBytes(StandardCharsets.ISO_8859_1),
-				mr.getBody().orElse(new byte[]{}));
+				bodyBytesOrEmpty(mr));
 
 		String contentType = mr.getHeaders().get("Content-Type").iterator().next();
 		Assertions.assertTrue(contentType.toLowerCase(Locale.ROOT).contains("text/plain"));
@@ -52,7 +54,7 @@ public class SendErrorTests {
 		MarshaledResponse mr = resp.toMarshaledResponse();
 
 		Assertions.assertArrayEquals("Bad Request".getBytes(StandardCharsets.ISO_8859_1),
-				mr.getBody().orElse(new byte[]{}));
+				bodyBytesOrEmpty(mr));
 
 		String contentType = mr.getHeaders().get("Content-Type").iterator().next();
 		Assertions.assertTrue(contentType.toLowerCase(Locale.ROOT).contains("text/plain"));

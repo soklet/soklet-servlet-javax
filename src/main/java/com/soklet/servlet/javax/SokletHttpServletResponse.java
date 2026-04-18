@@ -180,11 +180,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	@NonNull
 	public Response toResponse() {
-		// In the servlet world, there is really no difference between Response and MarshaledResponse
 		MarshaledResponse marshaledResponse = toMarshaledResponse();
 
 		return Response.withStatusCode(marshaledResponse.getStatusCode())
-				.body(marshaledResponse.getBody().orElse(null))
+				.body(getResponseOutputStream().toByteArray())
 				.headers(marshaledResponse.getHeaders())
 				.cookies(marshaledResponse.getCookies())
 				.build();

@@ -24,6 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.nio.charset.Charset;
 import java.util.Locale;
 
+import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrEmpty;
+
 /*
  * Verify that response writer uses the set character encoding and that changing the encoding
  * after obtaining the writer has no effect (Servlet spec behavior).
@@ -38,7 +40,7 @@ public class CharacterEncodingWriterTests {
 		resp.setCharacterEncoding("UTF-8");
 		resp.getWriter().write("é"); // non-ASCII
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		byte[] body = mr.getBody().orElse(new byte[]{});
+		byte[] body = bodyBytesOrEmpty(mr);
 		Assertions.assertArrayEquals("é".getBytes(Charset.forName("UTF-8")), body);
 	}
 
@@ -50,7 +52,7 @@ public class CharacterEncodingWriterTests {
 		resp.setCharacterEncoding("UTF-16"); // should be ignored per spec
 		writer.write("ok");
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		byte[] body = mr.getBody().orElse(new byte[]{});
+		byte[] body = bodyBytesOrEmpty(mr);
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)), body);
 	}
 
@@ -64,7 +66,7 @@ public class CharacterEncodingWriterTests {
 
 		// Body should be UTF-16 encoded
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName("UTF-16")),
-				mr.getBody().orElse(new byte[]{}), "Body is not encoded with UTF-16");
+				bodyBytesOrEmpty(mr), "Body is not encoded with UTF-16");
 
 		// Header should include the same charset
 		var ct = mr.getHeaders().get("Content-Type").iterator().next();
@@ -80,7 +82,7 @@ public class CharacterEncodingWriterTests {
 		var mr = resp.toMarshaledResponse();
 
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName("UTF-16")),
-				mr.getBody().orElse(new byte[]{}), "Body is not encoded with UTF-16");
+				bodyBytesOrEmpty(mr), "Body is not encoded with UTF-16");
 
 		var ct = mr.getHeaders().get("Content-Type").iterator().next();
 		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=utf-16"), "Content-Type header does not signal UTF-16");
@@ -112,7 +114,7 @@ public class CharacterEncodingWriterTests {
 
 		// Body remains in the encoding locked at getWriter()
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)),
-				mr.getBody().orElse(new byte[]{}));
+				bodyBytesOrEmpty(mr));
 	}
 
 	@Test
@@ -123,7 +125,7 @@ public class CharacterEncodingWriterTests {
 		MarshaledResponse mr = resp.toMarshaledResponse();
 
 		Assertions.assertArrayEquals("é".getBytes(Charset.forName("ISO-8859-1")),
-				mr.getBody().orElse(new byte[]{}));
+				bodyBytesOrEmpty(mr));
 	}
 
 	@Test
@@ -135,7 +137,7 @@ public class CharacterEncodingWriterTests {
 
 		String encoding = resp.getCharacterEncoding();
 		Assertions.assertArrayEquals("ok".getBytes(Charset.forName(encoding)),
-				mr.getBody().orElse(new byte[]{}));
+				bodyBytesOrEmpty(mr));
 
 		var ct = mr.getHeaders().get("Content-Type").iterator().next();
 		Assertions.assertTrue(ct.toLowerCase(Locale.ROOT).contains("charset=iso-8859-1"),
