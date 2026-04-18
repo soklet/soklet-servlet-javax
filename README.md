@@ -37,7 +37,7 @@ Like Soklet, this library assumes Java 17+.
 <dependency>
   <groupId>com.soklet</groupId>
   <artifactId>soklet-servlet-javax</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
@@ -49,7 +49,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'com.soklet:soklet-servlet-javax:1.1.0-SNAPSHOT'
+  implementation 'com.soklet:soklet-servlet-javax:1.1.0'
 }
 ```
 
