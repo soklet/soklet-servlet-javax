@@ -16,11 +16,11 @@
 
 package com.soklet.servlet.javax;
 
+import com.soklet.EffectiveOriginResolver;
+import com.soklet.EffectiveOriginResolver.TrustPolicy;
 import com.soklet.QueryFormat;
 import com.soklet.Request;
 import com.soklet.Utilities;
-import com.soklet.Utilities.EffectiveOriginResolver;
-import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -801,7 +801,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (this.allowOriginFallback != null)
 			resolver.allowOriginFallback(this.allowOriginFallback);
 
-		return Utilities.extractEffectiveOrigin(resolver);
+		return resolver.resolve();
 	}
 
 	@NonNull

@@ -19,7 +19,7 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
-import com.soklet.Utilities.EffectiveOriginResolver.TrustPolicy;
+import com.soklet.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
