@@ -7,10 +7,12 @@ Pull requests and bug reports are welcomed.  For enhancement pull requests, plea
 #### Local Installation
 
 ```shell
-$ mvn install
+$ mvn -Dgpg.skip=true install
 ```
 
-This will build artifacts and install to your local system's Maven repository.
+This will test and build unsigned development artifacts and install them to your
+local Maven repository. Use `mvn -Dgpg.skip=true verify` to check the build without
+installing it. Signing and publication are separate, explicitly authorized steps.
 
 #### Pushing to Maven Central
 

@@ -18,9 +18,10 @@ package com.soklet.servlet.javax;
 
 import com.soklet.EffectiveOriginResolver;
 import com.soklet.EffectiveOriginResolver.TrustPolicy;
-import com.soklet.QueryFormat;
+import com.soklet.HttpMethod;
 import com.soklet.Request;
 import com.soklet.Utilities;
+import com.soklet.exception.IllegalRequestException;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -48,24 +49,28 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.security.Principal;
+import java.text.ParsePosition;
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -93,7 +98,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@NonNull
 	private static final DateTimeFormatter RFC_1123_PARSER;
 	@NonNull
-	private static final DateTimeFormatter RFC_1036_PARSER;
+	private static final DateTimeFormatter RFC_850_PARSER;
 	@NonNull
 	private static final DateTimeFormatter ASCTIME_PARSER;
 	@NonNull
@@ -104,12 +109,12 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
 		RFC_1123_PARSER = DateTimeFormatter.RFC_1123_DATE_TIME;
-		// RFC 1036: spaces between day/month/year + 2-digit year reduced to 19xx baseline.
-		RFC_1036_PARSER = new DateTimeFormatterBuilder()
+		// RFC 850 uses a full weekday and hyphens. Resolve its rolling century at access time.
+		RFC_850_PARSER = new DateTimeFormatterBuilder()
 				.parseCaseInsensitive()
-				.appendPattern("EEE, dd MMM ")
-				.appendValueReduced(ChronoField.YEAR, 2, 2, 1900) // 94 -> 1994
-				.appendPattern(" HH:mm:ss zzz")
+				.appendPattern("EEEE, dd-MMM-")
+				.appendValue(ChronoField.YEAR, 2)
+				.appendPattern(" HH:mm:ss 'GMT'")
 				.toFormatter(US)
 				.withZone(ZoneOffset.UTC);
 
@@ -147,9 +152,9 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private String contentType;
 	@Nullable
-	private Map<@NonNull String, @NonNull Set<@NonNull String>> queryParameters;
+	private Map<@NonNull String, @NonNull List<@NonNull String>> parameters;
 	@Nullable
-	private Map<@NonNull String, @NonNull Set<@NonNull String>> formParameters;
+	private IllegalRequestException parameterParsingFailure;
 	private boolean parametersAccessed;
 	private boolean bodyParametersAccessed;
 	private boolean sessionCreated;
@@ -504,62 +509,88 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@NonNull
-	private Map<@NonNull String, @NonNull Set<@NonNull String>> getQueryParameters() {
-		if (this.queryParameters != null)
-			return this.queryParameters;
+	private Map<@NonNull String, @NonNull List<@NonNull String>> getParameters() {
+		this.parametersAccessed = true;
 
-		String rawQuery = getRequest().getRawQuery().orElse(null);
+		if (this.parameters != null)
+			return this.parameters;
 
-		if (rawQuery == null || rawQuery.isEmpty()) {
-			this.queryParameters = Map.of();
-			return this.queryParameters;
+		if (this.parameterParsingFailure != null)
+			throw this.parameterParsingFailure;
+
+		try {
+			this.parameters = parseParameters();
+			return this.parameters;
+		} catch (IllegalRequestException e) {
+			this.parameterParsingFailure = e;
+			throw e;
 		}
-
-		Charset charset = getEffectiveCharset();
-		Map<@NonNull String, @NonNull Set<@NonNull String>> parsed =
-				Utilities.extractQueryParametersFromQuery(rawQuery, QueryFormat.X_WWW_FORM_URLENCODED, charset);
-		this.queryParameters = Collections.unmodifiableMap(parsed);
-		return this.queryParameters;
 	}
 
 	@NonNull
-	private Map<@NonNull String, @NonNull Set<@NonNull String>> getFormParameters() {
-		if (this.formParameters != null)
-			return this.formParameters;
-
-		if (getRequestReadMethod() != RequestReadMethod.UNSPECIFIED) {
-			this.formParameters = Map.of();
-			return this.formParameters;
-		}
-
-		if (this.contentType == null || !this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
-			this.formParameters = Map.of();
-			return this.formParameters;
-		}
-
-		markBodyParametersAccessed();
-
-		byte[] body = getRequest().getBody().orElse(null);
-
-		if (body == null || body.length == 0) {
-			this.formParameters = Map.of();
-			return this.formParameters;
-		}
-
-		String bodyAsString = new String(body, StandardCharsets.ISO_8859_1);
+	private Map<@NonNull String, @NonNull List<@NonNull String>> parseParameters() {
+		Map<@NonNull String, @NonNull List<@NonNull String>> parsed = new LinkedHashMap<>();
 		Charset charset = getEffectiveCharset();
-		Map<@NonNull String, @NonNull Set<@NonNull String>> parsed =
-				Utilities.extractQueryParametersFromQuery(bodyAsString, QueryFormat.X_WWW_FORM_URLENCODED, charset);
-		this.formParameters = Collections.unmodifiableMap(parsed);
-		return this.formParameters;
+		appendParameters(parsed, getRequest().getRawQuery().orElse(""), charset);
+
+		// All parameter-family entry points populate the same snapshot, even when a queried
+		// name occurs only in the URL. Only eligible POST form bodies are consumed.
+		if (getRequest().getHttpMethod() == HttpMethod.POST
+				&& getRequestReadMethod() == RequestReadMethod.UNSPECIFIED
+				&& this.contentType != null && this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
+			this.bodyParametersAccessed = true;
+			byte[] body = getRequest().getBody().orElse(new byte[0]);
+			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset);
+		}
+
+		parsed.replaceAll((name, values) -> List.copyOf(values));
+		return Collections.unmodifiableMap(parsed);
 	}
 
-	private void markParametersAccessed() {
-		this.parametersAccessed = true;
+	private static void appendParameters(@NonNull Map<@NonNull String, @NonNull List<@NonNull String>> parameters,
+			@NonNull String encoded, @NonNull Charset charset) {
+		requireNonNull(parameters);
+		requireNonNull(encoded);
+		requireNonNull(charset);
+
+		// Core's query utility deliberately returns sets; Servlet values preserve every occurrence.
+		for (String pair : encoded.split("&", -1)) {
+			if (pair.isEmpty())
+				continue;
+
+			int separator = pair.indexOf('=');
+			String rawName = separator < 0 ? pair : pair.substring(0, separator);
+			String rawValue = separator < 0 ? "" : pair.substring(separator + 1);
+
+			try {
+				String name = decodeParameter(rawName, charset);
+				String value = decodeParameter(rawValue, charset);
+				parameters.computeIfAbsent(name, ignored -> new ArrayList<>()).add(value);
+			} catch (IllegalArgumentException e) {
+				throw new IllegalRequestException("Invalid percent-encoding in request parameter");
+			}
+		}
 	}
 
-	private void markBodyParametersAccessed() {
-		this.bodyParametersAccessed = true;
+	@NonNull
+	private static String decodeParameter(@NonNull String encoded, @NonNull Charset charset) {
+		requireNonNull(encoded);
+		requireNonNull(charset);
+
+		// URLDecoder accepts some non-ASCII/signed hex spellings; HTTP percent escapes do not.
+		for (int index = 0; index < encoded.length(); index++) {
+			if (encoded.charAt(index) != '%')
+				continue;
+
+			if (index + 2 >= encoded.length()
+					|| "0123456789ABCDEFabcdef".indexOf(encoded.charAt(index + 1)) < 0
+					|| "0123456789ABCDEFabcdef".indexOf(encoded.charAt(index + 2)) < 0)
+				throw new IllegalArgumentException("Invalid percent escape");
+
+			index += 2;
+		}
+
+		return URLDecoder.decode(encoded, charset);
 	}
 
 	private boolean shouldTrustForwardedHeaders() {
@@ -1135,13 +1166,19 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (value == null)
 			return -1;
 
-		// Try HTTP-date formats (RFC 1123 → RFC 1036 → asctime)
-		for (DateTimeFormatter fmt : List.of(RFC_1123_PARSER, RFC_1036_PARSER, ASCTIME_PARSER)) {
+		// Try the HTTP-date formats, including the obsolete RFC 850 and asctime forms.
+		for (DateTimeFormatter fmt : List.of(RFC_1123_PARSER, ASCTIME_PARSER)) {
 			try {
 				return Instant.from(fmt.parse(value)).toEpochMilli();
 			} catch (Exception ignored) {
 				// try next
 			}
+		}
+
+		try {
+			return parseRfc850Date(value, Instant.now()).toEpochMilli();
+		} catch (DateTimeException ignored) {
+			// Keep the existing epoch-millis fallback.
 		}
 
 		// Fallback: epoch millis
@@ -1153,6 +1190,41 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 					e
 			);
 		}
+	}
+
+	@NonNull
+	static Instant parseRfc850Date(@NonNull String value, @NonNull Instant now) {
+		requireNonNull(value);
+		requireNonNull(now);
+
+		ParsePosition position = new ParsePosition(0);
+		TemporalAccessor fields = RFC_850_PARSER.parseUnresolved(value, position);
+
+		if (fields == null || position.getErrorIndex() >= 0 || position.getIndex() != value.length())
+			throw new DateTimeException("Invalid RFC 850 date");
+
+		// Resolve the weekday only after choosing the century: 1994 and 2094 have
+		// different weekdays. A leap-year baseline also keeps February 29 intact.
+		LocalDateTime parsed = LocalDateTime.of(2000 + fields.get(ChronoField.YEAR),
+				fields.get(ChronoField.MONTH_OF_YEAR), fields.get(ChronoField.DAY_OF_MONTH),
+				fields.get(ChronoField.HOUR_OF_DAY), fields.get(ChronoField.MINUTE_OF_HOUR),
+				fields.get(ChronoField.SECOND_OF_MINUTE));
+		LocalDateTime latest = LocalDateTime.ofInstant(now, ZoneOffset.UTC).plusYears(50);
+		int year = (latest.getYear() / 100) * 100 + fields.get(ChronoField.YEAR);
+
+		// Compare the full timestamp, not just its year. Exactly 50 years ahead
+		// is allowed; anything later belongs to the previous century (RFC 9110).
+		if (year > latest.getYear() || (year == latest.getYear()
+				&& parsed.withYear(2000).isAfter(latest.withYear(2000))))
+			year -= 100;
+
+		LocalDateTime resolved = LocalDateTime.of(year, parsed.getMonth(), parsed.getDayOfMonth(),
+				parsed.getHour(), parsed.getMinute(), parsed.getSecond());
+
+		if (resolved.getDayOfWeek().getValue() != fields.get(ChronoField.DAY_OF_WEEK))
+			throw new DateTimeException("RFC 850 weekday does not match its date");
+
+		return resolved.toInstant(ZoneOffset.UTC);
 	}
 
 	@Override
@@ -1254,7 +1326,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		for (Cookie cookie : this.cookies) {
 			String name = cookie.getName();
 
-			if (name != null && SESSION_COOKIE_NAME.equalsIgnoreCase(name)) {
+			if (SESSION_COOKIE_NAME.equals(name)) {
 				String value = cookie.getValue();
 
 				if (value != null && !value.isEmpty())
@@ -1379,7 +1451,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (host != null && host.indexOf(':') >= 0 && !host.startsWith("[") && !host.endsWith("]"))
 			authorityHost = "[" + host + "]";
 
-		String authority = defaultPort ? authorityHost : format("%s:%d", authorityHost, port);
+		String authority = defaultPort ? authorityHost : authorityHost + ":" + port;
 		return new StringBuffer(format("%s://%s%s", scheme, authority, rawPath));
 	}
 
@@ -1565,8 +1637,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			}
 		}
 
-		this.queryParameters = null;
-		this.formParameters = null;
+		this.parameters = null;
 	}
 
 	@Override
@@ -1635,34 +1706,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		markParametersAccessed();
-
-		Set<@NonNull String> queryValues = getQueryParameters().get(name);
-
-		if (queryValues != null && !queryValues.isEmpty())
-			return queryValues.iterator().next();
-
-		Set<@NonNull String> formValues = getFormParameters().get(name);
-
-		if (formValues != null && !formValues.isEmpty())
-			return formValues.iterator().next();
-
-		return null;
+		List<@NonNull String> values = getParameters().get(name);
+		return values == null || values.isEmpty() ? null : values.get(0);
 	}
 
 	@Override
 	@NonNull
 	public Enumeration<@NonNull String> getParameterNames() {
-		markParametersAccessed();
-
-		Set<@NonNull String> queryParameterNames = getQueryParameters().keySet();
-		Set<@NonNull String> formParameterNames = getFormParameters().keySet();
-
-		Set<@NonNull String> parameterNames = new LinkedHashSet<>(queryParameterNames.size() + formParameterNames.size());
-		parameterNames.addAll(queryParameterNames);
-		parameterNames.addAll(formParameterNames);
-
-		return Collections.enumeration(parameterNames);
+		return Collections.enumeration(getParameters().keySet());
 	}
 
 	@Override
@@ -1670,47 +1721,16 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		markParametersAccessed();
-
-		List<@NonNull String> parameterValues = new ArrayList<>();
-
-		Set<@NonNull String> queryValues = getQueryParameters().get(name);
-
-		if (queryValues != null)
-			parameterValues.addAll(queryValues);
-
-		Set<@NonNull String> formValues = getFormParameters().get(name);
-
-		if (formValues != null)
-			parameterValues.addAll(formValues);
-
-		return parameterValues.isEmpty() ? null : parameterValues.toArray(new String[0]);
+		List<@NonNull String> values = getParameters().get(name);
+		return values == null ? null : values.toArray(new String[0]);
 	}
 
 	@Override
 	@NonNull
 	public Map<@NonNull String, @NonNull String @NonNull []> getParameterMap() {
-		markParametersAccessed();
-
-		Map<@NonNull String, @NonNull Set<@NonNull String>> parameterMap = new LinkedHashMap<>();
-
-		// Mutable copy of entries
-		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getQueryParameters().entrySet())
-			parameterMap.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
-
-		// Add form parameters to entries
-		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : getFormParameters().entrySet()) {
-			Set<@NonNull String> existingEntries = parameterMap.get(entry.getKey());
-
-			if (existingEntries != null)
-				existingEntries.addAll(entry.getValue());
-			else
-				parameterMap.put(entry.getKey(), new LinkedHashSet<>(entry.getValue()));
-		}
-
 		Map<@NonNull String, @NonNull String @NonNull []> finalParameterMap = new LinkedHashMap<>();
 
-		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : parameterMap.entrySet())
+		for (Entry<@NonNull String, @NonNull List<@NonNull String>> entry : getParameters().entrySet())
 			finalParameterMap.put(entry.getKey(), entry.getValue().toArray(new String[0]));
 
 		return Collections.unmodifiableMap(finalParameterMap);

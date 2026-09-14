@@ -34,6 +34,23 @@ import java.util.Set;
 @ThreadSafe
 public class RequestedSessionIdTests {
 	@Test
+	public void sessionCookieNameIsCaseSensitive() {
+		for (String cookieHeader : new String[]{"jsessionid=wrong; JSESSIONID=right", "JSESSIONID=right; jsessionid=wrong"}) {
+			Request request = Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url")
+					.headers(Map.of("Cookie", Set.of(cookieHeader))).build();
+			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+			Assertions.assertEquals("right", http.getRequestedSessionId());
+			Assertions.assertTrue(http.isRequestedSessionIdFromCookie());
+		}
+
+		HttpServletRequest http = SokletHttpServletRequest.fromRequest(Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url")
+				.headers(Map.of("Cookie", Set.of("jsessionid=wrong"))).build());
+		Assertions.assertEquals("url", http.getRequestedSessionId());
+		Assertions.assertFalse(http.isRequestedSessionIdFromCookie());
+		Assertions.assertTrue(http.isRequestedSessionIdFromURL());
+	}
+
+	@Test
 	public void cookieRequestedSessionIdWinsOverUrl() {
 		Request request = Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url123")
 				.headers(Map.of("Cookie", Set.of("JSESSIONID=cookie456")))

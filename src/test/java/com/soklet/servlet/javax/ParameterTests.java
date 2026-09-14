@@ -35,6 +35,35 @@ import java.util.Set;
 @ThreadSafe
 public class ParameterTests {
 	@Test
+	public void decodedParameterNamesAndEmptyValuesPreserveEveryOccurrence() {
+		Request request = Request.withRawUrl(HttpMethod.POST,
+				"/p?key%26name=one%3Dtwo&%6bey%26name=one%3Dtwo&empty&empty=&semi=a;b")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("key%26name=one%3Dtwo&empty=&escaped=%26%3D%2B".getBytes(StandardCharsets.US_ASCII)).build();
+		HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+		Assertions.assertArrayEquals(new String[]{"one=two", "one=two", "one=two"}, http.getParameterValues("key&name"));
+		Assertions.assertArrayEquals(new String[]{"", "", ""}, http.getParameterMap().get("empty"));
+		Assertions.assertEquals("a;b", http.getParameter("semi"));
+		Assertions.assertEquals("&=+", http.getParameter("escaped"));
+		Assertions.assertEquals(List.of("key&name", "empty", "semi", "escaped"), Collections.list(http.getParameterNames()));
+	}
+
+	@Test
+	public void malformedFormPercentEscapesNeverExposeAPartialParameterSnapshot() throws Exception {
+		for (String malformed : new String[]{"%", "%1", "%GG", "%+1", "%-1", "%١F"}) {
+			Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
+					.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+					.body(("valid=1&invalid=" + malformed).getBytes(StandardCharsets.UTF_8)).build();
+			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+			Assertions.assertThrows(com.soklet.exception.IllegalRequestException.class, () -> http.getParameter("query"));
+			Assertions.assertEquals(-1, http.getInputStream().read());
+			Assertions.assertThrows(com.soklet.exception.IllegalRequestException.class, http::getParameterMap);
+			Assertions.assertThrows(com.soklet.exception.IllegalRequestException.class, http::getParameterNames);
+			Assertions.assertThrows(com.soklet.exception.IllegalRequestException.class, () -> http.getParameterValues("valid"));
+		}
+	}
+
+	@Test
 	public void parameterValuesOnlyForRequestedName() {
 		Request request = Request.withRawUrl(HttpMethod.GET, "/p?one=a&one=b&two=c").build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -71,7 +100,7 @@ public class ParameterTests {
 
 		Map<String, String[]> parameterMap = httpServletRequest.getParameterMap();
 
-		Assertions.assertArrayEquals(new String[]{"a", "b", "c", "d"}, parameterMap.get("one"));
+		Assertions.assertArrayEquals(new String[]{"a", "b", "a", "c", "d", "b"}, parameterMap.get("one"));
 		Assertions.assertArrayEquals(new String[]{"z", "y"}, parameterMap.get("two"));
 	}
 
@@ -152,5 +181,81 @@ public class ParameterTests {
 		Assertions.assertEquals("2", httpServletRequest.getParameter("form"));
 
 		Assertions.assertEquals(-1, httpServletRequest.getReader().read());
+	}
+	@Test
+	public void everyParameterApiPreservesDuplicateQueryAndFormOccurrences() {
+		Request request = Request.withRawUrl(HttpMethod.POST, "/p?one=a&one=a&one=b")
+				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.body("one=a&one=b".getBytes(StandardCharsets.US_ASCII)).build();
+		HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+		String[] expected = {"a", "a", "b", "a", "b"};
+		Assertions.assertEquals("a", http.getParameter("one"));
+		Assertions.assertArrayEquals(expected, http.getParameterValues("one"));
+		Assertions.assertArrayEquals(expected, http.getParameterMap().get("one"));
+		Assertions.assertEquals(List.of("one"), Collections.list(http.getParameterNames()));
+
+		String[] values = http.getParameterValues("one");
+		values[0] = "changed";
+		http.getParameterMap().get("one")[1] = "changed";
+		Assertions.assertArrayEquals(expected, http.getParameterValues("one"));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> http.getParameterMap().clear());
+	}
+
+	@Test
+	public void everyInitialParameterAccessPopulatesFormBeforeStreamOrReaderAccess() throws Exception {
+		for (int firstAccess = 0; firstAccess < 4; firstAccess++) {
+			for (boolean reader : new boolean[]{false, true}) {
+				Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
+						.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+						.body("form=2&form=2".getBytes(StandardCharsets.US_ASCII)).build();
+				HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+				switch (firstAccess) {
+					case 0 -> Assertions.assertEquals("1", http.getParameter("query"));
+					case 1 -> Assertions.assertArrayEquals(new String[]{"1"}, http.getParameterValues("query"));
+					case 2 -> Assertions.assertEquals(List.of("query", "form"), Collections.list(http.getParameterNames()));
+					case 3 -> Assertions.assertArrayEquals(new String[]{"1"}, http.getParameterMap().get("query"));
+				}
+				Assertions.assertEquals(-1, reader ? http.getReader().read() : http.getInputStream().read());
+				Assertions.assertArrayEquals(new String[]{"2", "2"}, http.getParameterValues("form"));
+			}
+		}
+	}
+
+	@Test
+	public void nonPostFormBodiesRemainReadableAfterParameterAccess() throws Exception {
+		for (HttpMethod method : new HttpMethod[]{HttpMethod.GET, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE}) {
+			for (boolean reader : new boolean[]{false, true}) {
+				Request request = Request.withRawUrl(method, "/p?query=1")
+						.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+						.body("form=2".getBytes(StandardCharsets.US_ASCII)).build();
+				HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+				Assertions.assertEquals("1", http.getParameter("query"));
+				Assertions.assertNull(http.getParameter("form"));
+				Assertions.assertEquals(List.of("query"), Collections.list(http.getParameterNames()));
+				Assertions.assertEquals("form=2", reader ? http.getReader().readLine()
+						: new String(http.getInputStream().readAllBytes(), StandardCharsets.US_ASCII));
+			}
+		}
+	}
+
+	@Test
+	public void parameterDecodingPreservesServletFormSyntaxAndEncoding() throws Exception {
+		for (java.nio.charset.Charset charset : new java.nio.charset.Charset[]{StandardCharsets.UTF_8, StandardCharsets.ISO_8859_1}) {
+			String encoded = charset.equals(StandardCharsets.UTF_8) ? "%C3%A9" : "%E9";
+			Request request = Request.withRawUrl(HttpMethod.POST,
+					"/p?name=caf" + encoded + "&name=caf" + encoded + "&plus=a%2Bb+c&flag&empty=&eq=a=b&escaped=%252B")
+					.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+					.body(("name=caf" + encoded + "&name=caf" + encoded).getBytes(StandardCharsets.US_ASCII)).build();
+			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
+			http.setCharacterEncoding(charset.name());
+			Assertions.assertArrayEquals(new String[]{"café", "café", "café", "café"}, http.getParameterValues("name"));
+			Assertions.assertEquals("a+b c", http.getParameter("plus"));
+			Assertions.assertEquals("", http.getParameter("flag"));
+			Assertions.assertEquals("", http.getParameter("empty"));
+			Assertions.assertEquals("a=b", http.getParameter("eq"));
+			Assertions.assertEquals("%2B", http.getParameter("escaped"));
+			http.setCharacterEncoding(charset.equals(StandardCharsets.UTF_8) ? "ISO-8859-1" : "UTF-8");
+			Assertions.assertArrayEquals(new String[]{"café", "café", "café", "café"}, http.getParameterMap().get("name"));
+		}
 	}
 }

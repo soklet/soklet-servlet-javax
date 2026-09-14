@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.soklet</groupId>
     <artifactId>soklet-servlet-javax</artifactId>
-    <version>1.2.0</version>
+    <version>2.0.0</version>
     <packaging>jar</packaging>
     <name>Soklet Servlet Integration (javax)</name>
     <description>A library that provides Soklet implementations of javax.servlet interfaces.</description>
@@ -49,6 +49,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Adapter 2.x requires Soklet 4.0.0 or later. -->
+        <soklet.version>4.0.0</soklet.version>
     </properties>
 
     <build>
@@ -156,6 +158,7 @@
                     <includes>
                         <include>**/*Tests.java</include>
                     </includes>
+                    <failIfNoTests>true</failIfNoTests>
                     <testFailureIgnore>false</testFailureIgnore>
                 </configuration>
             </plugin>
@@ -166,7 +169,7 @@
         <dependency>
             <groupId>com.soklet</groupId>
             <artifactId>soklet</artifactId>
-            <version>3.1.1</version>
+            <version>${soklet.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

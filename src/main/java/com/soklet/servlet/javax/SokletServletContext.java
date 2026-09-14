@@ -381,28 +381,32 @@ public final class SokletServletContext implements ServletContext {
 		private void addClasspathRootEntries(@NonNull URL rootUrl,
 																				 @NonNull String classpathPath,
 																				 @NonNull String prefix,
-																				 @NonNull Set<@NonNull String> out) throws Exception {
-			String protocol = rootUrl.getProtocol();
+																				 @NonNull Set<@NonNull String> out) {
+			try {
+				String protocol = rootUrl.getProtocol();
 
-			if ("file".equals(protocol)) {
-				Path rootPath = Paths.get(rootUrl.toURI());
-				if (Files.isDirectory(rootPath)) {
-					Path dir = classpathPath.isEmpty() ? rootPath : rootPath.resolve(classpathPath);
-					addFilesystemEntries(dir, prefix, out);
-				} else if (Files.isRegularFile(rootPath)) {
-					try (JarFile jar = new JarFile(rootPath.toFile())) {
+				if ("file".equals(protocol)) {
+					Path rootPath = Paths.get(rootUrl.toURI());
+					if (Files.isDirectory(rootPath)) {
+						Path dir = classpathPath.isEmpty() ? rootPath : rootPath.resolve(classpathPath);
+						addFilesystemEntries(dir, prefix, out);
+					} else if (Files.isRegularFile(rootPath)) {
+						try (JarFile jar = new JarFile(rootPath.toFile())) {
+							addJarEntries(jar, classpathPath, prefix, out);
+						}
+					}
+				} else if ("jar".equals(protocol)) {
+					String spec = rootUrl.getFile();
+					int bang = spec.indexOf("!");
+					String jarPath = bang >= 0 ? spec.substring(0, bang) : spec;
+					URL jarUrl = new URL(jarPath);
+
+					try (JarFile jar = new JarFile(new java.io.File(jarUrl.toURI()))) {
 						addJarEntries(jar, classpathPath, prefix, out);
 					}
 				}
-			} else if ("jar".equals(protocol)) {
-				String spec = rootUrl.getFile();
-				int bang = spec.indexOf("!");
-				String jarPath = bang >= 0 ? spec.substring(0, bang) : spec;
-				URL jarUrl = new URL(jarPath);
-
-				try (JarFile jar = new JarFile(new java.io.File(jarUrl.toURI()))) {
-					addJarEntries(jar, classpathPath, prefix, out);
-				}
+			} catch (Exception ignored) {
+				// An unusable root must not hide resources found in the remaining roots.
 			}
 		}
 
@@ -420,10 +424,8 @@ public final class SokletServletContext implements ServletContext {
 				Enumeration<@NonNull URL> roots = classLoader.getResources(classpathPath);
 				Set<@NonNull String> out = new java.util.TreeSet<>();
 				String prefix = path.endsWith("/") ? path : path + "/";
-				boolean sawRoot = false;
 
 				while (roots.hasMoreElements()) {
-					sawRoot = true;
 					URL url = roots.nextElement();
 					String protocol = url.getProtocol();
 
@@ -449,17 +451,19 @@ public final class SokletServletContext implements ServletContext {
 					}
 				}
 
-				if (!sawRoot) {
-					Enumeration<@NonNull URL> classpathRoots = classLoader.getResources("");
+				// A matching directory entry in one JAR does not mean that every other
+				// classpath root has explicit directory entries. Always union both views.
+				Enumeration<@NonNull URL> classpathRoots = classLoader.getResources("");
 
-					while (classpathRoots.hasMoreElements()) {
-						URL rootUrl = classpathRoots.nextElement();
-						addClasspathRootEntries(rootUrl, classpathPath, prefix, out);
-					}
+				while (classpathRoots.hasMoreElements()) {
+					URL rootUrl = classpathRoots.nextElement();
+					addClasspathRootEntries(rootUrl, classpathPath, prefix, out);
 				}
 
-				if (out.isEmpty() && classLoader instanceof URLClassLoader) {
-					URL[] urls = ((URLClassLoader) classLoader).getURLs();
+				for (ClassLoader loader = classLoader; loader != null; loader = loader.getParent()) {
+					if (!(loader instanceof URLClassLoader))
+						continue;
+					URL[] urls = ((URLClassLoader) loader).getURLs();
 
 					for (URL rootUrl : urls)
 						addClasspathRootEntries(rootUrl, classpathPath, prefix, out);
