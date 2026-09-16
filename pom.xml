@@ -29,7 +29,7 @@
     <scm>
         <connection>scm:git:git@github.com:soklet/soklet-servlet-javax.git</connection>
         <developerConnection>scm:git:git@github.com:soklet/soklet-servlet-javax.git</developerConnection>
-        <url>git@github.com:soklet/soklet-servlet-javax.git</url>
+        <url>https://github.com/soklet/soklet-servlet-javax</url>
     </scm>
 
     <distributionManagement>
@@ -49,6 +49,9 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <project.build.outputTimestamp>2026-09-01T00:00:00Z</project.build.outputTimestamp>
+        <!-- Release builds override this with the unpacked exact-candidate core Javadoc JAR. -->
+        <soklet.javadoc.location>https://javadoc.soklet.com/</soklet.javadoc.location>
         <!-- Adapter 2.x requires Soklet 4.0.0 or later. -->
         <soklet.version>4.0.0</soklet.version>
     </properties>
@@ -58,7 +61,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
+                <version>3.16.0</version>
                 <configuration>
                     <release>17</release>
                     <compilerArgs>
@@ -76,7 +79,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>3.4.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -89,16 +92,53 @@
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.11.3</version>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.5.1</version>
                 <configuration>
-                    <links>
-                        <link>https://docs.oracle.com/en/java/javase/26/docs/api/</link>
-                        <link>https://javadoc.io/doc/com.google.code.findbugs/jsr305/3.0.2/</link>
-                        <link>https://javadoc.io/doc/javax.servlet/javax.servlet-api/4.0.1/</link>
-                        <link>https://javadoc.io/doc/org.jspecify/jspecify/1.0.0/</link>
-                        <link>https://javadoc.soklet.com/</link>
-                    </links>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                        <manifestEntries>
+                            <Automatic-Module-Name>com.soklet.servlet.javax</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+                <configuration>
+                    <!-- Documentation uses a separately pinned JDK 26; compilation still targets 17. -->
+                    <javadocExecutable>${env.SOKLET_JAVADOC_HOME}/bin/javadoc</javadocExecutable>
+                    <!-- Keep published package URLs stable despite the JAR's automatic module name. -->
+                    <legacyMode>true</legacyMode>
+                    <detectJavaApiLink>false</detectJavaApiLink>
+                    <detectOfflineLinks>false</detectOfflineLinks>
+                    <offlineLinks>
+                        <offlineLink>
+                            <url>https://docs.oracle.com/en/java/javase/26/docs/api/</url>
+                            <location>${project.basedir}/src/main/javadoc/links/java-26</location>
+                        </offlineLink>
+                        <offlineLink>
+                            <url>https://javadoc.io/static/com.google.code.findbugs/jsr305/3.0.2/</url>
+                            <location>${project.basedir}/src/main/javadoc/links/jsr305-3.0.2</location>
+                        </offlineLink>
+                        <offlineLink>
+                            <url>https://javadoc.io/static/org.jspecify/jspecify/1.0.1/</url>
+                            <location>${project.basedir}/src/main/javadoc/links/jspecify-1.0.1</location>
+                        </offlineLink>
+                        <offlineLink>
+                            <url>https://javadoc.io/static/javax.servlet/javax.servlet-api/4.0.1/</url>
+                            <location>${project.basedir}/src/main/javadoc/links/javax.servlet-api-4.0.1</location>
+                        </offlineLink>
+                        <offlineLink>
+                            <url>https://javadoc.soklet.com/</url>
+                            <location>${soklet.javadoc.location}</location>
+                        </offlineLink>
+                    </offlineLinks>
                     <quiet>true</quiet>
                     <notimestamp>true</notimestamp>
                     <encoding>UTF-8</encoding>
@@ -110,7 +150,7 @@
                     </additionalOptions>
                     <linksource>true</linksource>
                     <show>public</show>
-                    <bottom><![CDATA[Copyright 2024-2026 <a href="https://www.revetware.com" target="_blank">Revetware LLC<a>.]]></bottom>
+                    <bottom><![CDATA[Copyright 2024-2026 <a href="https://www.revetware.com" target="_blank">Revetware LLC</a>.]]></bottom>
                     <source>17</source>
                     <failOnError>true</failOnError>
                     <overview>${basedir}/src/main/javadoc/overview.html</overview>
@@ -128,7 +168,7 @@
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.8.0</version>
+                <version>0.11.0</version>
                 <extensions>true</extensions>
                 <configuration>
                     <publishingServerId>central-portal</publishingServerId>
@@ -153,7 +193,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>3.6.0</version>
                 <configuration>
                     <includes>
                         <include>**/*Tests.java</include>
@@ -181,7 +221,7 @@
         <dependency>
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -193,7 +233,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.13.3</version>
+            <version>6.1.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

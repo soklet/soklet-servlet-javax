@@ -77,7 +77,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	 * @author <a href="https://www.revetkn.com">Mark Allen</a>
 	 */
 	@NotThreadSafe
-	public static class Builder {
+	public static final class Builder {
 		@NonNull
 		private Writer writer;
 		@Nullable
@@ -258,49 +258,49 @@ public final class SokletServletPrintWriter extends PrintWriter {
 	@Override
 	public void println() {
 		super.println();
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new NewlinePrinted());
 	}
 
 	@Override
 	public void println(boolean x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(char x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(int x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(long x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(float x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(double x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
@@ -309,21 +309,21 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		requireNonNull(x);
 
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(@Nullable String x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
 	@Override
 	public void println(@Nullable Object x) {
 		super.println(x);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new ValueWithNewlinePrinted(x));
 	}
 
@@ -335,7 +335,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		PrintWriter printWriter = super.printf(format, normalizedArgs);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new PrintfPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -350,7 +350,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		PrintWriter printWriter = super.printf(l, format, normalizedArgs);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new PrintfPerformed(l, format, normalizedArgs));
 		return printWriter;
 	}
@@ -363,7 +363,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		PrintWriter printWriter = super.format(format, normalizedArgs);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new FormatPerformed(null, format, normalizedArgs));
 
 		return printWriter;
@@ -378,7 +378,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
 		PrintWriter printWriter = super.format(l, format, normalizedArgs);
-		flush();
+		flushOutput();
 		getOnWriteOccurred().accept(this, new FormatPerformed(l, format, normalizedArgs));
 
 		return printWriter;

@@ -243,7 +243,7 @@ public class ParameterTests {
 		for (java.nio.charset.Charset charset : new java.nio.charset.Charset[]{StandardCharsets.UTF_8, StandardCharsets.ISO_8859_1}) {
 			String encoded = charset.equals(StandardCharsets.UTF_8) ? "%C3%A9" : "%E9";
 			Request request = Request.withRawUrl(HttpMethod.POST,
-					"/p?name=caf" + encoded + "&name=caf" + encoded + "&plus=a%2Bb+c&flag&empty=&eq=a=b&escaped=%252B")
+					"/p?name=caf%C3%A9&name=caf%C3%A9&plus=a%2Bb+c&flag&empty=&eq=a=b&escaped=%252B")
 					.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
 					.body(("name=caf" + encoded + "&name=caf" + encoded).getBytes(StandardCharsets.US_ASCII)).build();
 			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);

@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      soklet_ref:
+        description: Exact 40-character Soklet commit SHA to validate (not a branch or tag)
+        required: false
+        default: bec221595b9730e8f55c55c2c0bb93968d3fae92
+
+env:
+  SOKLET_CANDIDATE_SHA: ${{ inputs.soklet_ref || 'bec221595b9730e8f55c55c2c0bb93968d3fae92' }}
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save time and reduce noise.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (JDK ${{ matrix.jdk }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Do not cancel the 21/25 jobs if 17 fails — we want every JDK's result.
+      fail-fast: false
+      matrix:
+        jdk: ['17', '21', '25']
+    steps:
+      - name: Check out soklet-servlet-javax
+        uses: actions/checkout@v6
+        with:
+          path: soklet-servlet-javax
+          persist-credentials: false
+
+      - name: Validate candidate selector
+        shell: bash
+        run: |
+          if [[ ! "$SOKLET_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::soklet_ref must be an exact 40-character lowercase commit SHA, not a branch or tag"
+            exit 1
+          fi
+
+      - name: Check out soklet
+        uses: actions/checkout@v6
+        with:
+          repository: soklet/soklet
+          ref: ${{ env.SOKLET_CANDIDATE_SHA }}
+          path: soklet
+          persist-credentials: false
+
+      - name: Verify pinned Javadoc indexes
+        run: node soklet-servlet-javax/scripts/verify-javadoc-links.mjs
+
+      - name: Test candidate verification
+        run: python3 -m unittest discover -s soklet-servlet-javax/scripts -p 'test_*.py'
+
+      - name: Verify candidate identity and declared Soklet baseline
+        run: >-
+          python3 soklet-servlet-javax/scripts/verify-soklet-candidate.py
+          --expected-commit "$SOKLET_CANDIDATE_SHA"
+          --core-directory soklet
+          --adapter-directory soklet-servlet-javax
+
+      - name: Install checksum-pinned JDK 26 for documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/amazon-corretto-26.0.2.11.1-linux-x64.tar.gz"
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            https://corretto.aws/downloads/resources/26.0.2.11.1/amazon-corretto-26.0.2.11.1-linux-x64.tar.gz \
+            --output "$archive"
+          printf 'f61206891b8e1009b117eefe38784cf31b0a5cdb02fd2e023556f436b85dedaa  %s\n' "$archive" \
+            | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          docs_home="${RUNNER_TEMP}/amazon-corretto-26.0.2.11.1-linux-x64"
+          test "$("$docs_home/bin/javadoc" --version)" = 'javadoc 26.0.2.1'
+          printf 'SOKLET_JAVADOC_HOME=%s\n' "$docs_home" >> "$GITHUB_ENV"
+
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: ${{ matrix.jdk }}
+          cache: maven
+
+      - name: Install checked-out Soklet
+        run: mvn -B -ntp -f soklet/pom.xml -DskipTests -Dgpg.skip=true install
+
+      - name: Unpack exact-candidate core Javadoc index
+        shell: bash
+        run: |
+          mkdir core-javadoc
+          unzip -q soklet/target/soklet-4.0.0-javadoc.jar -d core-javadoc
+          test -f core-javadoc/element-list
+
+      - name: Verify adapter and packaged Javadoc
+        run: >-
+          mvn -B -ntp -f soklet-servlet-javax/pom.xml -Dgpg.skip=true
+          -Dsoklet.javadoc.location="${{ github.workspace }}/core-javadoc" clean verify

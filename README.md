@@ -34,8 +34,15 @@ Like Soklet, this library assumes Java 17+.
 Version 2.0.0 requires Soklet 4.0.0 or later and is not compatible with Soklet
 3.x. Soklet and the Servlet API remain provided dependencies: standalone
 applications must declare both explicitly, as shown below. When upgrading, update both
-the adapter and core coordinates; existing Servlet integration source code
-does not otherwise need to change.
+the adapter and core coordinates. The four nested adapter builder classes are
+now final. The internal `SokletHttpSession.setSessionId(...)` and
+`SokletHttpServletResponse.setPrintWriter(...)` hooks are no longer public;
+use `HttpServletRequest.changeSessionId()` and `HttpServletResponse.getWriter()`
+for the supported servlet operations.
+
+For upgrade details, see the [servlet migration guide](https://github.com/soklet/soklet/blob/master/MIGRATING_TO_4_0.md#servlet-adapters).
+Annotated Soklet routes also require the Soklet annotation processor and
+`-parameters`; see [Building and Running](https://www.soklet.com/#building-and-running).
 
 Both response conversions preserve empty `204 No Content` and `304 Not Modified`
 responses as bodyless. Nonempty bodies on these statuses remain invalid and
@@ -88,6 +95,8 @@ dependencies {
   available through the reader or input stream. The first parameter-family call
   consumes an eligible form body, including when looking up a query parameter.
 - Session-cookie lookup uses the exact, case-sensitive `JSESSIONID` name.
+  Client cookie pairs that the chosen Servlet API cannot represent are ignored
+  individually; valid neighboring cookies are retained.
   Session invalidation detaches attributes even if a binding listener throws;
   listener failures can still propagate after cleanup.
 - Generated error responses use safe plain text and replace stale representation
@@ -99,6 +108,22 @@ dependencies {
 These are interoperability adapters, not full servlet containers; unsupported
 container features are not implicitly enabled by these corrections.
 
+Query parameters always use UTF-8, independently of the request-body charset.
+Context request/response encodings are unspecified (`null`) until configured;
+body readers and response writers still fall back to ISO-8859-1. This preserves
+the standard `getCharacterEncoding() == null` guard for selecting UTF-8 before
+reading request parameters or the body.
+
+`println`, `printf`, and `format` do not commit a response merely by being
+called. Explicit flush/close and filling the configured buffer still commit.
+`sendError` never generates a body for a bodyless HTTP status.
+
+New sessions snapshot the context timeout from minutes into seconds; nonpositive
+values mean no timeout, and values above the seconds range saturate at
+`Integer.MAX_VALUE`. This is session metadata, not an eviction service:
+applications remain responsible for session persistence, expiration, and
+invalidation. Updating the context timeout does not change existing sessions.
+
 ## Usage
 
 A normal Servlet API integration looks like the following:
@@ -109,7 +134,7 @@ A normal Servlet API integration looks like the following:
 
 ```java
 @GET("/servlet-example")
-public MarshaledResponse servletExample(Request request) {
+public MarshaledResponse servletExample(Request request) throws java.io.IOException {
   // Create an HttpServletRequest from the Soklet Request
   HttpServletRequest httpServletRequest =
     SokletHttpServletRequest.fromRequest(request);

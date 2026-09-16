@@ -38,6 +38,12 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Soklet integration implementation of {@link HttpSession}.
+ * <p>
+ * New sessions snapshot the context timeout (minutes) as an interval in seconds.
+ * Nonpositive timeouts mean no expiration; values exceeding the seconds range
+ * saturate at {@link Integer#MAX_VALUE}. This adapter stores timeout metadata
+ * but does not schedule eviction. Applications own session persistence,
+ * expiration checks, and invalidation.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
@@ -82,11 +88,14 @@ public final class SokletHttpSession implements HttpSession {
 		this.attributes = new ConcurrentHashMap<>();
 		this.servletContext = servletContext;
 		this.invalidated = false;
-		this.maxInactiveInterval = 0;
+		// ServletContext uses minutes; HttpSession uses seconds. Preserve "never
+		// expires" for nonpositive values and saturate instead of overflowing.
+		this.maxInactiveInterval = (int) Math.min(Integer.MAX_VALUE,
+				Math.max(0L, servletContext.getSessionTimeout()) * 60L);
 		this.isNew = true;
 	}
 
-	public void setSessionId(@NonNull UUID sessionId) {
+	void setSessionId(@NonNull UUID sessionId) {
 		requireNonNull(sessionId);
 		synchronized (this.stateLock) {
 			ensureNotInvalidated();

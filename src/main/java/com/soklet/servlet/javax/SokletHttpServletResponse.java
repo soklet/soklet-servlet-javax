@@ -250,6 +250,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return body.length == 0 && (getStatus() == SC_NO_CONTENT || getStatus() == SC_NOT_MODIFIED) ? null : body;
 	}
 
+	private static boolean isBodylessStatusCode(int statusCode) {
+		return (statusCode >= 100 && statusCode < 200)
+				|| statusCode == SC_NO_CONTENT || statusCode == SC_NOT_MODIFIED;
+	}
+
 	@NonNull
 	private String getRawPath() {
 		return this.rawPath;
@@ -403,6 +408,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	private void writeDefaultErrorBody(int statusCode,
 																		 @Nullable String message) {
+		if (isBodylessStatusCode(statusCode))
+			return;
+
 		if (getResponseOutputStream().size() > 0)
 			return;
 
@@ -464,7 +472,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return Optional.ofNullable(this.printWriter);
 	}
 
-	public void setPrintWriter(@Nullable SokletServletPrintWriter printWriter) {
+	void setPrintWriter(@Nullable SokletServletPrintWriter printWriter) {
 		this.printWriter = printWriter;
 	}
 

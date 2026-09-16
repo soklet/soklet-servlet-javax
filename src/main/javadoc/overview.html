@@ -22,6 +22,11 @@
 	</ul>
 	This library is for the legacy <code>javax.servlet</code> API. If you need to integrate with the <code>jakarta.servlet</code> API, use <a href="https://github.com/soklet/soklet-servlet-jakarta" target="_blank"><code>soklet-servlet-jakarta</code></a>.
 	<br/><br/>
+	Version 2.0.0 requires Soklet 4.0.0 or later and is incompatible with Soklet 3.x.
+	Query parameters use UTF-8 independently of body encoding; unspecified body encodings
+	retain the Servlet ISO-8859-1 fallback. Sessions copy the context timeout when created,
+	but applications remain responsible for persistence and expiration.
+	<br/><br/>
 	<strong>Please refer to the official documentation at <a href="https://www.soklet.com/docs/servlet-integration" target="_blank">https://www.soklet.com/docs/servlet-integration</a>.</strong>
 	<br/><br/>
   </body>

@@ -6,6 +6,9 @@ Pull requests and bug reports are welcomed.  For enhancement pull requests, plea
 
 #### Local Installation
 
+First configure `SOKLET_JAVADOC_HOME` as described under
+[Reproducible Javadoc and Packaging](#reproducible-javadoc-and-packaging).
+
 ```shell
 $ mvn -Dgpg.skip=true install
 ```
@@ -13,6 +16,54 @@ $ mvn -Dgpg.skip=true install
 This will test and build unsigned development artifacts and install them to your
 local Maven repository. Use `mvn -Dgpg.skip=true verify` to check the build without
 installing it. Signing and publication are separate, explicitly authorized steps.
+
+#### Reproducible Javadoc and Packaging
+
+Compilation and runtime compatibility still target Java 17. Documentation uses
+the separately pinned Corretto **26.0.2.11.1** generator (runtime `26.0.2.1`).
+Before any Maven command that packages Javadoc, including `verify` or `install`,
+set `SOKLET_JAVADOC_HOME` to that JDK's home directory; keep `JAVA_HOME` on the
+JDK used to compile/test. `mvn test` does not require a documentation JDK.
+
+```sh
+export SOKLET_JAVADOC_HOME=/absolute/path/to/corretto-26.0.2.11.1
+```
+
+CI downloads and checksum-verifies the exact Linux documentation JDK without
+changing the test matrix's Java runtime. Canonical release builds compile on
+JDK 17 and invoke this JDK 26 Javadoc executable; rebuilds must match both pins.
+
+External package indexes are checked in under `src/main/javadoc/links`, with
+source archive and index checksums in `manifest.json`. Check them with
+`node scripts/verify-javadoc-links.mjs`. Dependency upgrades must update the
+matching versioned index and link target together.
+
+For a release candidate, unpack the **exact core candidate's packaged Javadoc
+JAR** into a dedicated directory and pass that directory to the build:
+
+```shell
+mvn -Dgpg.skip=true -Dsoklet.javadoc.location=/absolute/path/to/core-javadoc clean verify
+```
+
+This supplies the core package index locally while generated hyperlinks still
+point to `https://javadoc.soklet.com/`. Without this override, ordinary local
+builds use the deployed core index; that fallback must not be used for an
+unreleased candidate. CI always uses the checked-out core candidate's Javadoc
+JAR. The JAR timestamp, module name, implementation version, and bundled license
+are set in the POM/resources; compare rebuilds using the same JDK and inputs.
+
+#### Continuous Integration
+
+CI builds on JDK 17, 21, and 25 against the exact Soklet commit pinned in
+`.github/workflows/ci.yml`. The manual `soklet_ref` input accepts a full
+lowercase 40-character commit SHA. CI checks the checkout identity and POM
+baseline before building core, then verifies this adapter and its packaged
+Javadoc without overriding `soklet.version`. These jobs do not publish.
+
+After committing core changes, the project owner must update both the workflow's
+manual default and automatic fallback to that reviewed, retrievable commit and
+obtain a green matrix. The current pin is an existing candidate, not proof that
+later uncommitted core changes have passed remote CI.
 
 #### Publishing to Maven Central
 
@@ -30,7 +81,7 @@ Contact Mark Allen at mark@revetware.com to request publishing access for the `c
 </settings>
 ```
 
-The server ID must match the `central-publishing-maven-plugin` configuration in `pom.xml`. Before uploading a release, either prime `gpg-agent` in an interactive session or securely export the GPG passphrase through the Maven GPG plugin's default `MAVEN_GPG_PASSPHRASE` environment variable. Do not put the passphrase directly in shell history or project files.
+The server ID must match the `central-publishing-maven-plugin` configuration in `pom.xml`. Before an explicitly owner-approved release, unlock the exact approved signing key through `gpg-agent` in an interactive session. Never put a GPG passphrase in command arguments, environment variables, Maven settings, project files, logs, or release evidence.
 
 Build and sign the complete artifact set locally:
 

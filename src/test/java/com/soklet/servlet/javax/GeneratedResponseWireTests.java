@@ -96,6 +96,13 @@ public class GeneratedResponseWireTests {
 			Assertions.assertEquals(0, redirect.body.length);
 			assertMatchingLength(redirect);
 			assertOriginalRepresentationRemoved(redirect);
+
+			for (int status : new int[]{204, 304}) {
+				WireResponse bodyless = readResponse(port, "/wire/error-" + status);
+				Assertions.assertTrue(bodyless.status.startsWith("HTTP/1.1 " + status + " "));
+				Assertions.assertEquals(0, bodyless.body.length);
+				Assertions.assertNull(bodyless.headers.get("Content-Type"));
+			}
 		}
 	}
 
@@ -147,6 +154,22 @@ public class GeneratedResponseWireTests {
 			byte @NonNull [] body) {}
 
 	public static class Resources {
+		@GET("/wire/error-204")
+		@NonNull
+		public MarshaledResponse noContentError() throws IOException {
+			SokletHttpServletResponse response = newResponse();
+			response.sendError(204, "must not appear");
+			return response.toMarshaledResponse();
+		}
+
+		@GET("/wire/error-304")
+		@NonNull
+		public MarshaledResponse notModifiedError() throws IOException {
+			SokletHttpServletResponse response = newResponse();
+			response.sendError(304);
+			return response.toMarshaledResponse();
+		}
+
 		@GET("/wire/error-html")
 		@NonNull
 		public MarshaledResponse errorHtml() throws IOException {

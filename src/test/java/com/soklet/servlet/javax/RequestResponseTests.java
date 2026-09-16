@@ -163,8 +163,8 @@ public class RequestResponseTests {
 	}
 
 	@Test
-	public void setCharacterEncodingAffectsQueryParameters() throws Exception {
-		Request request = Request.withRawUrl(HttpMethod.GET, "/testing?name=caf%E9").build();
+	public void setCharacterEncodingDoesNotChangeUtf8QueryParameters() throws Exception {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/testing?name=caf%C3%A9").build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
 		httpServletRequest.setCharacterEncoding("ISO-8859-1");
 		Assertions.assertEquals("caf\u00E9", httpServletRequest.getParameter("name"));

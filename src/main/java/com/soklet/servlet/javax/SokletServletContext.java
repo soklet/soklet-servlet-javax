@@ -42,7 +42,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLClassLoader;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -130,7 +129,7 @@ public final class SokletServletContext implements ServletContext {
 	 * @author <a href="https://www.revetkn.com">Mark Allen</a>
 	 */
 	@NotThreadSafe
-	public static class Builder {
+	public static final class Builder {
 		@Nullable
 		private Writer logWriter;
 		@Nullable
@@ -144,8 +143,8 @@ public final class SokletServletContext implements ServletContext {
 
 		private Builder() {
 			this.sessionTimeout = null;
-			this.requestCharset = StandardCharsets.ISO_8859_1;
-			this.responseCharset = StandardCharsets.ISO_8859_1;
+			this.requestCharset = null;
+			this.responseCharset = null;
 		}
 
 		@NonNull
@@ -168,6 +167,15 @@ public final class SokletServletContext implements ServletContext {
 			return this;
 		}
 
+		/**
+		 * Sets the default session timeout in minutes. New sessions snapshot this
+		 * value as seconds, saturating at {@link Integer#MAX_VALUE}; nonpositive
+		 * values mean no timeout. Applications remain responsible for session
+		 * persistence and expiration; this adapter does not schedule eviction.
+		 *
+		 * @param sessionTimeout the timeout in minutes
+		 * @return this builder
+		 */
 		@NonNull
 		public Builder sessionTimeout(int sessionTimeout) {
 			this.sessionTimeout = sessionTimeout;
