@@ -122,7 +122,7 @@ public class ProtocolLocaleTests {
 
 	private static void assertRedirect(@NonNull SokletHttpServletRequest request,
 			@NonNull String target, @NonNull String expected) throws Exception {
-		SokletHttpServletResponse response = SokletHttpServletResponse.fromRequest(request);
+		SokletHttpServletResponse response = SokletHttpServletResponse.fromHttpServletRequest(request);
 		response.sendRedirect(target);
 		MarshaledResponse marshaled = response.toMarshaledResponse();
 		Assertions.assertEquals(302, marshaled.getStatusCode());

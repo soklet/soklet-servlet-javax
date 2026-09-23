@@ -46,6 +46,22 @@ import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrE
 @ThreadSafe
 public class RequestResponseTests {
 	@Test
+	public void responseFactoriesDistinguishServletRequestsWithoutChangingServletMethods() throws Exception {
+		java.lang.reflect.Method factory = SokletHttpServletResponse.class.getMethod(
+				"fromHttpServletRequest", HttpServletRequest.class);
+		Assertions.assertEquals(SokletHttpServletResponse.class, factory.getReturnType());
+		Assertions.assertTrue(factory.getParameters()[0].isNamePresent());
+		Assertions.assertEquals("httpServletRequest", factory.getParameters()[0].getName());
+		Assertions.assertThrows(NoSuchMethodException.class,
+				() -> SokletHttpServletResponse.class.getMethod("fromRequest", HttpServletRequest.class));
+		Assertions.assertNotNull(SokletHttpServletResponse.class.getMethod("fromRequest",
+				Request.class, javax.servlet.ServletContext.class));
+		Assertions.assertNotNull(SokletHttpServletResponse.class.getMethod("getWriter"));
+		Assertions.assertNotNull(SokletHttpServletRequest.class.getMethod("getInputStream"));
+		Assertions.assertNotNull(SokletHttpServletRequest.class.getMethod("getSession"));
+	}
+
+	@Test
 	public void requestBasics() throws IOException {
 		Charset charset = StandardCharsets.ISO_8859_1;
 		String bodyAsString = "example body";

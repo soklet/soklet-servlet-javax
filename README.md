@@ -141,7 +141,7 @@ public MarshaledResponse servletExample(Request request) throws java.io.IOExcept
 
   // Create an HttpServletResponse from the HttpServletRequest
   SokletHttpServletResponse httpServletResponse = 
-    SokletHttpServletResponse.fromRequest(httpServletRequest);
+    SokletHttpServletResponse.fromHttpServletRequest(httpServletRequest);
 
   // Write some data to the response using Servlet APIs
   Cookie cookie = new Cookie("name", "value");

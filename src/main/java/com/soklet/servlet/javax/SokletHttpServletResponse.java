@@ -124,13 +124,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private ResettableResponseWriter responseWriter;
 
 	@NonNull
-	public static SokletHttpServletResponse fromRequest(@NonNull HttpServletRequest request) {
-		requireNonNull(request);
-		String rawPath = request.getRequestURI();
+	public static SokletHttpServletResponse fromHttpServletRequest(@NonNull HttpServletRequest httpServletRequest) {
+		requireNonNull(httpServletRequest);
+		String rawPath = httpServletRequest.getRequestURI();
 		if (rawPath == null || rawPath.isEmpty())
 			rawPath = "/";
-		ServletContext servletContext = requireNonNull(request.getServletContext());
-		return new SokletHttpServletResponse(request, rawPath, servletContext);
+		ServletContext servletContext = requireNonNull(httpServletRequest.getServletContext());
+		return new SokletHttpServletResponse(httpServletRequest, rawPath, servletContext);
 	}
 
 	@NonNull
@@ -141,7 +141,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request)
 				.servletContext(servletContext)
 				.build();
-		return fromRequest(httpServletRequest);
+		return fromHttpServletRequest(httpServletRequest);
 	}
 
 	/**

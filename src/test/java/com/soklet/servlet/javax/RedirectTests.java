@@ -187,6 +187,6 @@ public class RedirectTests {
 		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
-		return SokletHttpServletResponse.fromRequest(httpRequest);
+		return SokletHttpServletResponse.fromHttpServletRequest(httpRequest);
 	}
 }
