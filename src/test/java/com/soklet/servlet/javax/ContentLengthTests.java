@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +38,7 @@ public class ContentLengthTests {
 	@Test
 	public void contentLengthUsesHeaderWhenPresent() {
 		Request request = Request.withPath(HttpMethod.POST, "/x")
-				.headers(Map.of("Content-Length", Set.of("123")))
+				.headers(Map.of("Content-Length", List.of("123")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 
@@ -59,7 +60,7 @@ public class ContentLengthTests {
 	@Test
 	public void contentLengthIntReturnsMinusOneOnOverflow() {
 		Request request = Request.withPath(HttpMethod.POST, "/x")
-				.headers(Map.of("Content-Length", Set.of("9999999999")))
+				.headers(Map.of("Content-Length", List.of("9999999999")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
 

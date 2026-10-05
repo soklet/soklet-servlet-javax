@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +44,7 @@ public class DateHeaderParsingValidTests {
 				.format(Instant.ofEpochMilli(1_725_000_000_000L));
 
 		Request request = Request.withPath(HttpMethod.GET, "/h")
-				.headers(Map.of("X-Test-Date", Set.of(stamp)))
+				.headers(Map.of("X-Test-Date", List.of(stamp)))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
@@ -54,7 +55,7 @@ public class DateHeaderParsingValidTests {
 	@Test
 	public void parsesEpochMillisAsFallback() {
 		Request request = Request.withPath(HttpMethod.GET, "/h")
-				.headers(Map.of("X-Test-Date", Set.of("1725000000000")))
+				.headers(Map.of("X-Test-Date", List.of("1725000000000")))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();

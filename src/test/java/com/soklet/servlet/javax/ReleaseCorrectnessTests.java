@@ -59,7 +59,7 @@ public class ReleaseCorrectnessTests {
 	@Test
 	void servlet4ReservedCookieNamesDoNotDiscardSessionCookie() {
 		var request = Request.withPath(HttpMethod.GET, "/")
-				.headers(Map.of("Cookie", Set.of("JSESSIONID=abc; path=/legacy; after=kept"))).build();
+				.headers(Map.of("Cookie", List.of("JSESSIONID=abc; path=/legacy; after=kept"))).build();
 		var servlet = SokletHttpServletRequest.fromRequest(request);
 		assertEquals(List.of("JSESSIONID", "after"),
 				Arrays.stream(servlet.getCookies()).map(Cookie::getName).toList());
@@ -69,7 +69,7 @@ public class ReleaseCorrectnessTests {
 	@Test
 	void malformedCookiesDoNotDiscardValidNeighbors() {
 		Request request = Request.withPath(HttpMethod.GET, "/")
-				.headers(Map.of("Cookie", Set.of("before=1; foo@bar=2; prefs[theme]=dark; =empty; pairless; JSESSIONID=abc; after=3")))
+				.headers(Map.of("Cookie", List.of("before=1; foo@bar=2; prefs[theme]=dark; =empty; pairless; JSESSIONID=abc; after=3")))
 				.build();
 		var servlet = SokletHttpServletRequest.fromRequest(request);
 		Cookie[] cookies = servlet.getCookies();
@@ -82,7 +82,7 @@ public class ReleaseCorrectnessTests {
 	@Test
 	void allRejectedCookiesBehaveLikeNoCookies() {
 		var request = Request.withPath(HttpMethod.GET, "/")
-				.headers(Map.of("Cookie", Set.of("foo@bar=1; prefs[theme]=dark"))).build();
+				.headers(Map.of("Cookie", List.of("foo@bar=1; prefs[theme]=dark"))).build();
 		assertNull(SokletHttpServletRequest.fromRequest(request).getCookies());
 	}
 
@@ -106,7 +106,7 @@ public class ReleaseCorrectnessTests {
 			response.addCookie(new Cookie("late", "kept"));
 			var marshaled = response.toMarshaledResponse();
 			assertEquals(201, marshaled.getStatusCode());
-			assertEquals(Set.of("kept"), marshaled.getHeaders().get("X-Late"));
+			assertEquals(List.of("kept"), marshaled.getHeaders().get("X-Late"));
 			assertEquals(1, marshaled.getCookies().size());
 			assertTrue(marshaled.getBodyLength() > 0);
 			response.reset();
@@ -176,12 +176,12 @@ public class ReleaseCorrectnessTests {
 	void queryEncodingIsIndependentOfBodyAndContextCharsets() throws Exception {
 		var context = SokletServletContext.builder().requestCharacterEncoding(StandardCharsets.UTF_16BE).build();
 		var request = Request.withRawUrl(HttpMethod.POST, "/?name=%C3%A9&name=%C3%A9")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("name=%E9".getBytes(StandardCharsets.US_ASCII)).build();
 		var servlet = SokletHttpServletRequest.withRequest(request).servletContext(context).build();
 		servlet.setCharacterEncoding("ISO-8859-1");
 		assertArrayEquals(new String[]{"é", "é", "é"}, servlet.getParameterValues("name"));
-		assertEquals(Set.of("é"), request.getQueryParameters().get("name"));
+		assertEquals(List.of("é", "é"), request.getQueryParameters().get("name"));
 	}
 
 	@Test
@@ -197,7 +197,7 @@ public class ReleaseCorrectnessTests {
 		assertNull(context.getRequestCharacterEncoding());
 		assertNull(context.getResponseCharacterEncoding());
 		var request = Request.withPath(HttpMethod.POST, "/")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("q=%C3%A9".getBytes(StandardCharsets.US_ASCII)).build();
 		var servlet = SokletHttpServletRequest.withRequest(request).servletContext(context).build();
 		if (servlet.getCharacterEncoding() == null)

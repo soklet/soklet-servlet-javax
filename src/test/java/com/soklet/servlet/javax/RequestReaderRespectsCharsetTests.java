@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Set;
@@ -40,7 +41,7 @@ public class RequestReaderRespectsCharsetTests {
 		Charset charset = Charset.forName("UTF-8");
 
 		Request req = Request.withPath(HttpMethod.POST, "/echo")
-				.headers(Map.of("Content-Type", Set.of("text/plain; charset=UTF-8")))
+				.headers(Map.of("Content-Type", List.of("text/plain; charset=UTF-8")))
 				.body(text.getBytes(charset))
 				.build();
 

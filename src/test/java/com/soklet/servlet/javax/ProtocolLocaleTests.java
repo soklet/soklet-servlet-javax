@@ -98,8 +98,8 @@ public class ProtocolLocaleTests {
 		Request.RawBuilder source = Request.withRawUrl(HttpMethod.GET, "/root/path?source=1");
 		if (hostHeader) {
 			source.headers(forwardedHttps
-					? Map.of("Host", Set.of(host + ":" + port), "X-Forwarded-Proto", Set.of("https"))
-					: Map.of("Host", Set.of(host + ":" + port)));
+					? Map.of("Host", List.of(host + ":" + port), "X-Forwarded-Proto", List.of("https"))
+					: Map.of("Host", List.of(host + ":" + port)));
 		}
 		SokletHttpServletRequest request = SokletHttpServletRequest.withRequest(source.build())
 				.host(host).port(port).forwardedHeaderTrustPolicy(forwardedHttps
@@ -126,7 +126,7 @@ public class ProtocolLocaleTests {
 		response.sendRedirect(target);
 		MarshaledResponse marshaled = response.toMarshaledResponse();
 		Assertions.assertEquals(302, marshaled.getStatusCode());
-		Assertions.assertEquals(Set.of(expected), marshaled.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of(expected), marshaled.getHeaders().get("Location"));
 		Assertions.assertTrue(expected.chars().allMatch(character -> character <= 0x7f));
 	}
 }

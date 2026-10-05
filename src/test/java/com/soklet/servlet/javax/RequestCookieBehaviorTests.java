@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +46,7 @@ public class RequestCookieBehaviorTests {
 	@Test
 	public void cookieNamesAreCaseSensitive() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("Cookie", Set.of("a=1; A=2")))
+				.headers(Map.of("Cookie", List.of("a=1; A=2")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Cookie[] cookies = http.getCookies();
@@ -63,7 +64,7 @@ public class RequestCookieBehaviorTests {
 	@Test
 	public void cookieValuesPreservePercentEncoding() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("Cookie", Set.of("token=a%2Fb%3B%20c")))
+				.headers(Map.of("Cookie", List.of("token=a%2Fb%3B%20c")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Cookie[] cookies = http.getCookies();
@@ -79,7 +80,7 @@ public class RequestCookieBehaviorTests {
 	@Test
 	public void cookieEmptyValuesArePreserved() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("Cookie", Set.of("empty=")))
+				.headers(Map.of("Cookie", List.of("empty=")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Cookie[] cookies = http.getCookies();

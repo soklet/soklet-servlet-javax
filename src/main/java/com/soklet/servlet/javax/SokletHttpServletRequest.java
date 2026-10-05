@@ -216,15 +216,15 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		requireNonNull(request);
 
 		List<@NonNull Cookie> convertedCookies = new ArrayList<>();
-		Map<@NonNull String, @NonNull Set<@NonNull String>> headers = request.getHeaders();
+		Map<@NonNull String, @NonNull List<@NonNull String>> headers = request.getHeaders();
 
-		for (Entry<@NonNull String, @NonNull Set<@NonNull String>> entry : headers.entrySet()) {
+		for (Entry<@NonNull String, @NonNull List<@NonNull String>> entry : headers.entrySet()) {
 			String headerName = entry.getKey();
 
 			if (headerName == null || !"cookie".equalsIgnoreCase(headerName.trim()))
 				continue;
 
-			Set<@NonNull String> headerValues = entry.getValue();
+			List<@NonNull String> headerValues = entry.getValue();
 
 			if (headerValues == null)
 				continue;
@@ -505,7 +505,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	private boolean hasContentLengthHeader() {
-		Set<@NonNull String> values = getRequest().getHeaders().get("Content-Length");
+		List<@NonNull String> values = getRequest().getHeaders().get("Content-Length");
 		return values != null && !values.isEmpty();
 	}
 
@@ -615,7 +615,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nullable
 	private ForwardedClient extractForwardedClientFromHeaders() {
-		Set<@NonNull String> headerValues = getRequest().getHeaders().get("Forwarded");
+		List<@NonNull String> headerValues = getRequest().getHeaders().get("Forwarded");
 
 		if (headerValues == null)
 			return null;
@@ -761,7 +761,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nullable
 	private ForwardedClient extractXForwardedClientFromHeaders() {
-		Set<@NonNull String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
+		List<@NonNull String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
 
 		if (headerValues == null)
 			return null;
@@ -1239,7 +1239,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return null;
 
-		Set<@NonNull String> values = getRequest().getHeaders().get(name);
+		List<@NonNull String> values = getRequest().getHeaders().get(name);
 
 		if (values == null || values.isEmpty())
 			return null;
@@ -1253,7 +1253,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		if (name == null)
 			return Collections.emptyEnumeration();
 
-		Set<@NonNull String> values = request.getHeaders().get(name);
+		List<@NonNull String> values = request.getHeaders().get(name);
 		return values == null ? Collections.emptyEnumeration() : Collections.enumeration(values);
 	}
 

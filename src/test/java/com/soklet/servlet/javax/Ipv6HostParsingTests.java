@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,8 +39,8 @@ public class Ipv6HostParsingTests {
 	public void ipv6HostAndPortAreParsed() {
 		Request req = Request.withPath(HttpMethod.GET, "/v6")
 				.headers(Map.of(
-						"Host", Set.of("[2001:db8::1]:8443"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("[2001:db8::1]:8443"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 

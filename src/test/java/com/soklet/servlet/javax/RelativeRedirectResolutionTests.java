@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,8 +40,8 @@ public class RelativeRedirectResolutionTests {
 	public void relativeRedirectResolvesAgainstParentPath() throws Exception {
 		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
@@ -48,67 +49,67 @@ public class RelativeRedirectResolutionTests {
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		// Expected: /a/b/d (parent of /a/b/c is /a/b)
-		Assertions.assertEquals(Set.of("https://example.com/a/b/d"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/a/b/d"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void relativeRedirectNormalizesDotSegments() throws Exception {
 		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("../d"); // should normalize /a/b/../d -> /a/d
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/a/d"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/a/d"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void relativeRedirectPreservesQueryAndFragment() throws Exception {
 		Request request = Request.withPath(HttpMethod.GET, "/a/b/c")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("../d?x=../y#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/a/d?x=../y#frag"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/a/d?x=../y#frag"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void fragmentOnlyRedirectPreservesBaseQuery() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.GET, "/a/b/c?x=1%2F2&y=a+b")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("#frag");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/a/b/c?x=1%2F2&y=a+b#frag"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/a/b/c?x=1%2F2&y=a+b#frag"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void emptyRedirectPreservesBaseQuery() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.GET, "/a/b/c?x=1%2F2&y=a+b")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse resp = responseWithTrustedForwardedHeaders(request);
 		resp.sendRedirect("");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/a/b/c?x=1%2F2&y=a+b"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/a/b/c?x=1%2F2&y=a+b"), mr.getHeaders().get("Location"));
 	}
 
 	private SokletHttpServletResponse responseWithTrustedForwardedHeaders(Request request) {

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,8 +39,8 @@ public class XForwardedAndHostUrlTests {
 	public void buildsAbsoluteUrlFromForwardedProtoAndHost() {
 		Request req = Request.withRawUrl(HttpMethod.GET, "/path?q=1")
 				.headers(Map.of(
-						"Host", Set.of("www.soklet.com:8443"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("www.soklet.com:8443"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 
@@ -57,8 +58,8 @@ public class XForwardedAndHostUrlTests {
 	public void forwardedProtoIsIgnoredWithoutTrust() {
 		Request req = Request.withRawUrl(HttpMethod.GET, "/path?q=1")
 				.headers(Map.of(
-						"Host", Set.of("www.soklet.com:8443"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("www.soklet.com:8443"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 

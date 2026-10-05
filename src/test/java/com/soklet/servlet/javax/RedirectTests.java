@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.io.IOException;
 import java.net.IDN;
 import java.util.Map;
@@ -40,8 +41,8 @@ public class RedirectTests {
 	public void relativeRedirectWithoutSlashUsesRequestPath() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
@@ -49,7 +50,7 @@ public class RedirectTests {
 
 		MarshaledResponse mr = response.toMarshaledResponse();
 		Assertions.assertEquals(HttpServletResponse.SC_FOUND, (int) mr.getStatusCode());
-		Set<String> locations = mr.getHeaders().get("Location");
+		List<String> locations = mr.getHeaders().get("Location");
 		Assertions.assertTrue(locations != null && !locations.isEmpty(), "Location header missing");
 		Assertions.assertTrue(locations.contains("https://example.com/root/next"), "Location header wrong");
 	}
@@ -58,15 +59,15 @@ public class RedirectTests {
 	public void relativeRedirectEncodesSpaces() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("a b");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/root/a%20b"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/root/a%20b"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
@@ -75,53 +76,53 @@ public class RedirectTests {
 		String asciiHost = IDN.toASCII(unicodeHost);
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of(unicodeHost),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of(unicodeHost),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://" + asciiHost + "/root/next"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://" + asciiHost + "/root/next"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void rootedRedirectEncodesQuery() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("/search?q=a b");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/search?q=a%20b"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/search?q=a%20b"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void absoluteRedirectSetsLocation() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("https://example.com/where");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/where"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/where"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void absoluteRedirectPreservesVerbatimLocation() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
@@ -129,45 +130,45 @@ public class RedirectTests {
 		response.sendRedirect(location);
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of(location), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of(location), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void rootedRedirectSetsLocation() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("/rooted");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://example.com/rooted"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://example.com/rooted"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void networkPathRedirectUsesRequestScheme() throws IOException {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
 		response.sendRedirect("//cdn.example.com/asset");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("https://cdn.example.com/asset"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("https://cdn.example.com/asset"), mr.getHeaders().get("Location"));
 	}
 
 	@Test
 	public void nullRedirectThrows() {
 		Request request = Request.withPath(HttpMethod.GET, "/root/path")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		SokletHttpServletResponse response = responseWithTrustedForwardedHeaders(request);
@@ -180,7 +181,7 @@ public class RedirectTests {
 		response.sendRedirect("next");
 
 		MarshaledResponse mr = response.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("http://localhost/root/next"), mr.getHeaders().get("Location"));
+		Assertions.assertEquals(List.of("http://localhost/root/next"), mr.getHeaders().get("Location"));
 	}
 
 	private SokletHttpServletResponse responseWithTrustedForwardedHeaders(Request request) {

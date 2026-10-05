@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Set;
+import java.util.List;
 
 /*
  * Verify setHeader vs addHeader semantics and date header formatting.
@@ -37,8 +38,8 @@ public class ResponseHeaderSetAddTests {
 		resp.setHeader("X-Alpha", "two"); // replaces
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Set<String> values = mr.getHeaders().get("X-Alpha");
-		Assertions.assertEquals(Set.of("two"), values);
+		List<String> values = mr.getHeaders().get("X-Alpha");
+		Assertions.assertEquals(List.of("two"), values);
 	}
 
 	@Test
@@ -48,8 +49,8 @@ public class ResponseHeaderSetAddTests {
 		resp.addHeader("X-Beta", "two");
 
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Set<String> values = mr.getHeaders().get("X-Beta");
-		Assertions.assertEquals(Set.of("one", "two"), values);
+		List<String> values = mr.getHeaders().get("X-Beta");
+		Assertions.assertEquals(List.of("one", "two"), values);
 	}
 
 	@Test

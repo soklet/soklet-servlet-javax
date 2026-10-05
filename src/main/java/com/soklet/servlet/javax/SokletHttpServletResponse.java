@@ -210,10 +210,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	public MarshaledResponse toMarshaledResponse() {
 		byte @Nullable [] body = getResponseBody();
 
-		Map<@NonNull String, @NonNull Set<@NonNull String>> headers = getHeaders().entrySet().stream()
+		Map<@NonNull String, @NonNull List<@NonNull String>> headers = getHeaders().entrySet().stream()
 				.collect(Collectors.toMap(
 						Map.Entry::getKey,
-						entry -> new LinkedHashSet<>(entry.getValue()),
+						entry -> new ArrayList<>(entry.getValue()),
 						(left, right) -> {
 							left.addAll(right);
 							return left;
@@ -221,7 +221,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 						LinkedHashMap::new
 				));
 
-		Set<@NonNull ResponseCookie> cookies = getCookies().stream()
+		List<@NonNull ResponseCookie> cookies = getCookies().stream()
 				.map(cookie -> {
 					ResponseCookie.Builder builder = ResponseCookie.with(cookie.getName(), cookie.getValue())
 							.path(cookie.getPath())
@@ -234,7 +234,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 					return builder.build();
 				})
-				.collect(Collectors.toSet());
+				.collect(Collectors.toList());
 
 		return MarshaledResponse.withStatusCode(getStatus())
 				.body(body)

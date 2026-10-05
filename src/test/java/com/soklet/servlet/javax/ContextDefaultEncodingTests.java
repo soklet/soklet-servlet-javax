@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Set;
@@ -46,7 +47,7 @@ public class ContextDefaultEncodingTests {
 		Charset charset = Charset.forName("UTF-16BE");
 
 		Request request = Request.withPath(HttpMethod.POST, "/echo")
-				.headers(Map.of("Content-Type", Set.of("text/plain")))
+				.headers(Map.of("Content-Type", List.of("text/plain")))
 				.body(text.getBytes(charset))
 				.build();
 

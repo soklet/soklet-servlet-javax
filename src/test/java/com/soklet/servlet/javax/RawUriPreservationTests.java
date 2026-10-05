@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,8 +49,8 @@ public class RawUriPreservationTests {
 	public void requestUrlPreservesRawEncoding() {
 		Request req = Request.withRawUrl(HttpMethod.GET, "/a%20b%3Fc?x=1")
 				.headers(Map.of(
-						"Host", Set.of("example.com"),
-						"X-Forwarded-Proto", Set.of("https")
+						"Host", List.of("example.com"),
+						"X-Forwarded-Proto", List.of("https")
 				))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)

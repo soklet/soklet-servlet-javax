@@ -35,6 +35,7 @@ import javax.servlet.http.Cookie;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -93,7 +94,7 @@ public class BodylessResponseTests {
 			if (marshaled)
 				Assertions.assertFalse(response.getHeaders().containsKey("Content-Type"));
 			else
-				Assertions.assertEquals(Set.of("application/octet-stream"), response.getHeaders().get("Content-Type"));
+				Assertions.assertEquals(List.of("application/octet-stream"), response.getHeaders().get("Content-Type"));
 			assertHeaderAndCookie(response);
 		}
 	}
@@ -126,7 +127,7 @@ public class BodylessResponseTests {
 	}
 
 	private static void assertHeaderAndCookie(MarshaledResponse response) {
-		Assertions.assertEquals(Set.of("preserved"), response.getHeaders().get("X-Servlet-Test"));
+		Assertions.assertEquals(List.of("preserved"), response.getHeaders().get("X-Servlet-Test"));
 		Assertions.assertTrue(response.getCookies().stream().anyMatch(cookie ->
 				cookie.getName().equals("session") && cookie.getValue().orElseThrow().equals("preserved")));
 	}

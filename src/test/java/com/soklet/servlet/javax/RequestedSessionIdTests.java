@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,14 +38,14 @@ public class RequestedSessionIdTests {
 	public void sessionCookieNameIsCaseSensitive() {
 		for (String cookieHeader : new String[]{"jsessionid=wrong; JSESSIONID=right", "JSESSIONID=right; jsessionid=wrong"}) {
 			Request request = Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url")
-					.headers(Map.of("Cookie", Set.of(cookieHeader))).build();
+					.headers(Map.of("Cookie", List.of(cookieHeader))).build();
 			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 			Assertions.assertEquals("right", http.getRequestedSessionId());
 			Assertions.assertTrue(http.isRequestedSessionIdFromCookie());
 		}
 
 		HttpServletRequest http = SokletHttpServletRequest.fromRequest(Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url")
-				.headers(Map.of("Cookie", Set.of("jsessionid=wrong"))).build());
+				.headers(Map.of("Cookie", List.of("jsessionid=wrong"))).build());
 		Assertions.assertEquals("url", http.getRequestedSessionId());
 		Assertions.assertFalse(http.isRequestedSessionIdFromCookie());
 		Assertions.assertTrue(http.isRequestedSessionIdFromURL());
@@ -53,7 +54,7 @@ public class RequestedSessionIdTests {
 	@Test
 	public void cookieRequestedSessionIdWinsOverUrl() {
 		Request request = Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url123")
-				.headers(Map.of("Cookie", Set.of("JSESSIONID=cookie456")))
+				.headers(Map.of("Cookie", List.of("JSESSIONID=cookie456")))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();

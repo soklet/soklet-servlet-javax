@@ -27,6 +27,7 @@ import org.junit.jupiter.api.io.TempDir;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.List;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
@@ -85,7 +86,7 @@ public class AdditionalInteropTests {
 	@Test
 	public void serverNameAndPortComeFromHostHeader() {
 		Request req = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("Host", Set.of("example.com:8443")))
+				.headers(Map.of("Host", List.of("example.com:8443")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req).build();
 		Assertions.assertEquals("example.com", http.getServerName());
@@ -93,7 +94,7 @@ public class AdditionalInteropTests {
 		Assertions.assertTrue(http.getRequestURL().toString().startsWith("http://example.com:8443/p"));
 
 		Request reqDefault = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("Host", Set.of("example.com")))
+				.headers(Map.of("Host", List.of("example.com")))
 				.build();
 		HttpServletRequest httpDefault = SokletHttpServletRequest.withRequest(reqDefault).build();
 		Assertions.assertEquals("example.com", httpDefault.getServerName());
@@ -104,7 +105,7 @@ public class AdditionalInteropTests {
 	public void getServerPortDefaultsFromScheme() {
 		// https without explicit port -> 443
 		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
+				.headers(Map.of("X-Forwarded-Proto", List.of("https"), "Host", List.of("example.com")))
 				.build();
 		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
@@ -113,7 +114,7 @@ public class AdditionalInteropTests {
 
 		// http without explicit port -> 80
 		Request httpReq = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("X-Forwarded-Proto", Set.of("http"), "Host", Set.of("example.com")))
+				.headers(Map.of("X-Forwarded-Proto", List.of("http"), "Host", List.of("example.com")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(httpReq)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
@@ -124,7 +125,7 @@ public class AdditionalInteropTests {
 	@Test
 	public void getServerPortDefaultsWithoutHostHeader() {
 		Request httpsReq = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("X-Forwarded-Proto", Set.of("https")))
+				.headers(Map.of("X-Forwarded-Proto", List.of("https")))
 				.build();
 		HttpServletRequest https = SokletHttpServletRequest.withRequest(httpsReq)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
@@ -135,7 +136,7 @@ public class AdditionalInteropTests {
 	@Test
 	public void getServerPortUsesLocalPortWhenHostOmitsPort() {
 		Request req = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("Host", Set.of("example.com")))
+				.headers(Map.of("Host", List.of("example.com")))
 				.build();
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
 				.port(8081)
@@ -203,7 +204,7 @@ public class AdditionalInteropTests {
 		resp.setContentLengthLong(43L);
 		MarshaledResponse mr = resp.toMarshaledResponse();
 		// The later call should have replaced the value
-		Assertions.assertEquals(Set.of("43"), mr.getHeaders().get("Content-Length"));
+		Assertions.assertEquals(List.of("43"), mr.getHeaders().get("Content-Length"));
 	}
 
 	@Test
@@ -332,7 +333,7 @@ public class AdditionalInteropTests {
 	@Test
 	public void forwardedProtoControlsSchemeAndIsSecure() {
 		var req = Request.withPath(HttpMethod.GET, "/p")
-				.headers(Map.of("X-Forwarded-Proto", Set.of("https"), "Host", Set.of("example.com")))
+				.headers(Map.of("X-Forwarded-Proto", List.of("https"), "Host", List.of("example.com")))
 				.build();
 		var http = SokletHttpServletRequest.withRequest(req)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
@@ -352,6 +353,6 @@ public class AdditionalInteropTests {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 		resp.setLocale(Locale.CANADA_FRENCH);
 		MarshaledResponse mr = resp.toMarshaledResponse();
-		Assertions.assertEquals(Set.of("fr-CA"), mr.getHeaders().get("Content-Language"));
+		Assertions.assertEquals(List.of("fr-CA"), mr.getHeaders().get("Content-Language"));
 	}
 }

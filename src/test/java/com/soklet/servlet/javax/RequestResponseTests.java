@@ -29,6 +29,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.List;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -69,10 +70,10 @@ public class RequestResponseTests {
 
 		Request request = Request.withRawUrl(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
-						"One", Set.of("Two, Three"),
-						"Host", Set.of("www.soklet.com"),
-						"X-Forwarded-Proto", Set.of("https"),
-						"Content-Type", Set.of(contentType)
+						"One", List.of("Two, Three"),
+						"Host", List.of("www.soklet.com"),
+						"X-Forwarded-Proto", List.of("https"),
+						"Content-Type", List.of(contentType)
 				))
 				.body(bodyAsString.getBytes(charset))
 				.build();
@@ -111,7 +112,7 @@ public class RequestResponseTests {
 
 		Request request = Request.withRawUrl(HttpMethod.POST, "/testing?a=b&c=d")
 				.headers(Map.of(
-						"Content-Type", Set.of(format("text/plain; charset=%s", charset.name()))
+						"Content-Type", List.of(format("text/plain; charset=%s", charset.name()))
 				))
 				.body(requestBodyAsString.getBytes(charset))
 				.build();
@@ -127,6 +128,8 @@ public class RequestResponseTests {
 		httpServletResponse.setStatus(201);
 		httpServletResponse.addHeader("test", "one");
 		httpServletResponse.addHeader("test", "two");
+		httpServletResponse.addHeader("test", "two");
+		httpServletResponse.addCookie(cookie);
 		httpServletResponse.addCookie(cookie);
 		httpServletResponse.setCharacterEncoding(charset.name());
 		httpServletResponse.getWriter().print(responseBodyAsString);
@@ -134,10 +137,12 @@ public class RequestResponseTests {
 		MarshaledResponse marshaledResponse = httpServletResponse.toMarshaledResponse();
 
 		String marshaledResponseBodyAsString = new String(bodyBytesOrEmpty(marshaledResponse), charset);
+		Assertions.assertEquals(2, marshaledResponse.getCookies().size());
+		Assertions.assertEquals(marshaledResponse.getCookies().get(0), marshaledResponse.getCookies().get(1));
 		ResponseCookie responseCookie = marshaledResponse.getCookies().stream().findFirst().orElse(null);
 
 		Assertions.assertEquals(201, (int) marshaledResponse.getStatusCode(), "Status mismatch");
-		Assertions.assertEquals(Set.of("one", "two"), marshaledResponse.getHeaders().get("test"), "Header mismatch");
+		Assertions.assertEquals(List.of("one", "two", "two"), marshaledResponse.getHeaders().get("test"), "Header mismatch");
 		Assertions.assertEquals("cname", responseCookie.getName(), "Cookie name mismatch");
 		Assertions.assertEquals("cvalue", responseCookie.getValue().get(), "Cookie value mismatch");
 		Assertions.assertEquals("soklet.com", responseCookie.getDomain().get(), "Cookie domain mismatch");
@@ -168,7 +173,7 @@ public class RequestResponseTests {
 
 		Request request = Request.withRawUrl(HttpMethod.POST, "/testing")
 				.headers(Map.of(
-						"Content-Type", Set.of("application/x-www-form-urlencoded")
+						"Content-Type", List.of("application/x-www-form-urlencoded")
 				))
 				.body(body.getBytes(StandardCharsets.US_ASCII))
 				.build();

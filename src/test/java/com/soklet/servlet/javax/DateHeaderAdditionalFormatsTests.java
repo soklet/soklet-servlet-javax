@@ -31,7 +31,7 @@ import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 /*
  * Extra date header parsing tests for additional HTTP-date formats.
@@ -74,7 +74,7 @@ public class DateHeaderAdditionalFormatsTests {
 	public void parsesRfc850Format() {
 		String rfc850 = "Sunday, 06-Nov-94 08:49:37 GMT"; // RFC 9110 section 5.6.7
 		Request request = Request.withPath(HttpMethod.GET, "/h")
-				.headers(Map.of("X-Test-Date", Set.of(rfc850)))
+				.headers(Map.of("X-Test-Date", List.of(rfc850)))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
@@ -86,7 +86,7 @@ public class DateHeaderAdditionalFormatsTests {
 	public void parsesAsctimeFormat() {
 		String asctime = "Sun Nov  6 08:49:37 1994";
 		Request request = Request.withPath(HttpMethod.GET, "/h")
-				.headers(Map.of("X-Test-Date", Set.of(asctime)))
+				.headers(Map.of("X-Test-Date", List.of(asctime)))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();

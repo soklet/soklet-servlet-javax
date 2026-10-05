@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +39,7 @@ public class RemoteAddressParsingTests {
 	@Test
 	public void picksFirstAddressFromXff() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
+				.headers(Map.of("X-Forwarded-For", List.of("203.0.113.195, 198.51.100.178")))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
@@ -50,7 +51,7 @@ public class RemoteAddressParsingTests {
 	@Test
 	public void picksFirstAddressFromForwarded() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("Forwarded", Set.of("for=203.0.113.195, for=198.51.100.178")))
+				.headers(Map.of("Forwarded", List.of("for=203.0.113.195, for=198.51.100.178")))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
@@ -62,7 +63,7 @@ public class RemoteAddressParsingTests {
 	@Test
 	public void forwardedIpv6WithPortIsParsed() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("Forwarded", Set.of("for=\"[2001:db8::1]:4711\"")))
+				.headers(Map.of("Forwarded", List.of("for=\"[2001:db8::1]:4711\"")))
 				.build();
 
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
@@ -74,7 +75,7 @@ public class RemoteAddressParsingTests {
 	@Test
 	public void xffIgnoredWithoutTrustPolicy() {
 		Request req = Request.withPath(HttpMethod.GET, "/x")
-				.headers(Map.of("X-Forwarded-For", Set.of("203.0.113.195, 198.51.100.178")))
+				.headers(Map.of("X-Forwarded-For", List.of("203.0.113.195, 198.51.100.178")))
 				.remoteAddress(new InetSocketAddress("203.0.113.50", 1234))
 				.build();
 

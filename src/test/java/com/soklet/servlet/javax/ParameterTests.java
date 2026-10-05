@@ -38,7 +38,7 @@ public class ParameterTests {
 	public void decodedParameterNamesAndEmptyValuesPreserveEveryOccurrence() {
 		Request request = Request.withRawUrl(HttpMethod.POST,
 				"/p?key%26name=one%3Dtwo&%6bey%26name=one%3Dtwo&empty&empty=&semi=a;b")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("key%26name=one%3Dtwo&empty=&escaped=%26%3D%2B".getBytes(StandardCharsets.US_ASCII)).build();
 		HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 		Assertions.assertArrayEquals(new String[]{"one=two", "one=two", "one=two"}, http.getParameterValues("key&name"));
@@ -52,7 +52,7 @@ public class ParameterTests {
 	public void malformedFormPercentEscapesNeverExposeAPartialParameterSnapshot() throws Exception {
 		for (String malformed : new String[]{"%", "%1", "%GG", "%+1", "%-1", "%١F"}) {
 			Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
-					.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+					.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 					.body(("valid=1&invalid=" + malformed).getBytes(StandardCharsets.UTF_8)).build();
 			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 			Assertions.assertThrows(com.soklet.exception.IllegalRequestException.class, () -> http.getParameter("query"));
@@ -81,7 +81,7 @@ public class ParameterTests {
 	@Test
 	public void parameterNamesPreserveQueryThenFormOrder() {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?b=2&a=1&b=2")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("c=3&a=4&b=5".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -93,7 +93,7 @@ public class ParameterTests {
 	@Test
 	public void parameterMapPreservesValueOrder() {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?one=a&one=b&two=z&one=a")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("one=c&one=d&two=y&one=b".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -107,7 +107,7 @@ public class ParameterTests {
 	@Test
 	public void formParametersIgnoredAfterInputStream() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("form=2".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -122,7 +122,7 @@ public class ParameterTests {
 	@Test
 	public void formParametersIgnoredAfterReader() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("form=2".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -135,7 +135,7 @@ public class ParameterTests {
 	@Test
 	public void queryParametersDoNotConsumeBodyForInputStream() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
-				.headers(Map.of("Content-Type", Set.of("text/plain")))
+				.headers(Map.of("Content-Type", List.of("text/plain")))
 				.body("body".getBytes(StandardCharsets.UTF_8))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -149,7 +149,7 @@ public class ParameterTests {
 	@Test
 	public void queryParametersDoNotConsumeBodyForReader() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
-				.headers(Map.of("Content-Type", Set.of("text/plain")))
+				.headers(Map.of("Content-Type", List.of("text/plain")))
 				.body("body".getBytes(StandardCharsets.UTF_8))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -162,7 +162,7 @@ public class ParameterTests {
 	@Test
 	public void inputStreamEmptyAfterParameterAccess() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("form=2".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -174,7 +174,7 @@ public class ParameterTests {
 	@Test
 	public void readerEmptyAfterParameterAccess() throws Exception {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("form=2".getBytes(StandardCharsets.US_ASCII))
 				.build();
 		HttpServletRequest httpServletRequest = SokletHttpServletRequest.withRequest(request).build();
@@ -185,7 +185,7 @@ public class ParameterTests {
 	@Test
 	public void everyParameterApiPreservesDuplicateQueryAndFormOccurrences() {
 		Request request = Request.withRawUrl(HttpMethod.POST, "/p?one=a&one=a&one=b")
-				.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 				.body("one=a&one=b".getBytes(StandardCharsets.US_ASCII)).build();
 		HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 		String[] expected = {"a", "a", "b", "a", "b"};
@@ -206,7 +206,7 @@ public class ParameterTests {
 		for (int firstAccess = 0; firstAccess < 4; firstAccess++) {
 			for (boolean reader : new boolean[]{false, true}) {
 				Request request = Request.withRawUrl(HttpMethod.POST, "/p?query=1")
-						.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+						.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 						.body("form=2&form=2".getBytes(StandardCharsets.US_ASCII)).build();
 				HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 				switch (firstAccess) {
@@ -226,7 +226,7 @@ public class ParameterTests {
 		for (HttpMethod method : new HttpMethod[]{HttpMethod.GET, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE}) {
 			for (boolean reader : new boolean[]{false, true}) {
 				Request request = Request.withRawUrl(method, "/p?query=1")
-						.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+						.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 						.body("form=2".getBytes(StandardCharsets.US_ASCII)).build();
 				HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 				Assertions.assertEquals("1", http.getParameter("query"));
@@ -244,7 +244,7 @@ public class ParameterTests {
 			String encoded = charset.equals(StandardCharsets.UTF_8) ? "%C3%A9" : "%E9";
 			Request request = Request.withRawUrl(HttpMethod.POST,
 					"/p?name=caf%C3%A9&name=caf%C3%A9&plus=a%2Bb+c&flag&empty=&eq=a=b&escaped=%252B")
-					.headers(Map.of("Content-Type", Set.of("application/x-www-form-urlencoded")))
+					.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
 					.body(("name=caf" + encoded + "&name=caf" + encoded).getBytes(StandardCharsets.US_ASCII)).build();
 			HttpServletRequest http = SokletHttpServletRequest.fromRequest(request);
 			http.setCharacterEncoding(charset.name());

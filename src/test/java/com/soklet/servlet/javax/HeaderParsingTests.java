@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -38,8 +39,8 @@ public class HeaderParsingTests {
 		String rfc1123 = "Sun, 06 Nov 1994 08:49:37 GMT";
 		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of(
-						"X-Test-Int", Set.of("123"),
-						"X-Test-Date", Set.of(rfc1123)
+						"X-Test-Int", List.of("123"),
+						"X-Test-Date", List.of(rfc1123)
 				))
 				.build();
 
@@ -56,7 +57,7 @@ public class HeaderParsingTests {
 	public void invalidDateHeaderThrows() {
 		Request request = Request.withPath(HttpMethod.GET, "/h")
 				.headers(Map.of(
-						"X-Test-Date", Set.of("not a date")
+						"X-Test-Date", List.of("not a date")
 				))
 				.build();
 
