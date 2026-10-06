@@ -18,12 +18,15 @@ package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
 import com.soklet.Request;
+import com.soklet.Utilities;
+import com.soklet.exception.IllegalRequestHeaderException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Collections;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -34,6 +37,42 @@ import java.util.Set;
  */
 @ThreadSafe
 public class HeaderParsingTests {
+	@Test
+	public void wholeAndEmptyPhysicalFieldsRemainVisibleThroughServletHeaderApis() {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/h")
+				.headers(Utilities.extractHeadersFromRawHeaderLines(List.of(
+						"Accept-Encoding: gzip, deflate, br", "Accept-Language: en-US,en;q=0.9",
+						"accept-language: fr,de;q=0.5", "X-Blank:", "x-blank:\t "))).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request).build();
+		Assertions.assertEquals("gzip, deflate, br", http.getHeader("accept-encoding"));
+		Assertions.assertEquals(List.of("gzip, deflate, br"), Collections.list(http.getHeaders("Accept-Encoding")));
+		Assertions.assertEquals("en-US,en;q=0.9", http.getHeader("Accept-Language"));
+		Assertions.assertEquals(List.of("en-US,en;q=0.9", "fr,de;q=0.5"), Collections.list(http.getHeaders("ACCEPT-LANGUAGE")));
+		Assertions.assertEquals("", http.getHeader("X-Blank"));
+		Assertions.assertEquals(List.of("", ""), Collections.list(http.getHeaders("x-blank")));
+		Assertions.assertNull(http.getHeader("absent"));
+		Assertions.assertTrue(Collections.list(http.getHeaders("absent")).isEmpty());
+		Assertions.assertEquals(request.getLocales().get(0), http.getLocale());
+		Assertions.assertEquals(request.getLocales(), Collections.list(http.getLocales()));
+		// Servlet getHeader returns the first occurrence; core's singular accessor rejects repeats.
+		Assertions.assertThrows(IllegalRequestHeaderException.class, () -> request.getHeader("Accept-Language"));
+		Assertions.assertThrows(IllegalRequestHeaderException.class, () -> request.getHeader("X-Blank"));
+	}
+
+	@Test
+	public void mapAndPhysicalHeaderConstructionHaveTheSameServletValues() {
+		Map<String, List<String>> supplied = Map.of("Accept-Encoding", List.of(" \tgzip, deflate, br \t"), "X-Empty", List.of("\t "));
+		Request mapped = Request.withPath(HttpMethod.GET, "/h").headers(supplied).build();
+		Request physical = Request.withRawUrl(HttpMethod.GET, "/h")
+				.headers(Utilities.extractHeadersFromRawHeaderLines(List.of("Accept-Encoding: \tgzip, deflate, br \t", "X-Empty:\t "))).build();
+		for (String name : supplied.keySet()) {
+			HttpServletRequest first = SokletHttpServletRequest.withRequest(mapped).build();
+			HttpServletRequest second = SokletHttpServletRequest.withRequest(physical).build();
+			Assertions.assertEquals(first.getHeader(name), second.getHeader(name));
+			Assertions.assertEquals(Collections.list(first.getHeaders(name)), Collections.list(second.getHeaders(name)));
+		}
+	}
+
 	@Test
 	public void intAndRfc1123DateHeaders() {
 		String rfc1123 = "Sun, 06 Nov 1994 08:49:37 GMT";

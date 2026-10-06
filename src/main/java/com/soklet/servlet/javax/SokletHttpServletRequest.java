@@ -17,6 +17,7 @@
 package com.soklet.servlet.javax;
 
 import com.soklet.EffectiveOriginResolver;
+import com.soklet.EffectiveClientIpResolver;
 import com.soklet.EffectiveOriginResolver.TrustPolicy;
 import com.soklet.HttpMethod;
 import com.soklet.Request;
@@ -613,20 +614,40 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		return remoteAddress != null && this.trustedProxyPredicate.test(remoteAddress);
 	}
 
+	@NonNull
+	private EffectiveClientIpResolver effectiveClientIpResolver() {
+		EffectiveClientIpResolver resolver = EffectiveClientIpResolver.withRequest(getRequest(), this.forwardedHeaderTrustPolicy);
+		if (this.trustedProxyPredicate != null)
+			resolver.trustedProxyPredicate(this.trustedProxyPredicate);
+		return resolver;
+	}
+
 	@Nullable
 	private ForwardedClient extractForwardedClientFromHeaders() {
-		List<@NonNull String> headerValues = getRequest().getHeaders().get("Forwarded");
+		return selectForwardedClient("Forwarded");
+	}
 
-		if (headerValues == null)
+	@Nullable
+	private ForwardedClient selectForwardedClient(@NonNull String headerName) {
+		InetAddress effectiveAddress = effectiveClientIpResolver().resolve().orElse(null);
+		List<String> values = getRequest().getHeaders().get(headerName);
+		if (effectiveAddress == null || values == null)
 			return null;
 
-		for (String headerValue : headerValues) {
-			ForwardedClient candidate = extractForwardedClientFromHeaderValue(headerValue);
+		List<String> entries = new ArrayList<>();
+		for (String value : values)
+			entries.addAll(splitHeaderValueRespectingQuotes(value, ','));
+		if (this.forwardedHeaderTrustPolicy == TrustPolicy.TRUST_PROXY_ALLOWLIST)
+			Collections.reverse(entries);
 
-			if (candidate != null)
-				return candidate;
+		for (String entry : entries) {
+			InetAddress candidateAddress = EffectiveClientIpResolver.withHeaders(Map.of(headerName, List.of(entry)), TrustPolicy.TRUST_ALL)
+					.resolve().orElse(null);
+			if (!effectiveAddress.equals(candidateAddress))
+				continue;
+			return headerName.equals("Forwarded") ? extractForwardedClientFromHeaderValue(entry)
+					: parseForwardedForValue(stripOptionalQuotes(entry.trim()));
 		}
-
 		return null;
 	}
 
@@ -761,35 +782,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@Nullable
 	private ForwardedClient extractXForwardedClientFromHeaders() {
-		List<@NonNull String> headerValues = getRequest().getHeaders().get("X-Forwarded-For");
-
-		if (headerValues == null)
-			return null;
-
-		for (String headerValue : headerValues) {
-			if (headerValue == null)
-				continue;
-
-			String[] components = headerValue.split(",");
-
-			for (String component : components) {
-				String value = Utilities.trimAggressivelyToNull(component);
-
-				if (value != null) {
-					value = stripOptionalQuotes(value);
-					value = Utilities.trimAggressivelyToNull(value);
-
-					if (value != null) {
-						ForwardedClient normalized = parseForwardedForValue(value);
-
-						if (normalized != null)
-							return normalized;
-					}
-				}
-			}
-		}
-
-		return null;
+		return selectForwardedClient("X-Forwarded-For");
 	}
 
 	private static final class ForwardedClient {
@@ -1858,29 +1851,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getRemoteAddr() {
-		if (shouldTrustForwardedHeaders()) {
-			ForwardedClient forwardedFor = extractForwardedClientFromHeaders();
-
-			if (forwardedFor != null)
-				return forwardedFor.getHost();
-
-			ForwardedClient xForwardedFor = extractXForwardedClientFromHeaders();
-
-			if (xForwardedFor != null)
-				return xForwardedFor.getHost();
-		}
-
+		InetAddress address = effectiveClientIpResolver().resolve().orElse(null);
+		if (address != null)
+			return address.getHostAddress();
 		InetSocketAddress remoteAddress = getRequest().getRemoteAddress().orElse(null);
-
-		if (remoteAddress != null) {
-			InetAddress address = remoteAddress.getAddress();
-			String host = address != null ? address.getHostAddress() : remoteAddress.getHostString();
-
-			if (host != null && !host.isBlank())
-				return host;
-		}
-
-		return null;
+		return remoteAddress == null ? null : remoteAddress.getHostString();
 	}
 
 	@Override

@@ -17,6 +17,7 @@
 package com.soklet.servlet.javax;
 
 import com.soklet.HttpMethod;
+import com.soklet.EffectiveClientIpResolver;
 import com.soklet.Request;
 import com.soklet.EffectiveOriginResolver.TrustPolicy;
 import org.junit.jupiter.api.Assertions;
@@ -26,6 +27,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.net.InetSocketAddress;
+import java.net.InetAddress;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,7 +71,8 @@ public class RemoteAddressParsingTests {
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(req)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
 				.build();
-		Assertions.assertEquals("2001:db8::1", http.getRemoteAddr());
+		Assertions.assertEquals(EffectiveClientIpResolver.withRequest(req, TrustPolicy.TRUST_ALL).resolve().orElseThrow().getHostAddress(), http.getRemoteAddr());
+		Assertions.assertEquals(4711, http.getRemotePort());
 	}
 
 	@Test
@@ -102,4 +105,59 @@ public class RemoteAddressParsingTests {
 		Assertions.assertNull(http.getRemoteAddr());
 		Assertions.assertNull(http.getRemoteHost());
 	}
+	@Test
+	public void allowlistClientAddressAndPortAgreeWithCoreAtTheUntrustedBoundary() throws Exception {
+		for (String name : List.of("Forwarded", "X-Forwarded-For")) {
+			for (List<String> chain : List.of(List.of("192.0.2.99:9999, 198.51.100.7:4711, 10.0.0.2:2222"),
+					List.of("192.0.2.99:9999", "198.51.100.7:4711", "10.0.0.2:2222"),
+					List.of("198.51.100.7:9999, 198.51.100.7:4711, 10.0.0.2:2222"))) {
+				List<String> values = name.equals("Forwarded") ? chain.stream()
+						.map(value -> "for=" + value.replace(", ", ", for=")).toList() : chain;
+				Request request = Request.withPath(HttpMethod.GET, "/x").headers(Map.of(name, values))
+						.remoteAddress(new InetSocketAddress("10.0.0.3", 3333)).build();
+				Set<InetAddress> trusted = Set.of(InetAddress.getByName("10.0.0.2"), InetAddress.getByName("10.0.0.3"));
+				HttpServletRequest http = SokletHttpServletRequest.withRequest(request)
+						.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_PROXY_ALLOWLIST).trustedProxyAddresses(trusted).build();
+				Assertions.assertEquals(EffectiveClientIpResolver.withRequest(request, TrustPolicy.TRUST_PROXY_ALLOWLIST)
+						.trustedProxyAddresses(trusted).resolve().orElseThrow().getHostAddress(), http.getRemoteAddr());
+				Assertions.assertEquals("198.51.100.7", http.getRemoteAddr());
+				Assertions.assertEquals(4711, http.getRemotePort());
+			}
+		}
+	}
+
+	@Test
+	public void untrustedPeerAndNonNumericForwardingFallBackToSocket() throws Exception {
+		for (Map<String, List<String>> headers : List.of(Map.of("Forwarded", List.of("for=attacker.example:9999")),
+				Map.of("X-Forwarded-For", List.of("attacker.example:9999")),
+				Map.of("Forwarded", List.of("for=unknown"), "X-Forwarded-For", List.of("_hidden")))) {
+			Request request = Request.withPath(HttpMethod.GET, "/x").headers(headers)
+					.remoteAddress(new InetSocketAddress("10.0.0.3", 3333)).build();
+			HttpServletRequest http = SokletHttpServletRequest.withRequest(request)
+					.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_PROXY_ALLOWLIST)
+					.trustedProxyAddresses(Set.of(InetAddress.getByName("10.0.0.3"))).build();
+			Assertions.assertEquals("10.0.0.3", http.getRemoteAddr());
+			Assertions.assertEquals(3333, http.getRemotePort());
+		}
+		Request request = Request.withPath(HttpMethod.GET, "/x").headers(Map.of("Forwarded", List.of("for=192.0.2.99:9999")))
+				.remoteAddress(new InetSocketAddress("198.51.100.7", 4711)).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_PROXY_ALLOWLIST)
+				.trustedProxyAddresses(Set.of(InetAddress.getByName("10.0.0.3"))).build();
+		Assertions.assertEquals("198.51.100.7", http.getRemoteAddr());
+		Assertions.assertEquals(4711, http.getRemotePort());
+	}
+
+	@Test
+	public void forwardedClientWithoutPortDoesNotBorrowProxyOrSpoofedPort() throws Exception {
+		Request request = Request.withPath(HttpMethod.GET, "/x")
+				.headers(Map.of("Forwarded", List.of("for=198.51.100.7:9999, for=198.51.100.7, for=10.0.0.2:2222")))
+				.remoteAddress(new InetSocketAddress("10.0.0.3", 3333)).build();
+		HttpServletRequest http = SokletHttpServletRequest.withRequest(request)
+				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_PROXY_ALLOWLIST)
+				.trustedProxyAddresses(Set.of(InetAddress.getByName("10.0.0.2"), InetAddress.getByName("10.0.0.3"))).build();
+		Assertions.assertEquals("198.51.100.7", http.getRemoteAddr());
+		Assertions.assertEquals(0, http.getRemotePort());
+	}
+
 }
