@@ -63,7 +63,22 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Soklet integration implementation of {@link HttpServletResponse}.
+ * Soklet integration implementation of {@link HttpServletResponse} that captures response output in memory.
+ * <p>
+ * Writes through {@link #getWriter()} and {@link #getOutputStream()} accumulate the full body locally.
+ * {@link #toMarshaledResponse()} and {@link #toResponse()} copy the captured bytes into finite Soklet
+ * responses; conversion does not send them. Delivery begins when the application hands the result to Soklet.
+ * <p>
+ * Flushes and buffer-size commits affect only this adapter's local commitment state. They do not send bytes
+ * to the client, and {@link #isCommitted()} does not prove transport commitment. {@link #setBufferSize(int)}
+ * sets a commit threshold, not a body-size or memory limit; capture can grow beyond it. Applications must
+ * bound generated response sizes and account for body copies during conversion and concurrent captures.
+ * HTTP request-size settings and native streaming queue bounds do not limit this captured output.
+ * <p>
+ * There is no {@link com.soklet.ResponseStream}-backed response mode. Use native file responses for large
+ * known-length files, {@link com.soklet.StreamingResponseBody} for incremental HTTP production, or
+ * {@link com.soklet.SseServer} for event streams. A standalone {@link SokletServletOutputStream} can delegate
+ * to a supplied sink, but it does not connect this response's status, headers or commitment state to that sink.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
@@ -185,6 +200,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * Converts the captured response to Soklet's application response representation.
 	 * Empty buffers are represented as an absent body for {@code 204} and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
+	 * <p>
+	 * This method copies the captured body into a finite response. It does not transmit bytes or
+	 * create a native streaming body; memory use includes the capture and conversion copies.
 	 *
 	 * @return the captured application response
 	 */
@@ -203,6 +221,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * Converts the captured response to Soklet's marshaled response representation.
 	 * Empty buffers are represented as an absent body for {@code 204} and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
+	 * <p>
+	 * This method copies the captured body into a finite response. It does not transmit bytes or
+	 * create a native streaming body; memory use includes the capture and conversion copies.
 	 *
 	 * @return the captured marshaled response
 	 */
@@ -1582,6 +1603,16 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		}
 	}
 
+	/**
+	 * Sets the local response-commit threshold before body output begins.
+	 * <p>
+	 * This is not a body-size or memory limit. The in-memory capture can continue growing after
+	 * it reaches the threshold; reaching it does not send bytes to a network transport.
+	 *
+	 * @param size the positive local commit threshold in bytes
+	 * @throws IllegalArgumentException if the size is not positive
+	 * @throws IllegalStateException if the response is committed or body bytes have been written
+	 */
 	@Override
 	public void setBufferSize(int size) {
 		ensureResponseIsUncommitted();
@@ -1604,6 +1635,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		return getResponseBufferSizeInBytes();
 	}
 
+	/**
+	 * Flushes pending writer output into the local capture and marks this response committed.
+	 * <p>
+	 * This does not transmit response headers or body bytes to the client.
+	 *
+	 * @throws IOException if the acquired writer or output stream cannot be flushed
+	 */
 	@Override
 	public void flushBuffer() throws IOException {
 		if (!isCommitted())
@@ -1629,6 +1667,13 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		getResponseOutputStream().reset();
 	}
 
+	/**
+	 * Reports this adapter's local commitment state.
+	 * <p>
+	 * Local commitment is not evidence that Soklet has transmitted response headers or body bytes.
+	 *
+	 * @return whether this response is locally committed
+	 */
 	@Override
 	public boolean isCommitted() {
 		return getResponseCommitted();

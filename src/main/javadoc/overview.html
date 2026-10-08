@@ -27,6 +27,17 @@
 	retain the Servlet ISO-8859-1 fallback. Sessions copy the context timeout when created,
 	but applications remain responsible for persistence and expiration.
 	<br/><br/>
+	Response adapters capture their entire body in memory and copy it into a finite
+	Soklet response. Flush and commitment affect only local adapter state, not
+	network delivery. The configured buffer size is a commit threshold, not a body
+	or memory limit. There is no native streaming response-adapter mode; bound
+	generated output in the application and use
+	<a href="https://www.soklet.com/docs/response-writing#zero-copy-responses">native file responses</a>,
+	<a href="https://www.soklet.com/docs/response-writing#streaming-responses">HTTP streaming</a>, or
+	<a href="https://www.soklet.com/docs/server-sent-events">Server-Sent Events</a>
+	for large files or live feeds. See
+	<a href="https://www.soklet.com/docs/servlet-integration#response-buffering-and-streaming">response buffering guidance</a>.
+	<br/><br/>
 	<strong>Please refer to the official documentation at <a href="https://www.soklet.com/docs/servlet-integration" target="_blank">https://www.soklet.com/docs/servlet-integration</a>.</strong>
 	<br/><br/>
   </body>

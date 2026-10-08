@@ -124,6 +124,31 @@ values mean no timeout, and values above the seconds range saturate at
 applications remain responsible for session persistence, expiration, and
 invalidation. Updating the context timeout does not change existing sessions.
 
+## Response buffering
+
+`SokletHttpServletResponse` captures its entire body in memory. Writes through
+`getWriter()` and `getOutputStream()` accumulate locally; `toMarshaledResponse()`
+and `toResponse()` copy the captured body into a finite Soklet response.
+Conversion does not send it; delivery begins when the application hands the
+resulting response to Soklet.
+
+`flushBuffer()`, writer/output-stream flushes, and buffer-size commits affect only
+local commitment. They do not flush network bytes to the client. `isCommitted()`
+reports the adapter state, not whether Soklet has sent response headers.
+`setBufferSize(...)` controls the local commit threshold, not a body-size or
+memory cap: capture continues beyond it. Memory grows with the body, and conversion
+requires additional body copies. Bound generated response sizes and concurrent
+captures in the application; HTTP request-size settings and native streaming queue
+bounds do not limit this output.
+
+The response adapter has no `ResponseStream`-backed mode. For large known-length
+files, use [native file responses](https://www.soklet.com/docs/response-writing#zero-copy-responses).
+For incremental production or live feeds, use [native HTTP streaming](https://www.soklet.com/docs/response-writing#streaming-responses);
+for event streams, use [Server-Sent Events](https://www.soklet.com/docs/server-sent-events).
+The standalone `SokletServletOutputStream` helper delegates to a supplied sink;
+it does not bridge the response adapter's status, headers or commitment state
+to that sink. See [response buffering guidance](https://www.soklet.com/docs/servlet-integration#response-buffering-and-streaming).
+
 ## Usage
 
 A normal Servlet API integration looks like the following:
