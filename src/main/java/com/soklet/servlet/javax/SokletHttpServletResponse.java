@@ -198,7 +198,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	/**
 	 * Converts the captured response to Soklet's application response representation.
-	 * Empty buffers are represented as an absent body for {@code 204} and {@code 304}.
+	 * Empty buffers are represented as an absent body for {@code 204}, {@code 205}, and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
 	 * <p>
 	 * This method copies the captured body into a finite response. It does not transmit bytes or
@@ -219,7 +219,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	/**
 	 * Converts the captured response to Soklet's marshaled response representation.
-	 * Empty buffers are represented as an absent body for {@code 204} and {@code 304}.
+	 * Empty buffers are represented as an absent body for {@code 204}, {@code 205}, and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
 	 * <p>
 	 * This method copies the captured body into a finite response. It does not transmit bytes or
@@ -268,12 +268,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		byte[] body = getResponseOutputStream().toByteArray();
 		// Servlet buffers exist even when no content was written. Only normalize
 		// supported bodyless final statuses; preserve empty ordinary responses.
-		return body.length == 0 && (getStatus() == SC_NO_CONTENT || getStatus() == SC_NOT_MODIFIED) ? null : body;
+		return body.length == 0 && (getStatus() == SC_NO_CONTENT || getStatus() == SC_RESET_CONTENT || getStatus() == SC_NOT_MODIFIED) ? null : body;
 	}
 
 	private static boolean isBodylessStatusCode(int statusCode) {
 		return (statusCode >= 100 && statusCode < 200)
-				|| statusCode == SC_NO_CONTENT || statusCode == SC_NOT_MODIFIED;
+				|| statusCode == SC_NO_CONTENT || statusCode == SC_RESET_CONTENT || statusCode == SC_NOT_MODIFIED;
 	}
 
 	@NonNull

@@ -29,6 +29,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,11 +46,20 @@ import static java.util.Objects.requireNonNull;
  * saturate at {@link Integer#MAX_VALUE}. This adapter stores timeout metadata
  * but does not schedule eviction. Applications own session persistence,
  * expiration checks, and invalidation.
+ * <p>
+ * Concurrent identical attribute setters share the pre-publication binding notification.
+ * Ordinary setters wait for its result. A setter invoked by a binding listener joins
+ * an already pending identical bind without waiting, allowing listener reentry.
+ * Failures from that operation reach its owner and ordinary waiting setters.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
 public final class SokletHttpSession implements HttpSession {
+	// Listener reentry must not wait for another callback that may depend on it.
+	// The outermost callback removes this flag, including on listener failure.
+	@NonNull
+	private static final ThreadLocal<@Nullable Boolean> BINDING_LISTENER_CALLBACK = new ThreadLocal<>();
 	@NonNull
 	private static final HttpSessionContext SHARED_HTTP_SESSION_CONTEXT;
 
@@ -60,6 +71,9 @@ public final class SokletHttpSession implements HttpSession {
 	private volatile UUID sessionId;
 	@NonNull
 	private final Object stateLock;
+	// Guarded by stateLock; callbacks never execute while holding that lock.
+	@NonNull
+	private final Map<@NonNull String, @NonNull IdentityHashMap<@NonNull Object, @NonNull PendingBinding>> pendingBindings;
 	@NonNull
 	private final Instant createdAt;
 	@NonNull
@@ -83,6 +97,7 @@ public final class SokletHttpSession implements HttpSession {
 
 		this.sessionId = UUID.randomUUID();
 		this.stateLock = new Object();
+		this.pendingBindings = new HashMap<>();
 		this.createdAt = Instant.now();
 		this.lastAccessedAt = this.createdAt;
 		this.attributes = new ConcurrentHashMap<>();
@@ -240,38 +255,116 @@ public final class SokletHttpSession implements HttpSession {
 			return;
 		}
 
+		PendingBinding pendingBinding;
+		boolean ownsBinding;
 		synchronized (this.stateLock) {
 			ensureNotInvalidated();
 			if (getAttributes().get(name) == value)
 				return;
+			IdentityHashMap<Object, PendingBinding> bindings = this.pendingBindings.computeIfAbsent(name,
+					ignored -> new IdentityHashMap<>());
+			pendingBinding = bindings.get(value);
+			// A published value may already have been removed while its replacement
+			// callback is still running. Coalesce only the pre-publication phase.
+			ownsBinding = pendingBinding == null || pendingBinding.published;
+			if (ownsBinding) {
+				pendingBinding = new PendingBinding();
+				bindings.put(value, pendingBinding);
+			} else if (pendingBinding.owner == Thread.currentThread() || isBindingListenerCallback()) {
+				// Reentrant listener setters join without waiting for publication.
+				// Waiting could deadlock two callbacks that bind each other's values.
+				// Failures still reach the owner and ordinary waiting setters.
+				return;
+			}
 		}
 
-		// Servlet binding notifications precede publication. Application callbacks run
-		// outside the state lock and may reenter or invalidate this session.
-		Throwable failure = notifyBindingListener(name, value, true, null);
-		Object existingValue = null;
-		boolean published;
-		synchronized (this.stateLock) {
-			published = !this.invalidated;
-			if (published)
-				existingValue = getAttributes().put(name, value);
+		if (!ownsBinding) {
+			awaitPendingBinding(pendingBinding);
+			return;
 		}
 
-		if (published) {
-			// The replaced object is no longer visible before it is notified.
-			if (existingValue != value)
-				failure = notifyBindingListener(name, existingValue, false, failure);
-		} else {
-			// Balance the pre-bind notification without resurrecting an invalidated session.
-			failure = notifyBindingListener(name, value, false, failure);
-			IllegalStateException invalidatedFailure = new IllegalStateException("Session is invalidated");
+		Throwable failure = null;
+		try {
+			// Notify before publication, with no state lock held. Identical concurrent
+			// setters share this operation instead of delivering a second pre-bind.
+			failure = notifyBindingListener(name, value, true, null);
+			Object existingValue = null;
+			boolean published;
+			synchronized (this.stateLock) {
+				published = !this.invalidated;
+				if (published) {
+					existingValue = getAttributes().put(name, value);
+					pendingBinding.published = true;
+				}
+			}
+
+			if (published) {
+				// The replaced object is no longer visible before it is notified.
+				if (existingValue != value)
+					failure = notifyBindingListener(name, existingValue, false, failure);
+			} else {
+				// Balance the pre-bind without resurrecting an invalidated session.
+				failure = notifyBindingListener(name, value, false, failure);
+				IllegalStateException invalidatedFailure = new IllegalStateException("Session is invalidated");
+				if (failure == null)
+					failure = invalidatedFailure;
+				else
+					failure.addSuppressed(invalidatedFailure);
+			}
+		} catch (RuntimeException | Error e) {
 			if (failure == null)
-				failure = invalidatedFailure;
-			else
-				failure.addSuppressed(invalidatedFailure);
+				failure = e;
+			else if (failure != e)
+				failure.addSuppressed(e);
+		} finally {
+			synchronized (this.stateLock) {
+				pendingBinding.failure = failure;
+				pendingBinding.completed = true;
+				IdentityHashMap<Object, PendingBinding> bindings = this.pendingBindings.get(name);
+				if (bindings != null && bindings.remove(value, pendingBinding) && bindings.isEmpty())
+					this.pendingBindings.remove(name);
+				this.stateLock.notifyAll();
+			}
 		}
 
 		rethrowListenerFailure(failure);
+	}
+
+	private static boolean isBindingListenerCallback() {
+		if (Boolean.TRUE.equals(BINDING_LISTENER_CALLBACK.get()))
+			return true;
+		BINDING_LISTENER_CALLBACK.remove();
+		return false;
+	}
+
+	private void awaitPendingBinding(@NonNull PendingBinding pendingBinding) {
+		boolean interrupted = false;
+		Throwable failure;
+		try {
+			synchronized (this.stateLock) {
+				while (!pendingBinding.completed && !this.invalidated) {
+					try {
+						this.stateLock.wait();
+					} catch (InterruptedException e) {
+						interrupted = true;
+					}
+				}
+				ensureNotInvalidated();
+				failure = pendingBinding.failure;
+			}
+		} finally {
+			if (interrupted)
+				Thread.currentThread().interrupt();
+		}
+		rethrowListenerFailure(failure);
+	}
+
+	private static final class PendingBinding {
+		private final Thread owner = Thread.currentThread();
+		private boolean published;
+		private boolean completed;
+		@Nullable
+		private Throwable failure;
 	}
 
 	@Override
@@ -315,6 +408,7 @@ public final class SokletHttpSession implements HttpSession {
 			removedAttributes = Map.copyOf(getAttributes());
 			getAttributes().clear();
 			this.invalidated = true;
+			this.stateLock.notifyAll();
 		}
 
 		Throwable failure = null;
@@ -332,6 +426,8 @@ public final class SokletHttpSession implements HttpSession {
 		if (!(value instanceof HttpSessionBindingListener))
 			return failure;
 
+		Boolean previousCallback = BINDING_LISTENER_CALLBACK.get();
+		BINDING_LISTENER_CALLBACK.set(Boolean.TRUE);
 		try {
 			HttpSessionBindingEvent event = new HttpSessionBindingEvent(this, name, value);
 			if (bound)
@@ -343,6 +439,11 @@ public final class SokletHttpSession implements HttpSession {
 				return e;
 			if (failure != e)
 				failure.addSuppressed(e);
+		} finally {
+			if (previousCallback == null)
+				BINDING_LISTENER_CALLBACK.remove();
+			else
+				BINDING_LISTENER_CALLBACK.set(previousCallback);
 		}
 
 		return failure;

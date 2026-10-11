@@ -50,8 +50,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.net.URLDecoder;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
@@ -538,7 +540,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		Map<@NonNull String, @NonNull List<@NonNull String>> parsed = new LinkedHashMap<>();
 		Charset charset = getEffectiveCharset();
 		// URL query components use core's UTF-8 contract, independently of body encoding.
-		appendParameters(parsed, getRequest().getRawQuery().orElse(""), StandardCharsets.UTF_8);
+		appendParameters(parsed, getRequest().getRawQuery().orElse(""), StandardCharsets.UTF_8, StandardCharsets.UTF_8);
 
 		// All parameter-family entry points populate the same snapshot, even when a queried
 		// name occurs only in the URL. Only eligible POST form bodies are consumed.
@@ -547,7 +549,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				&& this.contentType != null && this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
 			this.bodyParametersAccessed = true;
 			byte[] body = getRequest().getBody().orElse(new byte[0]);
-			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset);
+			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset, StandardCharsets.ISO_8859_1);
 		}
 
 		parsed.replaceAll((name, values) -> List.copyOf(values));
@@ -555,10 +557,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	private static void appendParameters(@NonNull Map<@NonNull String, @NonNull List<@NonNull String>> parameters,
-			@NonNull String encoded, @NonNull Charset charset) {
+			@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset) {
 		requireNonNull(parameters);
 		requireNonNull(encoded);
 		requireNonNull(charset);
+		requireNonNull(rawCharset);
 
 		// Core's query utility deliberately returns sets; Servlet values preserve every occurrence.
 		for (String pair : encoded.split("&", -1)) {
@@ -570,34 +573,51 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			String rawValue = separator < 0 ? "" : pair.substring(separator + 1);
 
 			try {
-				String name = decodeParameter(rawName, charset);
-				String value = decodeParameter(rawValue, charset);
+				String name = decodeParameter(rawName, charset, rawCharset);
+				String value = decodeParameter(rawValue, charset, rawCharset);
 				parameters.computeIfAbsent(name, ignored -> new ArrayList<>()).add(value);
 			} catch (IllegalArgumentException e) {
-				throw new IllegalRequestException("Invalid percent-encoding in request parameter");
+				throw new IllegalRequestException("Invalid encoding in request parameter");
 			}
 		}
 	}
 
 	@NonNull
-	private static String decodeParameter(@NonNull String encoded, @NonNull Charset charset) {
+	private static String decodeParameter(@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset) {
 		requireNonNull(encoded);
 		requireNonNull(charset);
+		requireNonNull(rawCharset);
 
-		// URLDecoder accepts some non-ASCII/signed hex spellings; HTTP percent escapes do not.
-		for (int index = 0; index < encoded.length(); index++) {
-			if (encoded.charAt(index) != '%')
-				continue;
-
-			if (index + 2 >= encoded.length()
-					|| "0123456789ABCDEFabcdef".indexOf(encoded.charAt(index + 1)) < 0
-					|| "0123456789ABCDEFabcdef".indexOf(encoded.charAt(index + 2)) < 0)
-				throw new IllegalArgumentException("Invalid percent escape");
-
-			index += 2;
+		// The form's ISO-8859-1 carrier preserves every original byte; raw query
+		// characters are UTF-8. Decode literal and escaped bytes together so malformed
+		// input fails without confusing it with a legitimately encoded U+FFFD.
+		byte[] bytes = encoded.getBytes(rawCharset);
+		int decodedLength = 0;
+		for (int index = 0; index < bytes.length; index++) {
+			int value = bytes[index] & 0xFF;
+			if (value == '%') {
+				if (index + 2 >= bytes.length)
+					throw new IllegalArgumentException("Invalid percent escape");
+				int high = "0123456789abcdef".indexOf(Character.toLowerCase((char) (bytes[index + 1] & 0xFF)));
+				int low = "0123456789abcdef".indexOf(Character.toLowerCase((char) (bytes[index + 2] & 0xFF)));
+				if (high < 0 || low < 0)
+					throw new IllegalArgumentException("Invalid percent escape");
+				value = high * 16 + low;
+				index += 2;
+			} else if (value == '+') {
+				value = ' ';
+			}
+			bytes[decodedLength++] = (byte) value;
 		}
 
-		return URLDecoder.decode(encoded, charset);
+		try {
+			return charset.newDecoder()
+					.onMalformedInput(CodingErrorAction.REPORT)
+					.onUnmappableCharacter(CodingErrorAction.REPORT)
+					.decode(ByteBuffer.wrap(bytes, 0, decodedLength)).toString();
+		} catch (CharacterCodingException e) {
+			throw new IllegalArgumentException("Invalid charset bytes in request parameter", e);
+		}
 	}
 
 	private boolean shouldTrustForwardedHeaders() {

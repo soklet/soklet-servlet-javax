@@ -46,8 +46,10 @@ public class BodylessResponseTests {
 	public void emptyBodylessBuffersHaveNoBody() {
 		Assertions.assertAll(
 				() -> Assertions.assertTrue(servletResponse(204, new byte[0]).toResponse().getBody().isEmpty(), "Response status 204"),
+				() -> Assertions.assertTrue(servletResponse(205, new byte[0]).toResponse().getBody().isEmpty(), "Response status 205"),
 				() -> Assertions.assertTrue(servletResponse(304, new byte[0]).toResponse().getBody().isEmpty(), "Response status 304"),
 				() -> Assertions.assertTrue(servletResponse(204, new byte[0]).toMarshaledResponse().getBody().isEmpty(), "MarshaledResponse status 204"),
+				() -> Assertions.assertTrue(servletResponse(205, new byte[0]).toMarshaledResponse().getBody().isEmpty(), "MarshaledResponse status 205"),
 				() -> Assertions.assertTrue(servletResponse(304, new byte[0]).toMarshaledResponse().getBody().isEmpty(), "MarshaledResponse status 304"));
 	}
 
@@ -55,15 +57,17 @@ public class BodylessResponseTests {
 	public void emptyBodylessResponsesRemainBodylessThroughSoklet() {
 		Assertions.assertAll(
 				() -> assertBodylessResult(204, false),
+				() -> assertBodylessResult(205, false),
 				() -> assertBodylessResult(304, false),
 				() -> assertBodylessResult(204, true),
+				() -> assertBodylessResult(205, true),
 				() -> assertBodylessResult(304, true));
 	}
 
 	@Test
 	public void nonemptyBodylessBuffersRemainAvailableForCoreRejection() throws IOException {
 		byte[] body = new byte[]{1};
-		for (int status : new int[]{204, 304}) {
+		for (int status : new int[]{204, 205, 304}) {
 			SokletHttpServletResponse servlet = servletResponse(status, body);
 			Assertions.assertArrayEquals(body, (byte[]) servlet.toResponse().getBody().orElseThrow());
 			Assertions.assertArrayEquals(body, bytes(servlet.toMarshaledResponse()));
@@ -72,7 +76,7 @@ public class BodylessResponseTests {
 
 	@Test
 	public void nonemptyBodylessResponsesAreRejectedThroughSoklet() {
-		for (int status : new int[]{204, 304}) {
+		for (int status : new int[]{204, 205, 304}) {
 			for (boolean marshaled : new boolean[]{false, true})
 				Assertions.assertEquals(500, execute(status, new byte[]{1}, marshaled).getStatusCode());
 		}

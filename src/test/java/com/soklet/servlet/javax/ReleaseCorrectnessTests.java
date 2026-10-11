@@ -152,7 +152,7 @@ public class ReleaseCorrectnessTests {
 
 	@Test
 	void generatedBodylessErrorsNeverCreateRepresentationBodies() throws Exception {
-		for (int status : new int[]{100, 199, 204, 304}) {
+		for (int status : new int[]{100, 199, 204, 205, 304}) {
 			for (boolean message : new boolean[]{false, true}) {
 				var response = newResponse();
 				response.setContentType("text/html");
