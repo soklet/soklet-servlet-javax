@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
@@ -48,14 +49,19 @@ import static java.util.Objects.requireNonNull;
  * expiration checks, and invalidation.
  * <p>
  * Concurrent identical attribute setters share the pre-publication binding notification.
- * Ordinary setters wait for its result. A setter invoked by a binding listener joins
- * an already pending identical bind without waiting, allowing listener reentry.
- * Failures from that operation reach its owner and ordinary waiting setters.
+ * Ordinary setters wait up to 200 milliseconds for its result, returning earlier
+ * on interruption while preserving the interrupt flag. On timeout or interruption,
+ * the pending owner remains responsible for publication and binding notifications;
+ * the joining call may return before the attribute is visible. A setter invoked by
+ * a binding listener joins without waiting, allowing listener reentry. Listener
+ * failures reach the owner and setters that observe its completion before returning.
+ * Binding listeners should avoid locks or other work a concurrent setter may hold.
  *
  * @author <a href="https://www.revetkn.com">Mark Allen</a>
  */
 @ThreadSafe
 public final class SokletHttpSession implements HttpSession {
+	private static final long BINDING_WAIT_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(200);
 	// Listener reentry must not wait for another callback that may depend on it.
 	// The outermost callback removes this flag, including on listener failure.
 	@NonNull
@@ -311,7 +317,7 @@ public final class SokletHttpSession implements HttpSession {
 				else
 					failure.addSuppressed(invalidatedFailure);
 			}
-		} catch (RuntimeException | Error e) {
+		} catch (Throwable e) {
 			if (failure == null)
 				failure = e;
 			else if (failure != e)
@@ -342,15 +348,22 @@ public final class SokletHttpSession implements HttpSession {
 		Throwable failure;
 		try {
 			synchronized (this.stateLock) {
+				long deadline = System.nanoTime() + BINDING_WAIT_TIMEOUT_NANOS;
 				while (!pendingBinding.completed && !this.invalidated) {
+					long remaining = deadline - System.nanoTime();
+					if (remaining <= 0)
+						break;
 					try {
-						this.stateLock.wait();
+						TimeUnit.NANOSECONDS.timedWait(this.stateLock, remaining);
 					} catch (InterruptedException e) {
 						interrupted = true;
+						break;
 					}
 				}
 				ensureNotInvalidated();
-				failure = pendingBinding.failure;
+				// A timed-out or interrupted join leaves the owner in charge. Deliver
+				// its failure only when completion was observed under the state lock.
+				failure = pendingBinding.completed ? pendingBinding.failure : null;
 			}
 		} finally {
 			if (interrupted)
@@ -434,7 +447,7 @@ public final class SokletHttpSession implements HttpSession {
 				((HttpSessionBindingListener) value).valueBound(event);
 			else
 				((HttpSessionBindingListener) value).valueUnbound(event);
-		} catch (RuntimeException | Error e) {
+		} catch (Throwable e) {
 			if (failure == null)
 				return e;
 			if (failure != e)
@@ -449,11 +462,12 @@ public final class SokletHttpSession implements HttpSession {
 		return failure;
 	}
 
-	private void rethrowListenerFailure(@Nullable Throwable failure) {
-		if (failure instanceof RuntimeException)
-			throw (RuntimeException) failure;
-		if (failure instanceof Error)
-			throw (Error) failure;
+	@SuppressWarnings("unchecked")
+	private <T extends Throwable> void rethrowListenerFailure(@Nullable Throwable failure) throws T {
+		// A listener can throw a checked Throwable through a generic/sneaky throw.
+		// Preserve that failure just as we preserve RuntimeException and Error.
+		if (failure != null)
+			throw (T) failure;
 	}
 
 	@Override

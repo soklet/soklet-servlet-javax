@@ -44,10 +44,10 @@ For upgrade details, see the [servlet migration guide](https://github.com/soklet
 Annotated Soklet routes also require the Soklet annotation processor and
 `-parameters`; see [Building and Running](https://www.soklet.com/#building-and-running).
 
-Both response conversions preserve empty `204 No Content` and `304 Not Modified`
-responses as bodyless. Nonempty bodies on these statuses remain invalid and
-are rejected by Soklet; ordinary empty `200 OK` responses retain their existing
-byte-array representation.
+Both response conversions preserve empty `204 No Content`, `205 Reset Content`,
+and `304 Not Modified` responses as bodyless. Nonempty bodies on these statuses
+remain invalid when returned from a Soklet resource method; ordinary empty
+`200 OK` responses retain their existing byte-array representation.
 
 Request URLs and redirect authorities always use ASCII port digits, independent
 of the JVM's formatting locale. This does not change the locale-sensitive
@@ -94,11 +94,25 @@ dependencies {
   only to POST with `application/x-www-form-urlencoded`; other bodies remain
   available through the reader or input stream. The first parameter-family call
   consumes an eligible form body, including when looking up a query parameter.
+  Query text uses UTF-8 and form text uses the selected request-body charset.
+  Malformed or unmappable bytes in parameter names or values raise
+  `IllegalRequestException` (HTTP 400 with Soklet's default error marshaler),
+  instead of replacement characters. A valid encoded U+FFFD remains legal.
+  The shared parameter snapshot retains decoding failures, and later accessors
+  rethrow them. Set the body encoding before reading parameters or the body.
 - Session-cookie lookup uses the exact, case-sensitive `JSESSIONID` name.
   Client cookie pairs that the chosen Servlet API cannot represent are ignored
   individually; valid neighboring cookies are retained.
   Session invalidation detaches attributes even if a binding listener throws;
   listener failures can still propagate after cleanup.
+- Concurrent setters of an identical session attribute share an in-progress
+  binding callback. An ordinary follower waits at most 200 milliseconds or
+  until interrupted, then returns without another `valueBound`; it may precede
+  attribute publication. Interrupted followers restore their interrupt status.
+  The owner remains responsible for publication and balanced unbinding.
+  Completed listener failures propagate to the owner and followers that observe
+  completion before returning. Listener reentry does not wait. Binding
+  listeners should avoid waiting for work or locks a concurrent setter may hold.
 - Generated error responses use safe plain text and replace stale representation
   metadata. Redirects that clear the body also remove the previous representation's
   metadata. Cookies and unrelated application headers are preserved.

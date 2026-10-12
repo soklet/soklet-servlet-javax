@@ -324,9 +324,9 @@ public class SessionConcurrentIdenticalBindingTests {
 			});
 			assertTrue(started.await(3, TimeUnit.SECONDS));
 			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-			while (this.duplicateThread.get().getState() != Thread.State.WAITING && System.nanoTime() < deadline)
+			while (this.duplicateThread.get().getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline)
 				Thread.sleep(1);
-			assertEquals(Thread.State.WAITING, this.duplicateThread.get().getState());
+			assertEquals(Thread.State.TIMED_WAITING, this.duplicateThread.get().getState());
 			assertFalse(duplicate.isDone(), "An overlapping setter waits for publication or invalidation");
 			return duplicate;
 		}
