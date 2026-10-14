@@ -114,6 +114,61 @@ public class SessionBindingLivenessTests {
 	}
 
 	@Test
+	public void timedOutFollowerRemovalIsNotUndoneByTheSlowOwner() throws Exception {
+		try (BlockedBinding binding = new BlockedBinding(null)) {
+			assertFalse(binding.startFollower(false).get(2, TimeUnit.SECONDS));
+			assertFalse(binding.owner.isDone());
+			binding.session.removeAttribute("key");
+			binding.release.countDown();
+			binding.owner.get(2, TimeUnit.SECONDS);
+			assertNull(binding.session.getAttribute("key"));
+			binding.assertBalanced();
+		}
+	}
+
+	@Test
+	public void timedOutFollowerReplacementIsNotOverwrittenByTheSlowOwner() throws Exception {
+		try (BlockedBinding binding = new BlockedBinding(null)) {
+			assertFalse(binding.startFollower(false).get(2, TimeUnit.SECONDS));
+			assertFalse(binding.owner.isDone());
+			AtomicInteger replacementBound = new AtomicInteger();
+			AtomicInteger replacementUnbound = new AtomicInteger();
+			HttpSessionBindingListener replacement = new HttpSessionBindingListener() {
+				@Override
+				public void valueBound(HttpSessionBindingEvent event) {
+					replacementBound.incrementAndGet();
+				}
+
+				@Override
+				public void valueUnbound(HttpSessionBindingEvent event) {
+					replacementUnbound.incrementAndGet();
+				}
+			};
+			binding.session.setAttribute("key", replacement);
+			assertSame(replacement, binding.session.getAttribute("key"));
+			binding.release.countDown();
+			binding.owner.get(2, TimeUnit.SECONDS);
+			assertSame(replacement, binding.session.getAttribute("key"));
+			assertEquals(0, replacementUnbound.get());
+			binding.assertBalanced();
+			assertEquals(1, replacementBound.get());
+			assertEquals(1, replacementUnbound.get());
+		}
+	}
+
+	@Test
+	public void resettingTheVisibleValueSupersedesAnInProgressReplacement() throws Exception {
+		Object visible = new Object();
+		try (BlockedBinding binding = new BlockedBinding(null, visible)) {
+			binding.session.setAttribute("key", visible);
+			binding.release.countDown();
+			binding.owner.get(2, TimeUnit.SECONDS);
+			assertSame(visible, binding.session.getAttribute("key"));
+			binding.assertBalanced();
+		}
+	}
+
+	@Test
 	public void unrelatedBindingNotificationsDoNotExtendTheJoinDeadline() throws Exception {
 		try (BlockedBinding binding = new BlockedBinding(null)) {
 			AtomicBoolean stop = new AtomicBoolean();
@@ -193,10 +248,16 @@ public class SessionBindingLivenessTests {
 		private final Future<?> owner;
 
 		private BlockedBinding(Throwable failure) throws InterruptedException {
+			this(failure, null);
+		}
+
+		private BlockedBinding(Throwable failure, Object existingValue) throws InterruptedException {
+			if (existingValue != null)
+				this.session.setAttribute("key", existingValue);
 			this.listener = new HttpSessionBindingListener() {
 				@Override
 				public void valueBound(HttpSessionBindingEvent event) {
-					assertNull(session.getAttribute("key"));
+					assertSame(existingValue, session.getAttribute("key"));
 					bound.incrementAndGet();
 					entered.countDown();
 					await(release);

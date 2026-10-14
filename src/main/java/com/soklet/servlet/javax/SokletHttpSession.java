@@ -52,7 +52,9 @@ import static java.util.Objects.requireNonNull;
  * Ordinary setters wait up to 200 milliseconds for its result, returning earlier
  * on interruption while preserving the interrupt flag. On timeout or interruption,
  * the pending owner remains responsible for publication and binding notifications;
- * the joining call may return before the attribute is visible. A setter invoked by
+ * the joining call may return before the attribute is visible. A subsequent replacement or
+ * removal supersedes the pending publication, preventing a slow callback from
+ * overwriting the newer value or resurrecting a removed attribute. A setter invoked by
  * a binding listener joins without waiting, allowing listener reentry. Listener
  * failures reach the owner and setters that observe its completion before returning.
  * Binding listeners should avoid locks or other work a concurrent setter may hold.
@@ -265,22 +267,25 @@ public final class SokletHttpSession implements HttpSession {
 		boolean ownsBinding;
 		synchronized (this.stateLock) {
 			ensureNotInvalidated();
-			if (getAttributes().get(name) == value)
+			if (getAttributes().get(name) == value) {
+				supersedePendingBindings(name);
 				return;
+			}
 			IdentityHashMap<Object, PendingBinding> bindings = this.pendingBindings.computeIfAbsent(name,
 					ignored -> new IdentityHashMap<>());
 			pendingBinding = bindings.get(value);
-			// A published value may already have been removed while its replacement
-			// callback is still running. Coalesce only the pre-publication phase.
-			ownsBinding = pendingBinding == null || pendingBinding.published;
+			if (pendingBinding != null && !pendingBinding.published
+					&& (pendingBinding.owner == Thread.currentThread() || isBindingListenerCallback())) {
+				// Reentrant listeners join even a superseded binding instead of
+				// recursively delivering valueBound or deadlocking mutual callbacks.
+				return;
+			}
+			// A removed or superseded value needs a new binding operation.
+			ownsBinding = pendingBinding == null || pendingBinding.published || pendingBinding.superseded;
 			if (ownsBinding) {
+				supersedePendingBindings(name);
 				pendingBinding = new PendingBinding();
 				bindings.put(value, pendingBinding);
-			} else if (pendingBinding.owner == Thread.currentThread() || isBindingListenerCallback()) {
-				// Reentrant listener setters join without waiting for publication.
-				// Waiting could deadlock two callbacks that bind each other's values.
-				// Failures still reach the owner and ordinary waiting setters.
-				return;
 			}
 		}
 
@@ -296,8 +301,10 @@ public final class SokletHttpSession implements HttpSession {
 			failure = notifyBindingListener(name, value, true, null);
 			Object existingValue = null;
 			boolean published;
+			boolean invalidated;
 			synchronized (this.stateLock) {
-				published = !this.invalidated;
+				invalidated = this.invalidated;
+				published = !invalidated && !pendingBinding.superseded;
 				if (published) {
 					existingValue = getAttributes().put(name, value);
 					pendingBinding.published = true;
@@ -309,13 +316,15 @@ public final class SokletHttpSession implements HttpSession {
 				if (existingValue != value)
 					failure = notifyBindingListener(name, existingValue, false, failure);
 			} else {
-				// Balance the pre-bind without resurrecting an invalidated session.
+				// Balance the pre-bind without undoing a newer write or invalidation.
 				failure = notifyBindingListener(name, value, false, failure);
-				IllegalStateException invalidatedFailure = new IllegalStateException("Session is invalidated");
-				if (failure == null)
-					failure = invalidatedFailure;
-				else
-					failure.addSuppressed(invalidatedFailure);
+				if (invalidated) {
+					IllegalStateException invalidatedFailure = new IllegalStateException("Session is invalidated");
+					if (failure == null)
+						failure = invalidatedFailure;
+					else
+						failure.addSuppressed(invalidatedFailure);
+				}
 			}
 		} catch (Throwable e) {
 			if (failure == null)
@@ -334,6 +343,14 @@ public final class SokletHttpSession implements HttpSession {
 		}
 
 		rethrowListenerFailure(failure);
+	}
+
+	// Called only under stateLock; retains no history after pending callbacks finish.
+	private void supersedePendingBindings(@NonNull String name) {
+		IdentityHashMap<Object, PendingBinding> bindings = this.pendingBindings.get(name);
+		if (bindings != null)
+			for (PendingBinding binding : bindings.values())
+				binding.superseded = true;
 	}
 
 	private static boolean isBindingListenerCallback() {
@@ -375,6 +392,7 @@ public final class SokletHttpSession implements HttpSession {
 	private static final class PendingBinding {
 		private final Thread owner = Thread.currentThread();
 		private boolean published;
+		private boolean superseded;
 		private boolean completed;
 		@Nullable
 		private Throwable failure;
@@ -398,6 +416,7 @@ public final class SokletHttpSession implements HttpSession {
 		Object existingValue;
 		synchronized (this.stateLock) {
 			ensureNotInvalidated();
+			supersedePendingBindings(name);
 			existingValue = getAttributes().remove(name);
 		}
 

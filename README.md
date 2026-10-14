@@ -29,10 +29,12 @@ This library has no implementation dependencies beyond Soklet and the chosen Ser
 
 ## Installation
 
-Like Soklet, this library assumes Java 17+.
+Like Soklet, this library assumes Java 21+.
 
 Version 2.0.0 requires Soklet 4.0.0 or later and is not compatible with Soklet
-3.x. Soklet and the Servlet API remain provided dependencies: standalone
+3.x. Upgrade build toolchains and deployment runtimes that still use Java 17 to
+Java 21 or later before adopting these releases. Soklet and the Servlet API remain
+provided dependencies: standalone
 applications must declare both explicitly, as shown below. When upgrading, update both
 the adapter and core coordinates. The four nested adapter builder classes are
 now final. The internal `SokletHttpSession.setSessionId(...)` and
@@ -42,7 +44,7 @@ for the supported servlet operations.
 
 For upgrade details, see the [servlet migration guide](https://github.com/soklet/soklet/blob/master/MIGRATING_TO_4_0.md#servlet-adapters).
 Annotated Soklet routes also require the Soklet annotation processor and
-`-parameters`; see [Building and Running](https://www.soklet.com/#building-and-running).
+`-parameters`; see [Building and Running](https://github.com/soklet/soklet#building-and-running).
 
 Both response conversions preserve empty `204 No Content`, `205 Reset Content`,
 and `304 Not Modified` responses as bodyless. Nonempty bodies on these statuses
@@ -109,7 +111,9 @@ dependencies {
   binding callback. An ordinary follower waits at most 200 milliseconds or
   until interrupted, then returns without another `valueBound`; it may precede
   attribute publication. Interrupted followers restore their interrupt status.
-  The owner remains responsible for publication and balanced unbinding.
+  The owner remains responsible for publication and balanced unbinding. A later
+  replacement or removal supersedes pending publication for that name, so a slow
+  listener cannot overwrite the newer value or resurrect a removed attribute.
   Completed listener failures propagate to the owner and followers that observe
   completion before returning. Listener reentry does not wait. Binding
   listeners should avoid waiting for work or locks a concurrent setter may hold.

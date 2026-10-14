@@ -222,6 +222,7 @@ public class SessionConcurrentIdenticalBindingTests {
 		SokletHttpSession[] sessions = new SokletHttpSession[]{first, separateSessions
 				? SokletHttpSession.fromServletContext(SokletServletContext.fromDefaults()) : first};
 		CountDownLatch entered = new CountDownLatch(2);
+		CountDownLatch reentered = new CountDownLatch(2);
 		CountDownLatch release = new CountDownLatch(1);
 		AtomicInteger[] bound = new AtomicInteger[]{new AtomicInteger(), new AtomicInteger()};
 		AtomicInteger[] unbound = new AtomicInteger[]{new AtomicInteger(), new AtomicInteger()};
@@ -236,6 +237,10 @@ public class SessionConcurrentIdenticalBindingTests {
 					entered.countDown();
 					await(release);
 					sessions[1 - current].setAttribute("key", values[1 - current]);
+					// Keep both original bindings pending until both reentrant setters join.
+					// Otherwise a completed, superseded binding may legitimately be rebound.
+					reentered.countDown();
+					await(reentered);
 					if (current == 0 && failure != null)
 						throw failure;
 				}
