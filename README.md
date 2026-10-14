@@ -117,6 +117,10 @@ dependencies {
   Completed listener failures propagate to the owner and followers that observe
   completion before returning. Listener reentry does not wait. Binding
   listeners should avoid waiting for work or locks a concurrent setter may hold.
+- Raw `Set-Cookie` headers and cookies added with `addCookie` preserve their
+  occurrence order. `setHeader("Set-Cookie", value)` replaces both forms.
+  Cookies preceding a later raw header are represented as header values during
+  conversion; trailing ordinary cookies remain structured response cookies.
 - Generated error responses use safe plain text and replace stale representation
   metadata. Redirects that clear the body also remove the previous representation's
   metadata. Cookies and unrelated application headers are preserved.

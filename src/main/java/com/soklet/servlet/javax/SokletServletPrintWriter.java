@@ -334,7 +334,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		requireNonNull(format);
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
-		PrintWriter printWriter = super.printf(format, normalizedArgs);
+		PrintWriter printWriter = super.printf(format, args);
 		flushOutput();
 		getOnWriteOccurred().accept(this, new PrintfPerformed(null, format, normalizedArgs));
 
@@ -349,7 +349,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		requireNonNull(format);
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
-		PrintWriter printWriter = super.printf(l, format, normalizedArgs);
+		PrintWriter printWriter = super.printf(l, format, args);
 		flushOutput();
 		getOnWriteOccurred().accept(this, new PrintfPerformed(l, format, normalizedArgs));
 		return printWriter;
@@ -362,7 +362,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		requireNonNull(format);
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
-		PrintWriter printWriter = super.format(format, normalizedArgs);
+		PrintWriter printWriter = super.format(format, args);
 		flushOutput();
 		getOnWriteOccurred().accept(this, new FormatPerformed(null, format, normalizedArgs));
 
@@ -377,7 +377,7 @@ public final class SokletServletPrintWriter extends PrintWriter {
 		requireNonNull(format);
 
 		@Nullable Object @NonNull [] normalizedArgs = args != null ? args : new Object[0];
-		PrintWriter printWriter = super.format(l, format, normalizedArgs);
+		PrintWriter printWriter = super.format(l, format, args);
 		flushOutput();
 		getOnWriteOccurred().accept(this, new FormatPerformed(l, format, normalizedArgs));
 

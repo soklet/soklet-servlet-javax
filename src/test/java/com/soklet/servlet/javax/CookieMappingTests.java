@@ -75,4 +75,66 @@ public class CookieMappingTests {
 		Assertions.assertTrue(values.stream().anyMatch(value -> value.startsWith("b=2")));
 		Assertions.assertTrue(resp.getHeaderNames().stream().anyMatch(name -> "Set-Cookie".equalsIgnoreCase(name)));
 	}
+	@Test
+	public void replacingSetCookieClearsPreviouslyAddedCookies() {
+		var response = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		response.addHeader("set-cookie", "raw=old");
+		response.addCookie(new Cookie("session", "old"));
+		response.setHeader("sEt-CoOkIe", "session=; Max-Age=0; Path=/");
+		Assertions.assertTrue(response.containsHeader("SET-COOKIE"));
+		Assertions.assertEquals("session=; Max-Age=0; Path=/", response.getHeader("set-cookie"));
+		Assertions.assertEquals(java.util.List.of("session=; Max-Age=0; Path=/"),
+				new java.util.ArrayList<>(response.getHeaders("SET-cookie")));
+		Assertions.assertTrue(response.toMarshaledResponse().getCookies().isEmpty());
+		Assertions.assertTrue(response.toResponse().getCookies().isEmpty());
+		Assertions.assertEquals(response.toMarshaledResponse().getHeaders(), response.toResponse().getHeaders());
+	}
+
+	@Test
+	public void alternatingRawAndStructuredCookiesKeepTheirOccurrenceOrder() throws Exception {
+		var response = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		response.addCookie(new Cookie("same", "first"));
+		response.addHeader("set-cookie", "same=second");
+		response.addCookie(new Cookie("same", "third"));
+		response.addHeader("sEt-CoOkIe", "same=fourth");
+		response.addCookie(new Cookie("same", "fifth"));
+		var expected = java.util.List.of("same=first", "same=second", "same=third", "same=fourth", "same=fifth");
+		Assertions.assertEquals(expected, new java.util.ArrayList<>(response.getHeaders("Set-Cookie")));
+		Assertions.assertEquals("same=first", response.getHeader("Set-Cookie"));
+		response.getOutputStream().write(1);
+		response.resetBuffer();
+		assertCookieOrder(response, expected);
+		response.flushBuffer();
+		response.setHeader("Set-Cookie", "ignored=value");
+		response.addHeader("Set-Cookie", "ignored=value");
+		response.addCookie(new Cookie("ignored", "value"));
+		assertCookieOrder(response, expected);
+	}
+
+	@Test
+	public void resetClearsBothCookieRepresentations() {
+		var response = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		response.addCookie(new Cookie("same", "first"));
+		response.addHeader("Set-Cookie", "same=second");
+		response.addCookie(new Cookie("same", "third"));
+		response.reset();
+		Assertions.assertFalse(response.containsHeader("Set-Cookie"));
+		Assertions.assertNull(response.getHeader("Set-Cookie"));
+		Assertions.assertTrue(response.getHeaders("Set-Cookie").isEmpty());
+		Assertions.assertFalse(response.getHeaderNames().stream().anyMatch("Set-Cookie"::equalsIgnoreCase));
+		assertCookieOrder(response, java.util.List.of());
+	}
+
+	private static void assertCookieOrder(SokletHttpServletResponse response, java.util.List<String> expected) {
+		var marshaled = response.toMarshaledResponse();
+		var serialized = new java.util.ArrayList<String>();
+		marshaled.getHeaders().entrySet().stream()
+				.filter(entry -> entry.getKey().equalsIgnoreCase("Set-Cookie"))
+				.forEach(entry -> serialized.addAll(entry.getValue()));
+		marshaled.getCookies().forEach(cookie -> serialized.add(cookie.toSetCookieHeaderRepresentation()));
+		Assertions.assertEquals(expected, serialized);
+		Assertions.assertEquals(marshaled.getHeaders(), response.toResponse().getHeaders());
+		Assertions.assertEquals(marshaled.getCookies(), response.toResponse().getCookies());
+	}
+
 }

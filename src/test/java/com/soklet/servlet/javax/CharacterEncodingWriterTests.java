@@ -35,6 +35,37 @@ import static com.soklet.servlet.javax.MarshaledResponseTestSupport.bodyBytesOrE
 @ThreadSafe
 public class CharacterEncodingWriterTests {
 	@Test
+	public void quotedContentTypeParametersDoNotOverrideTheCharset() throws Exception {
+		var resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		resp.setContentType("text/plain; note=\"a;charset=bogus\"; charset=UTF-8");
+		Assertions.assertEquals("UTF-8", resp.getCharacterEncoding());
+		resp.getWriter().write("é");
+		Assertions.assertArrayEquals("é".getBytes(Charset.forName("UTF-8")), bodyBytesOrEmpty(resp.toMarshaledResponse()));
+	}
+
+	@Test
+	public void changingCharsetPreservesQuotedContentTypeParameters() throws Exception {
+		var resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		String parameters = "note=\"a; charset=bogus; \\\"quoted\\\"\"";
+		resp.setContentType("text/plain; " + parameters + "; charset=ISO-8859-1");
+		resp.setCharacterEncoding("UTF-8");
+		Assertions.assertEquals("text/plain; " + parameters + "; charset=UTF-8", resp.getContentType());
+		resp.setCharacterEncoding((String) null);
+		Assertions.assertEquals("text/plain; " + parameters, resp.getContentType());
+		resp.getWriter().write("é");
+		Assertions.assertEquals("text/plain; " + parameters + "; charset=ISO-8859-1", resp.getContentType());
+	}
+
+	@Test
+	public void quotedCharsetDecodesQuotedPairs() throws Exception {
+		var resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
+		resp.setContentType("text/plain; charset=\"UTF\\-8\"");
+		Assertions.assertEquals("UTF-8", resp.getCharacterEncoding());
+		resp.getWriter().write("é");
+		Assertions.assertArrayEquals("é".getBytes(Charset.forName("UTF-8")), bodyBytesOrEmpty(resp.toMarshaledResponse()));
+	}
+
+	@Test
 	public void writerUsesExplicitEncoding() throws Exception {
 		SokletHttpServletResponse resp = SokletHttpServletResponse.fromRawPath("/x", SokletServletContext.fromDefaults());
 		resp.setCharacterEncoding("UTF-8");

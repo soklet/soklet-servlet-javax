@@ -82,6 +82,27 @@ public class SokletServletPrintWriterTests {
 	}
 
 	@Test
+	void nullFormattingArgumentsMatchPrintWriterForAllOverloads() {
+		for (int overload = 0; overload < 4; overload++) {
+			StringWriter expected = new StringWriter();
+			StringWriter actual = new StringWriter();
+			java.io.PrintWriter standard = new java.io.PrintWriter(expected);
+			SokletServletPrintWriter adapter = SokletServletPrintWriter.fromWriter(actual);
+			for (java.io.PrintWriter writer : List.of(standard, adapter)) {
+				switch (overload) {
+					case 0 -> writer.printf("%s:%d", (Object[]) null);
+					case 1 -> writer.printf(Locale.US, "%s:%d", (Object[]) null);
+					case 2 -> writer.format("%s:%d", (Object[]) null);
+					case 3 -> writer.format(Locale.US, "%s:%d", (Object[]) null);
+					default -> throw new AssertionError(overload);
+				}
+			}
+			assertEquals("null:null", expected.toString());
+			assertEquals(expected.toString(), actual.toString(), "overload=" + overload);
+		}
+	}
+
+	@Test
 	@DisplayName("write(char[], off, len) emits at least one CharsWritten and writes correct substring")
 	void writeCharArrayWithOffsetEmitsCharsWritten() {
 		StringWriter underlying = new StringWriter();
@@ -392,8 +413,8 @@ public class SokletServletPrintWriterTests {
 	}
 
 	@Test
-	@DisplayName("printf with null args treats args as empty")
-	void printfWithNullArgsTreatsArgsAsEmpty() {
+	@DisplayName("printf with null args records normalized event arguments")
+	void printfWithNullArgsRecordsNormalizedEventArguments() {
 		StringWriter underlying = new StringWriter();
 		RecordingListener recording = new RecordingListener();
 		SokletServletPrintWriter writer = newWriter(underlying, recording);
@@ -408,8 +429,8 @@ public class SokletServletPrintWriterTests {
 	}
 
 	@Test
-	@DisplayName("format with null args treats args as empty")
-	void formatWithNullArgsTreatsArgsAsEmpty() {
+	@DisplayName("format with null args records normalized event arguments")
+	void formatWithNullArgsRecordsNormalizedEventArguments() {
 		StringWriter underlying = new StringWriter();
 		RecordingListener recording = new RecordingListener();
 		SokletServletPrintWriter writer = newWriter(underlying, recording);

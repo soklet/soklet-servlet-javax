@@ -1384,20 +1384,21 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				nameEnd++;
 			}
 
+			// Keep a terminating semicolon available to begin the next parameter.
 			if (nameEnd == nameStart) {
-				index = nameEnd + 1;
+				index = nameEnd;
 				continue;
 			}
 
 			String name = rawPath.substring(nameStart, nameEnd);
 
 			if (!SESSION_URL_PARAM.equalsIgnoreCase(name)) {
-				index = nameEnd + 1;
+				index = nameEnd;
 				continue;
 			}
 
 			if (nameEnd >= length || rawPath.charAt(nameEnd) != '=') {
-				index = nameEnd + 1;
+				index = nameEnd;
 				continue;
 			}
 
@@ -1414,7 +1415,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			}
 
 			if (valueEnd == valueStart) {
-				index = valueEnd + 1;
+				index = valueEnd;
 				continue;
 			}
 
@@ -1423,7 +1424,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			if (!value.isEmpty())
 				return value;
 
-			index = valueEnd + 1;
+			index = valueEnd;
 		}
 
 		return null;

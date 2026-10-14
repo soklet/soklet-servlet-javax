@@ -177,6 +177,7 @@ public final class SokletServletOutputStream extends ServletOutputStream {
 										int len) throws IOException {
 		requireNonNull(b);
 		ensureOpen();
+		java.util.Objects.checkFromIndexSize(off, len, b.length);
 		if (len == 0)
 			return;
 

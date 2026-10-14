@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.ServletOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /*
@@ -39,4 +40,23 @@ public class ServletOutputStreamReadinessTests {
 		out.flush();
 		Assertions.assertTrue(out.isReady());
 	}
+	@Test
+	public void zeroLengthWriteStillValidatesTheArrayRangeWithoutReportingOutput() throws Exception {
+		var writes = new java.util.concurrent.atomic.AtomicInteger();
+		var captured = new ByteArrayOutputStream();
+		var stream = SokletServletOutputStream.withOutputStream(captured)
+				.onWriteOccurred((ignored, count) -> writes.incrementAndGet()).build();
+		byte[] bytes = new byte[1];
+		Assertions.assertThrows(IndexOutOfBoundsException.class, () -> stream.write(bytes, -1, 0));
+		Assertions.assertThrows(IndexOutOfBoundsException.class, () -> stream.write(bytes, 2, 0));
+		Assertions.assertThrows(IndexOutOfBoundsException.class, () -> stream.write(bytes, 0, -1));
+		Assertions.assertThrows(IndexOutOfBoundsException.class, () -> stream.write(bytes, 1, 1));
+		stream.write(bytes, 1, 0);
+		Assertions.assertEquals(0, writes.get());
+		Assertions.assertEquals(0, captured.size());
+		stream.write(bytes, 0, 1);
+		Assertions.assertEquals(1, writes.get());
+		Assertions.assertEquals(1, captured.size());
+	}
+
 }

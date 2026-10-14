@@ -35,6 +35,18 @@ import java.util.Set;
 @ThreadSafe
 public class RequestedSessionIdTests {
 	@Test
+	public void urlSessionIdFollowsEmptyOrValuelessMatrixParameters() {
+		for (String path : List.of("/path;flag;jsessionid=abc", "/path;;jsessionid=abc",
+				"/path;jsessionid;jsessionid=abc", "/path;jsessionid=;jsessionid=abc",
+				"/path;flag/next;jsessionid=abc", "/path;other=value;jsessionid=abc")) {
+			HttpServletRequest http = SokletHttpServletRequest.fromRequest(Request.withRawUrl(HttpMethod.GET, path).build());
+			Assertions.assertEquals("abc", http.getRequestedSessionId(), path);
+			Assertions.assertTrue(http.isRequestedSessionIdFromURL(), path);
+			Assertions.assertFalse(http.isRequestedSessionIdFromCookie(), path);
+		}
+	}
+
+	@Test
 	public void sessionCookieNameIsCaseSensitive() {
 		for (String cookieHeader : new String[]{"jsessionid=wrong; JSESSIONID=right", "JSESSIONID=right; jsessionid=wrong"}) {
 			Request request = Request.withRawUrl(HttpMethod.GET, "/path;jsessionid=url")
