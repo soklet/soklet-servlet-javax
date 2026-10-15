@@ -657,13 +657,7 @@ public final class SokletServletContext implements ServletContext {
 		if (msg == null)
 			return;
 
-		try {
-			synchronized (this.logLock) {
-				getLogWriter().write(msg);
-			}
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
-		}
+		writeLogEntry(msg);
 	}
 
 	@Override
@@ -679,6 +673,9 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	public void log(@Nullable String message,
 									@Nullable Throwable throwable) {
+		if (message == null && throwable == null)
+			return;
+
 		List<@NonNull String> components = new ArrayList<>(2);
 
 		if (message != null)
@@ -691,11 +688,15 @@ public final class SokletServletContext implements ServletContext {
 			components.add(stringWriter.toString());
 		}
 
-		String combinedMessage = components.stream().collect(Collectors.joining("\n"));
+		writeLogEntry(components.stream().collect(Collectors.joining(System.lineSeparator())));
+	}
 
+	private void writeLogEntry(@NonNull String message) {
 		try {
 			synchronized (this.logLock) {
-				getLogWriter().write(combinedMessage);
+				getLogWriter().write(message);
+				if (!message.endsWith("\n") && !message.endsWith("\r"))
+					getLogWriter().write(System.lineSeparator());
 			}
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
@@ -938,7 +939,8 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Nullable
 	public String getRequestCharacterEncoding() {
-		return this.requestCharset == null ? null : this.requestCharset.name();
+		Charset charset = this.requestCharset;
+		return charset == null ? null : charset.name();
 	}
 
 	@Override
@@ -958,7 +960,8 @@ public final class SokletServletContext implements ServletContext {
 	@Override
 	@Nullable
 	public String getResponseCharacterEncoding() {
-		return this.responseCharset == null ? null : this.responseCharset.name();
+		Charset charset = this.responseCharset;
+		return charset == null ? null : charset.name();
 	}
 
 	@Override

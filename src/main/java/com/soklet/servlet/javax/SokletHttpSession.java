@@ -224,7 +224,7 @@ public final class SokletHttpSession implements HttpSession {
 	public Object getAttribute(@Nullable String name) {
 		synchronized (this.stateLock) {
 			ensureNotInvalidated();
-			return getAttributes().get(name);
+			return name == null ? null : getAttributes().get(name);
 		}
 	}
 

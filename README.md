@@ -164,7 +164,7 @@ captures in the application; HTTP request-size settings and native streaming que
 bounds do not limit this output.
 
 The response adapter has no `ResponseStream`-backed mode. For large known-length
-files, use [native file responses](https://www.soklet.com/docs/response-writing#zero-copy-responses).
+files, use [native file responses](https://www.soklet.com/docs/response-writing#file-and-buffer-responses).
 For incremental production or live feeds, use [native HTTP streaming](https://www.soklet.com/docs/response-writing#streaming-responses);
 for event streams, use [Server-Sent Events](https://www.soklet.com/docs/server-sent-events).
 The standalone `SokletServletOutputStream` helper delegates to a supplied sink;

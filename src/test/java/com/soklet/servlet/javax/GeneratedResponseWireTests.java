@@ -176,6 +176,8 @@ public class GeneratedResponseWireTests {
 			SokletHttpServletResponse response = newResponse();
 			response.setContentType("text/html; charset=UTF-8");
 			response.sendError(400, ERROR_TEXT);
+			response.getWriter().write("SECRET-DATA");
+			response.getWriter().flush();
 			return response.toMarshaledResponse();
 		}
 
@@ -187,7 +189,10 @@ public class GeneratedResponseWireTests {
 			response.setHeader("X-Audit", "preserved");
 			response.setHeader("Content-Security-Policy", "default-src 'none'");
 			response.addCookie(new Cookie("audit", "preserved"));
+			var output = response.getOutputStream();
+			output.write("discarded".getBytes(StandardCharsets.US_ASCII));
 			response.sendError(404);
+			output.write("SECRET-DATA".getBytes(StandardCharsets.US_ASCII));
 			return response.toMarshaledResponse();
 		}
 
@@ -198,6 +203,8 @@ public class GeneratedResponseWireTests {
 			setOriginalRepresentation(response);
 			response.getWriter().write("old");
 			response.sendRedirect("/a//../b");
+			response.getWriter().write("SECRET-DATA");
+			response.getWriter().flush();
 			return response.toMarshaledResponse();
 		}
 

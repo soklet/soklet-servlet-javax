@@ -66,6 +66,7 @@ import static java.util.Objects.requireNonNull;
  * Soklet integration implementation of {@link HttpServletResponse} that captures response output in memory.
  * <p>
  * Writes through {@link #getWriter()} and {@link #getOutputStream()} accumulate the full body locally.
+ * Once {@link #sendError(int)} or {@link #sendRedirect(String)} completes, subsequent body writes are discarded.
  * {@link #toMarshaledResponse()} and {@link #toResponse()} copy the captured bytes into finite Soklet
  * responses; conversion does not send them. Delivery begins when the application hands the result to Soklet.
  * <p>
@@ -119,6 +120,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private Boolean responseCommitted;
 	@NonNull
 	private Boolean responseFinalized;
+	private boolean responseOutputSuspended;
 	@Nullable
 	private Locale locale;
 	@Nullable
@@ -189,7 +191,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		this.statusCode = HttpServletResponse.SC_OK;
 		this.responseWriteMethod = ResponseWriteMethod.UNSPECIFIED;
 		this.responseBufferSizeInBytes = DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
-		this.responseOutputStream = new ByteArrayOutputStream(DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES);
+		this.responseOutputStream = new ResponseOutputStream(DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES);
 		this.cookies = new ArrayList<>();
 		this.headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 		this.responseCommitted = false;
@@ -591,6 +593,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setStatus(sc);
 		setErrorMessage(msg);
 		writeDefaultErrorBody(sc, msg);
+		this.responseOutputSuspended = true;
 		setResponseCommitted(true);
 	}
 
@@ -602,6 +605,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setStatus(sc);
 		setErrorMessage(null);
 		writeDefaultErrorBody(sc, null);
+		this.responseOutputSuspended = true;
 		setResponseCommitted(true);
 	}
 
@@ -1165,6 +1169,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setHeader("Location", finalLocation);
 
 		flushBuffer();
+		this.responseOutputSuspended = true;
 		setResponseCommitted(true);
 	}
 
@@ -1675,7 +1680,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseBufferSizeInBytes(size);
 
 		if (!writerObtained() && getServletOutputStream().isEmpty())
-			setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
+			setResponseOutputStream(new ResponseOutputStream(getResponseBufferSizeInBytes()));
 	}
 
 	@Override
@@ -1739,11 +1744,12 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		ensureResponseIsUncommitted();
 
 		setStatusCode(HttpServletResponse.SC_OK);
+		this.responseOutputSuspended = false;
 		setServletOutputStream(null);
 		setPrintWriter(null);
 		this.responseWriter = null;
 		setResponseWriteMethod(ResponseWriteMethod.UNSPECIFIED);
-		setResponseOutputStream(new ByteArrayOutputStream(getResponseBufferSizeInBytes()));
+		setResponseOutputStream(new ResponseOutputStream(getResponseBufferSizeInBytes()));
 		getHeaders().clear();
 		getCookies().clear();
 
@@ -1784,6 +1790,25 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@Override
 	public Locale getLocale() {
 		return this.locale == null ? Locale.getDefault() : this.locale;
+	}
+
+	/** Discards application output after sendError or sendRedirect has completed. */
+	private final class ResponseOutputStream extends ByteArrayOutputStream {
+		private ResponseOutputStream(int size) {
+			super(size);
+		}
+
+		@Override
+		public synchronized void write(int value) {
+			if (!responseOutputSuspended)
+				super.write(value);
+		}
+
+		@Override
+		public synchronized void write(byte[] bytes, int offset, int length) {
+			if (!responseOutputSuspended)
+				super.write(bytes, offset, length);
+		}
 	}
 
 	/**

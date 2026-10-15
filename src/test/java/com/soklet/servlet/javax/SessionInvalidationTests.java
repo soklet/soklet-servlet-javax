@@ -33,6 +33,17 @@ import javax.servlet.http.HttpSession;
 @ThreadSafe
 public class SessionInvalidationTests {
 	@Test
+	public void nullAttributeNameIsAbsentUntilSessionInvalidation() {
+		HttpSession session = SokletHttpServletRequest.withRequest(Request.fromPath(HttpMethod.GET, "/x"))
+				.build().getSession(true);
+		Assertions.assertNull(session.getAttribute(null));
+		Assertions.assertNull(session.getValue(null));
+		session.invalidate();
+		Assertions.assertThrows(IllegalStateException.class, () -> session.getAttribute(null));
+		Assertions.assertThrows(IllegalStateException.class, () -> session.getValue(null));
+	}
+
+	@Test
 	public void invalidatePreventsAccess() {
 		HttpServletRequest http = SokletHttpServletRequest.withRequest(Request.withPath(HttpMethod.GET, "/x").build()).build();
 		HttpSession session = http.getSession(true);
