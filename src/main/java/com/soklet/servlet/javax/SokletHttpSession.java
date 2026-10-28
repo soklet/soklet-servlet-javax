@@ -54,7 +54,9 @@ import static java.util.Objects.requireNonNull;
  * the pending owner remains responsible for publication and binding notifications;
  * the joining call may return before the attribute is visible. A subsequent replacement or
  * removal supersedes the pending publication, preventing a slow callback from
- * overwriting the newer value or resurrecting a removed attribute. A setter invoked by
+ * overwriting the newer value or resurrecting a removed attribute. A later setter of
+ * that same instance reuses its unfinished binding callback before the publication
+ * decision, restoring publication unless another removal or replacement follows. A setter invoked by
  * a binding listener joins without waiting, allowing listener reentry. Listener
  * failures reach the owner and setters that observe its completion before returning.
  * Binding listeners should avoid locks or other work a concurrent setter may hold.
@@ -274,14 +276,20 @@ public final class SokletHttpSession implements HttpSession {
 			IdentityHashMap<Object, PendingBinding> bindings = this.pendingBindings.computeIfAbsent(name,
 					ignored -> new IdentityHashMap<>());
 			pendingBinding = bindings.get(value);
-			if (pendingBinding != null && !pendingBinding.published
+			if (pendingBinding != null && !pendingBinding.decided && pendingBinding.superseded) {
+				// A later identical setter wins over the intervening removal or
+				// replacement without starting a second pre-publication callback.
+				supersedePendingBindings(name);
+				pendingBinding.superseded = false;
+			}
+			if (pendingBinding != null && !pendingBinding.decided
 					&& (pendingBinding.owner == Thread.currentThread() || isBindingListenerCallback())) {
-				// Reentrant listeners join even a superseded binding instead of
+				// Reentrant listeners join the restored pending binding instead of
 				// recursively delivering valueBound or deadlocking mutual callbacks.
 				return;
 			}
-			// A removed or superseded value needs a new binding operation.
-			ownsBinding = pendingBinding == null || pendingBinding.published || pendingBinding.superseded;
+			// Once publication has been decided, a later setter needs a new operation.
+			ownsBinding = pendingBinding == null || pendingBinding.decided;
 			if (ownsBinding) {
 				supersedePendingBindings(name);
 				pendingBinding = new PendingBinding();
@@ -303,11 +311,11 @@ public final class SokletHttpSession implements HttpSession {
 			boolean published;
 			boolean invalidated;
 			synchronized (this.stateLock) {
+				pendingBinding.decided = true;
 				invalidated = this.invalidated;
 				published = !invalidated && !pendingBinding.superseded;
 				if (published) {
 					existingValue = getAttributes().put(name, value);
-					pendingBinding.published = true;
 				}
 			}
 
@@ -391,7 +399,7 @@ public final class SokletHttpSession implements HttpSession {
 
 	private static final class PendingBinding {
 		private final Thread owner = Thread.currentThread();
-		private boolean published;
+		private boolean decided;
 		private boolean superseded;
 		private boolean completed;
 		@Nullable

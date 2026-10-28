@@ -210,10 +210,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 */
 	@NonNull
 	public Response toResponse() {
-		MarshaledResponse marshaledResponse = toMarshaledResponse();
+		byte @Nullable [] body = getResponseBody();
+		MarshaledResponse marshaledResponse = toMarshaledResponse(body);
 
 		return Response.withStatusCode(marshaledResponse.getStatusCode())
-				.body(getResponseBody())
+				.body(body)
 				.headers(marshaledResponse.getHeaders())
 				.cookies(marshaledResponse.getCookies())
 				.build();
@@ -231,8 +232,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 */
 	@NonNull
 	public MarshaledResponse toMarshaledResponse() {
-		byte @Nullable [] body = getResponseBody();
+		return toMarshaledResponse(getResponseBody());
+	}
 
+	@NonNull
+	private MarshaledResponse toMarshaledResponse(byte @Nullable [] body) {
 		Map<@NonNull String, @NonNull List<@NonNull String>> headers = getHeaders().entrySet().stream()
 				.collect(Collectors.toMap(
 						Map.Entry::getKey,

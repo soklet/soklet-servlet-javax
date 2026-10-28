@@ -28,6 +28,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.List;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
@@ -269,6 +270,34 @@ public class AdditionalInteropTests {
 		try (InputStream in = ctx.getResourceAsStream("/root.txt")) {
 			Assertions.assertNotNull(in);
 		}
+	}
+
+	@Test
+	public void filesystemResourceRootRejectsOutsideSymlinks(@TempDir Path tempDir) throws Exception {
+		Path root = Files.createDirectory(tempDir.resolve("public"));
+		Path outside = Files.createDirectory(tempDir.resolve("private"));
+		Files.writeString(root.resolve("inside.txt"), "public", StandardCharsets.UTF_8);
+		Files.writeString(outside.resolve("secret.txt"), "secret", StandardCharsets.UTF_8);
+		try {
+			Files.createSymbolicLink(root.resolve("alias.txt"), root.resolve("inside.txt"));
+			Files.createSymbolicLink(root.resolve("secret.txt"), outside.resolve("secret.txt"));
+			Files.createSymbolicLink(root.resolve("private"), outside);
+		} catch (UnsupportedOperationException | IOException | SecurityException e) {
+			org.junit.jupiter.api.Assumptions.assumeTrue(false, "Symbolic links unavailable: " + e);
+		}
+		SokletServletContext context = SokletServletContext.builder().filesystemResourceRoot(root).build();
+		Assertions.assertNotNull(context.getResource("/inside.txt"));
+		try (InputStream alias = context.getResourceAsStream("/alias.txt")) {
+			Assertions.assertNotNull(alias);
+			Assertions.assertEquals("public", new String(alias.readAllBytes(), StandardCharsets.UTF_8));
+		}
+		Assertions.assertNull(context.getResource("/secret.txt"));
+		Assertions.assertNull(context.getResourceAsStream("/secret.txt"));
+		Assertions.assertNull(context.getResource("/private/secret.txt"));
+		Assertions.assertNull(context.getResourceAsStream("/private/secret.txt"));
+		Assertions.assertNull(context.getResourcePaths("/private/"));
+		Assertions.assertFalse(context.getResourcePaths("/").contains("/secret.txt"));
+		Assertions.assertFalse(context.getResourcePaths("/").contains("/private/"));
 	}
 
 	@Test

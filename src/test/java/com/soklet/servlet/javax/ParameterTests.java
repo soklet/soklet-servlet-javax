@@ -35,6 +35,34 @@ import java.util.Set;
 @ThreadSafe
 public class ParameterTests {
 	@Test
+	public void parameterPairLimitIncludesQueryAndFormAndCachesFailure() throws Exception {
+		String query = "q=1&".repeat(500);
+		String form = "f=2&".repeat(500);
+		Request accepted = Request.withRawUrl(HttpMethod.POST, "/p?" + query)
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
+				.body(form.getBytes(StandardCharsets.US_ASCII)).build();
+		HttpServletRequest acceptedServlet = SokletHttpServletRequest.fromRequest(accepted);
+		Assertions.assertEquals(500, acceptedServlet.getParameterValues("q").length);
+		Assertions.assertEquals(500, acceptedServlet.getParameterValues("f").length);
+
+		Request rejected = Request.withRawUrl(HttpMethod.POST, "/p?" + query)
+				.headers(Map.of("Content-Type", List.of("application/x-www-form-urlencoded")))
+				.body((form + "extra=3").getBytes(StandardCharsets.US_ASCII)).build();
+		HttpServletRequest rejectedServlet = SokletHttpServletRequest.fromRequest(rejected);
+		com.soklet.exception.IllegalRequestException failure = Assertions.assertThrows(
+				com.soklet.exception.IllegalRequestException.class, rejectedServlet::getParameterMap);
+		Assertions.assertSame(failure, Assertions.assertThrows(
+				com.soklet.exception.IllegalRequestException.class, () -> rejectedServlet.getParameter("q")));
+		Assertions.assertEquals(-1, rejectedServlet.getInputStream().read());
+	}
+
+	@Test
+	public void emptyParameterSegmentsDoNotConsumePairLimit() {
+		Request request = Request.withRawUrl(HttpMethod.GET, "/p?" + "&".repeat(1001) + "x=1").build();
+		Assertions.assertEquals("1", SokletHttpServletRequest.fromRequest(request).getParameter("x"));
+	}
+
+	@Test
 	public void decodedParameterNamesAndEmptyValuesPreserveEveryOccurrence() {
 		Request request = Request.withRawUrl(HttpMethod.POST,
 				"/p?key%26name=one%3Dtwo&%6bey%26name=one%3Dtwo&empty&empty=&semi=a;b")

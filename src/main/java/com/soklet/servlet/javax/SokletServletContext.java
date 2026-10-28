@@ -153,6 +153,15 @@ public final class SokletServletContext implements ServletContext {
 			return this;
 		}
 
+		/**
+		 * Uses an existing, trusted, immutable directory as the resource root.
+		 * Its real path is pinned at construction; lookups reject links that leave
+		 * that root. Concurrent changes to the tree are unsupported because
+		 * {@link SokletServletContext#getResource(String)} returns a URL opened later by the caller.
+		 *
+		 * @param resourceRoot the existing resource directory
+		 * @return this builder
+		 */
 		@NonNull
 		public Builder filesystemResourceRoot(@NonNull Path resourceRoot) {
 			requireNonNull(resourceRoot);
@@ -235,14 +244,27 @@ public final class SokletServletContext implements ServletContext {
 
 		private FilesystemResourceRoot(@NonNull Path root) {
 			requireNonNull(root);
-			this.root = root.toAbsolutePath().normalize();
+			try {
+				this.root = root.toRealPath();
+			} catch (IOException e) {
+				throw new IllegalArgumentException("Filesystem resource root must exist", e);
+			}
+			if (!Files.isDirectory(this.root))
+				throw new IllegalArgumentException("Filesystem resource root must be a directory");
 		}
 
 		@NonNull
 		private Optional<Path> resolvePath(@NonNull String path) {
 			String relative = path.substring(1);
 			Path resolved = root.resolve(relative).normalize();
-			return resolved.startsWith(root) ? Optional.of(resolved) : Optional.empty();
+			if (!resolved.startsWith(root))
+				return Optional.empty();
+			try {
+				Path realPath = resolved.toRealPath();
+				return realPath.startsWith(root) ? Optional.of(realPath) : Optional.empty();
+			} catch (IOException | SecurityException e) {
+				return Optional.empty();
+			}
 		}
 
 		@Override
@@ -264,8 +286,11 @@ public final class SokletServletContext implements ServletContext {
 				String prefix = normalized;
 
 				stream.forEach(child -> {
+					Path realChild = resolvePath(prefix + child.getFileName()).orElse(null);
+					if (realChild == null)
+						return;
 					String name = child.getFileName().toString();
-					boolean isDir = Files.isDirectory(child);
+					boolean isDir = Files.isDirectory(realChild);
 					out.add(prefix + name + (isDir ? "/" : ""));
 				});
 
@@ -281,7 +306,7 @@ public final class SokletServletContext implements ServletContext {
 			requireNonNull(path);
 			Path resolved = resolvePath(path).orElse(null);
 
-			if (resolved == null || !Files.exists(resolved))
+			if (resolved == null)
 				return null;
 
 			return resolved.toUri().toURL();

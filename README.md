@@ -101,12 +101,18 @@ dependencies {
   `IllegalRequestException` (HTTP 400 with Soklet's default error marshaler),
   instead of replacement characters. A valid encoded U+FFFD remains legal.
   The shared parameter snapshot retains decoding failures, and later accessors
-  rethrow them. Set the body encoding before reading parameters or the body.
+  rethrow them. At most 1,000 nonempty query and form pairs combined are
+  accepted; exceeding that limit raises `IllegalRequestException`. Set the body
+  encoding before reading parameters or the body.
 - Session-cookie lookup uses the exact, case-sensitive `JSESSIONID` name.
   Client cookie pairs that the chosen Servlet API cannot represent are ignored
   individually; valid neighboring cookies are retained.
   Session invalidation detaches attributes even if a binding listener throws;
   listener failures can still propagate after cleanup.
+- `filesystemResourceRoot` requires an existing, trusted, immutable directory.
+  The adapter pins its real path and rejects links outside it during resource
+  lookup and listing. Concurrent tree changes are unsupported because a returned
+  resource URL is opened later by application code.
 - Concurrent setters of an identical session attribute share an in-progress
   binding callback. An ordinary follower waits at most 200 milliseconds or
   until interrupted, then returns without another `valueBound`; it may precede
@@ -114,6 +120,9 @@ dependencies {
   The owner remains responsible for publication and balanced unbinding. A later
   replacement or removal supersedes pending publication for that name, so a slow
   listener cannot overwrite the newer value or resurrect a removed attribute.
+  A later setter for the same instance reuses its unfinished binding callback
+  before publication is decided, restoring publication unless another removal
+  or replacement follows.
   Completed listener failures propagate to the owner and followers that observe
   completion before returning. Listener reentry does not wait. Binding
   listeners should avoid waiting for work or locks a concurrent setter may hold.

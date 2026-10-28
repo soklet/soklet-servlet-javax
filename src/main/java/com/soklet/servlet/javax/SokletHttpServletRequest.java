@@ -108,6 +108,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private static final String SESSION_COOKIE_NAME;
 	@NonNull
 	private static final String SESSION_URL_PARAM;
+	private static final int MAX_PARAMETER_PAIRS = 1_000;
 
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
@@ -540,7 +541,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		Map<@NonNull String, @NonNull List<@NonNull String>> parsed = new LinkedHashMap<>();
 		Charset charset = getEffectiveCharset();
 		// URL query components use core's UTF-8 contract, independently of body encoding.
-		appendParameters(parsed, getRequest().getRawQuery().orElse(""), StandardCharsets.UTF_8, StandardCharsets.UTF_8);
+		int pairCount = appendParameters(parsed, getRequest().getRawQuery().orElse(""),
+				StandardCharsets.UTF_8, StandardCharsets.UTF_8, 0);
 
 		// All parameter-family entry points populate the same snapshot, even when a queried
 		// name occurs only in the URL. Only eligible POST form bodies are consumed.
@@ -549,24 +551,35 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				&& this.contentType != null && this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
 			this.bodyParametersAccessed = true;
 			byte[] body = getRequest().getBody().orElse(new byte[0]);
-			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset, StandardCharsets.ISO_8859_1);
+			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset,
+					StandardCharsets.ISO_8859_1, pairCount);
 		}
 
 		parsed.replaceAll((name, values) -> List.copyOf(values));
 		return Collections.unmodifiableMap(parsed);
 	}
 
-	private static void appendParameters(@NonNull Map<@NonNull String, @NonNull List<@NonNull String>> parameters,
-			@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset) {
+	private static int appendParameters(@NonNull Map<@NonNull String, @NonNull List<@NonNull String>> parameters,
+			@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset, int pairCount) {
 		requireNonNull(parameters);
 		requireNonNull(encoded);
 		requireNonNull(charset);
 		requireNonNull(rawCharset);
 
-		// Core's query utility deliberately returns sets; Servlet values preserve every occurrence.
-		for (String pair : encoded.split("&", -1)) {
-			if (pair.isEmpty())
+		// Scan one pair at a time: splitting the entire body first can allocate
+		// millions of strings before enforcing the same 1,000-pair limit as core.
+		for (int start = 0; start < encoded.length();) {
+			int end = encoded.indexOf('&', start);
+			if (end == -1)
+				end = encoded.length();
+			if (end == start) {
+				start = end + 1;
 				continue;
+			}
+			if (++pairCount > MAX_PARAMETER_PAIRS)
+				throw new IllegalRequestException("Too many request parameters.");
+			String pair = encoded.substring(start, end);
+			start = end + 1;
 
 			int separator = pair.indexOf('=');
 			String rawName = separator < 0 ? pair : pair.substring(0, separator);
@@ -580,6 +593,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				throw new IllegalRequestException("Invalid encoding in request parameter");
 			}
 		}
+		return pairCount;
 	}
 
 	@NonNull
