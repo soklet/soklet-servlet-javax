@@ -255,14 +255,14 @@ public final class SokletServletContext implements ServletContext {
 
 		@NonNull
 		private Optional<Path> resolvePath(@NonNull String path) {
-			String relative = path.substring(1);
-			Path resolved = root.resolve(relative).normalize();
-			if (!resolved.startsWith(root))
-				return Optional.empty();
 			try {
+				String relative = path.substring(1);
+				Path resolved = root.resolve(relative).normalize();
+				if (!resolved.startsWith(root))
+					return Optional.empty();
 				Path realPath = resolved.toRealPath();
 				return realPath.startsWith(root) ? Optional.of(realPath) : Optional.empty();
-			} catch (IOException | SecurityException e) {
+			} catch (IOException | SecurityException | java.nio.file.InvalidPathException e) {
 				return Optional.empty();
 			}
 		}
@@ -316,8 +316,8 @@ public final class SokletServletContext implements ServletContext {
 		@Nullable
 		public InputStream getResourceAsStream(@NonNull String path) {
 			try {
-				URL url = getResource(path);
-				return url == null ? null : url.openStream();
+				Path resolved = resolvePath(path).orElse(null);
+				return resolved == null || !Files.isRegularFile(resolved) ? null : Files.newInputStream(resolved);
 			} catch (IOException ignored) {
 				return null;
 			}
@@ -366,7 +366,7 @@ public final class SokletServletContext implements ServletContext {
 		@NonNull
 		private Optional<String> toClasspathPath(@NonNull String path,
 																						 boolean forDirectoryListing) {
-			if (containsDotDotSegment(path))
+			if (path.indexOf('\0') >= 0 || containsDotDotSegment(path))
 				return Optional.empty();
 
 			String relative = path.substring(1);
@@ -530,7 +530,57 @@ public final class SokletServletContext implements ServletContext {
 			if (classpathPath == null)
 				return null;
 
-			return classLoader.getResourceAsStream(classpathPath);
+			if (path.endsWith("/"))
+				return null;
+			try {
+				URL resource = classLoader.getResource(classpathPath);
+				if (resource == null)
+					return null;
+				if (resource.getProtocol().equals("file") && !Files.isRegularFile(Path.of(resource.toURI())))
+					return null;
+				if (resource.getProtocol().equals("jar"))
+					return openOwnedJarResource(resource);
+				return resource.openStream();
+			} catch (IOException | java.net.URISyntaxException | java.nio.file.InvalidPathException failure) {
+				return null;
+			}
+		}
+
+		@Nullable
+		private InputStream openOwnedJarResource(@NonNull URL resource) throws IOException {
+			java.net.JarURLConnection connection = (java.net.JarURLConnection) resource.openConnection();
+			// Own this handle explicitly; opening a second cached URL connection would
+			// escape the class loader's stream ownership and retain the JAR after close.
+			connection.setUseCaches(false);
+			java.util.jar.JarFile jarFile = connection.getJarFile();
+			try {
+				java.util.jar.JarEntry entry = connection.getJarEntry();
+				if (entry != null && !entry.isDirectory()) {
+					return new java.io.FilterInputStream(jarFile.getInputStream(entry)) {
+						private boolean closed;
+
+						@Override
+						public synchronized void close() throws IOException {
+							if (this.closed)
+								return;
+							this.closed = true;
+							try (jarFile) {
+								super.close();
+							}
+						}
+					};
+				}
+			} catch (IOException | RuntimeException | Error failure) {
+				try {
+					jarFile.close();
+				} catch (Throwable closeFailure) {
+					if (closeFailure != failure)
+						failure.addSuppressed(closeFailure);
+				}
+				throw failure;
+			}
+			jarFile.close();
+			return null;
 		}
 	}
 	@ThreadSafe

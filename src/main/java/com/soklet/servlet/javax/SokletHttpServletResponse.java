@@ -423,6 +423,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	private void setResponseCommitted(@NonNull Boolean responseCommitted) {
 		requireNonNull(responseCommitted);
+		// A writer obtained after commitment must use the encoding in effect at
+		// commitment, even if the context default changes in the meantime.
+		if (responseCommitted && !this.responseCommitted && this.charset == null)
+			setCharset(getEffectiveCharset());
 		this.responseCommitted = responseCommitted;
 	}
 
@@ -1112,10 +1116,6 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		if (location == null)
 			throw new IllegalArgumentException("Redirect location must not be null");
 
-		setStatus(HttpServletResponse.SC_FOUND);
-		resetBuffer();
-		clearDiscardedRepresentationHeaders();
-
 		// This method can accept relative URLs; the servlet container must convert the relative URL to an absolute URL
 		// before sending the response to the client. If the location is relative without a leading '/' the container
 		// interprets it as relative to the current request URI. If the location is relative with a leading '/'
@@ -1168,6 +1168,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				finalLocation = buildAbsoluteLocation(scheme, baseAuthority, normalized, query, parsed.rawFragment);
 			}
 		}
+
+		setStatus(HttpServletResponse.SC_FOUND);
+		resetBuffer();
+		clearDiscardedRepresentationHeaders();
 
 		setRedirectUrl(finalLocation);
 		setHeader("Location", finalLocation);
@@ -1486,7 +1490,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 			// If a content type is already present and lacks charset, append the frozen charset to header
 			String currentContentType = getContentType();
 
-			if (currentContentType != null) {
+			if (currentContentType != null && !isCommitted()) {
 				Optional<String> csInHeader = extractCharsetFromContentType(currentContentType);
 				if (csInHeader.isEmpty() || !csInHeader.get().equalsIgnoreCase(enc.name())) {
 					String updated = withCharset(currentContentType, enc.name()).orElse(null);

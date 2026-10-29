@@ -157,6 +157,9 @@ invalidation. Updating the context timeout does not change existing sessions.
 
 ## Response buffering
 
+The default local commit threshold is 1,024 bytes; `setBufferSize(...)` changes it.
+This threshold is not a body-size or memory limit.
+
 `SokletHttpServletResponse` captures its entire body in memory. Writes through
 `getWriter()` and `getOutputStream()` accumulate locally; `toMarshaledResponse()`
 and `toResponse()` copy the captured body into a finite Soklet response.

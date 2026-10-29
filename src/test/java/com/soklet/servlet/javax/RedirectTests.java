@@ -184,6 +184,20 @@ public class RedirectTests {
 		Assertions.assertEquals(List.of("http://localhost/root/next"), mr.getHeaders().get("Location"));
 	}
 
+ @Test
+ public void invalidRedirectPreservesTheUncommittedResponse() throws IOException {
+  for(String location:List.of("//","//[bad/x","http://[::1/x")) {
+   SokletHttpServletResponse response=SokletHttpServletResponse.fromRawPath("/root/path",SokletServletContext.fromDefaults());
+   response.setStatus(201); response.setContentType("text/html"); response.setHeader("ETag","v1");
+   response.getOutputStream().write("page".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+   Assertions.assertThrows(IllegalArgumentException.class,()->response.sendRedirect(location));
+   Assertions.assertFalse(response.isCommitted()); Assertions.assertEquals(201,response.getStatus());
+   Assertions.assertEquals("text/html",response.getContentType()); Assertions.assertEquals("v1",response.getHeader("ETag"));
+   Assertions.assertNull(response.getHeader("Location"));
+   Assertions.assertArrayEquals("page".getBytes(java.nio.charset.StandardCharsets.UTF_8),MarshaledResponseTestSupport.bodyBytesOrEmpty(response.toMarshaledResponse()));
+  }
+ }
+
 	private SokletHttpServletResponse responseWithTrustedForwardedHeaders(Request request) {
 		HttpServletRequest httpRequest = SokletHttpServletRequest.withRequest(request)
 				.forwardedHeaderTrustPolicy(TrustPolicy.TRUST_ALL)
