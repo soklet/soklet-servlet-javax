@@ -536,14 +536,55 @@ public final class SokletServletContext implements ServletContext {
 				URL resource = classLoader.getResource(classpathPath);
 				if (resource == null)
 					return null;
-				if (resource.getProtocol().equals("file") && !Files.isRegularFile(Path.of(resource.toURI())))
-					return null;
+				if (resource.getProtocol().equals("file")) {
+					// Class loaders may return unescaped filename characters. Preserve
+					// existing escapes while encoding characters that URI syntax forbids.
+					String authority = resource.getAuthority();
+					if (authority != null && !authority.isEmpty() && !"localhost".equalsIgnoreCase(authority))
+						return null;
+					String rawPath = resource.getPath();
+					if (!rawPath.startsWith("/") || resource.getQuery() != null)
+						return null;
+					java.net.URI uri = new java.net.URI("file://" + escapeFileUrlPath(rawPath));
+					Path file = Path.of(uri);
+					return Files.isRegularFile(file) ? Files.newInputStream(file) : null;
+				}
 				if (resource.getProtocol().equals("jar"))
 					return openOwnedJarResource(resource);
 				return resource.openStream();
 			} catch (IOException | java.net.URISyntaxException | java.nio.file.InvalidPathException failure) {
 				return null;
 			}
+		}
+
+		@NonNull
+		private static String escapeFileUrlPath(@NonNull String path) {
+			StringBuilder encoded = new StringBuilder(path.length());
+			for (int index = 0; index < path.length();) {
+				char character = path.charAt(index);
+				if (character == '%' && index + 2 < path.length()
+						&& "0123456789abcdefABCDEF".indexOf(path.charAt(index + 1)) >= 0
+						&& "0123456789abcdefABCDEF".indexOf(path.charAt(index + 2)) >= 0) {
+					encoded.append(path, index, index + 3);
+					index += 3;
+					continue;
+				}
+				if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
+						|| (character >= '0' && character <= '9') || "/:@-._~!$&'()*+,;=".indexOf(character) >= 0) {
+					encoded.append(character);
+					index++;
+					continue;
+				}
+				int codePoint = path.codePointAt(index);
+				byte[] bytes = new String(Character.toChars(codePoint)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+				for (byte value : bytes) {
+					encoded.append('%');
+					encoded.append(Character.toUpperCase(Character.forDigit((value & 0xFF) >>> 4, 16)));
+					encoded.append(Character.toUpperCase(Character.forDigit(value & 0xF, 16)));
+				}
+				index += Character.charCount(codePoint);
+			}
+			return encoded.toString();
 		}
 
 		@Nullable

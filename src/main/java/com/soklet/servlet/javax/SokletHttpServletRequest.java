@@ -66,6 +66,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
+import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
@@ -112,11 +113,18 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	static {
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
-		RFC_1123_PARSER = DateTimeFormatter.RFC_1123_DATE_TIME;
+		// Fixed English text avoids locale-provider-dependent weekday abbreviations.
+		Map<Long, String> shortDays = Map.of(1L, "Mon", 2L, "Tue", 3L, "Wed", 4L, "Thu", 5L, "Fri", 6L, "Sat", 7L, "Sun");
+		Map<Long, String> longDays = Map.of(1L, "Monday", 2L, "Tuesday", 3L, "Wednesday", 4L, "Thursday", 5L, "Friday", 6L, "Saturday", 7L, "Sunday");
+		Map<Long, String> months = Map.ofEntries(Map.entry(1L, "Jan"), Map.entry(2L, "Feb"), Map.entry(3L, "Mar"),
+				Map.entry(4L, "Apr"), Map.entry(5L, "May"), Map.entry(6L, "Jun"), Map.entry(7L, "Jul"), Map.entry(8L, "Aug"),
+				Map.entry(9L, "Sep"), Map.entry(10L, "Oct"), Map.entry(11L, "Nov"), Map.entry(12L, "Dec"));
+		RFC_1123_PARSER = DateTimeFormatter.RFC_1123_DATE_TIME.withResolverStyle(ResolverStyle.STRICT);
 		// RFC 850 uses a full weekday and hyphens. Resolve its rolling century at access time.
 		RFC_850_PARSER = new DateTimeFormatterBuilder()
 				.parseCaseInsensitive()
-				.appendPattern("EEEE, dd-MMM-")
+				.appendText(ChronoField.DAY_OF_WEEK, longDays)
+				.appendPattern(", dd-").appendText(ChronoField.MONTH_OF_YEAR, months).appendLiteral('-')
 				.appendValue(ChronoField.YEAR, 2)
 				.appendPattern(" HH:mm:ss 'GMT'")
 				.toFormatter(US)
@@ -125,12 +133,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		// asctime: "EEE MMM  d HH:mm:ss yyyy" — allow 1 or 2 spaces before day, no zone in text → default GMT.
 		ASCTIME_PARSER = new DateTimeFormatterBuilder()
 				.parseCaseInsensitive()
-				.appendPattern("EEE MMM")
+				.appendText(ChronoField.DAY_OF_WEEK, shortDays)
+				.appendLiteral(' ').appendText(ChronoField.MONTH_OF_YEAR, months)
 				.appendLiteral(' ')
 				.optionalStart().appendLiteral(' ').optionalEnd() // tolerate double space before single-digit day
 				.appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
-				.appendPattern(" HH:mm:ss yyyy")
+				.appendPattern(" HH:mm:ss uuuu")
 				.toFormatter(US)
+				.withResolverStyle(ResolverStyle.STRICT)
 				.withZone(ZoneOffset.UTC);
 
 		SESSION_COOKIE_NAME = "JSESSIONID";
@@ -153,6 +163,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	private final List<@NonNull Cookie> cookies;
 	@Nullable
 	private Charset charset;
+	@Nullable
+	private String unsupportedCharsetName;
 	@Nullable
 	private String contentType;
 	@Nullable
@@ -194,6 +206,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		this.attributes = new HashMap<>();
 		this.cookies = parseCookies(request);
 		this.charset = parseCharacterEncoding(request).orElse(null);
+		this.unsupportedCharsetName = this.charset == null ? parseDeclaredCharacterEncodingName(request).orElse(null) : null;
 		this.contentType = parseContentType(request).orElse(null);
 		this.host = builder.host;
 		this.port = builder.port;
@@ -279,41 +292,60 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		StringBuilder current = new StringBuilder(headerValue.length());
 		boolean inQuotes = false;
 		boolean escape = false;
+		boolean seenEquals = false;
+		boolean valueStarted = false;
 
 		for (int i = 0; i < headerValue.length(); i++) {
 			char c = headerValue.charAt(i);
-
-			if (escape) {
-				current.append(c);
+			if (inQuotes && escape) {
 				escape = false;
-				continue;
-			}
-
-			if (c == '\\') {
+			} else if (inQuotes && c == '\\') {
 				escape = true;
-				current.append(c);
-				continue;
-			}
-
-			if (c == '"') {
-				inQuotes = !inQuotes;
-				current.append(c);
-				continue;
-			}
-
-			if (c == ';' && !inQuotes) {
+			} else if (c == '"' && inQuotes) {
+				if (!isCookieValueTerminator(headerValue, i + 1) && current.indexOf(";") >= 0) {
+					// A quote followed by more value text cannot close this quoted
+					// value. Recover prior delimiters, then let it open the later
+					// cookie's value (for example, bad="oops; session=x; pref="ok").
+					String[] recovered = current.toString().split(";", -1);
+					for (int part = 0; part < recovered.length - 1; part++)
+						parts.add(recovered[part]);
+					current.setLength(0);
+					current.append(recovered[recovered.length - 1]);
+					int equals = current.indexOf("=");
+					seenEquals = equals >= 0;
+					valueStarted = seenEquals && !current.substring(equals + 1).isBlank();
+					inQuotes = seenEquals && !valueStarted;
+				} else {
+					inQuotes = false;
+				}
+			} else if (c == '"' && seenEquals && !valueStarted) {
+				inQuotes = true;
+			} else if (c == ';' && !inQuotes) {
 				parts.add(current.toString());
 				current.setLength(0);
+				seenEquals = false;
+				valueStarted = false;
 				continue;
 			}
-
+			if (seenEquals && !Character.isWhitespace(c))
+				valueStarted = true;
+			if (c == '=' && !seenEquals)
+				seenEquals = true;
 			current.append(c);
 		}
 
-		if (current.length() > 0)
+		// An unterminated quote is malformed; recover later cookies at their delimiters.
+		if (inQuotes)
+			Collections.addAll(parts, current.toString().split(";", -1));
+		else if (current.length() > 0)
 			parts.add(current.toString());
-
 		return parts;
+	}
+
+	private static boolean isCookieValueTerminator(@NonNull String headerValue, int offset) {
+		while (offset < headerValue.length() && Character.isWhitespace(headerValue.charAt(offset)))
+			offset++;
+		return offset == headerValue.length() || headerValue.charAt(offset) == ';';
 	}
 
 	/**
@@ -424,6 +456,43 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@NonNull
+	private Optional<String> parseDeclaredCharacterEncodingName(@NonNull Request request) {
+		List<String> values = request.getHeaders().get("Content-Type");
+		if (values == null || values.isEmpty())
+			return Optional.empty();
+
+		// Charset validation above has already rejected duplicate charset parameters.
+		// Retain an unsupported name rather than confusing it with an absent declaration.
+		String value = values.getFirst();
+		boolean quoted = false;
+		boolean escaped = false;
+		int start = 0;
+		for (int index = 0; index <= value.length(); index++) {
+			char ch = index == value.length() ? ';' : value.charAt(index);
+			if (index < value.length() && escaped) {
+				escaped = false;
+			} else if (index < value.length() && quoted && ch == '\\') {
+				escaped = true;
+			} else if (index < value.length() && ch == '"') {
+				quoted = !quoted;
+			} else if (index == value.length() || (ch == ';' && !quoted)) {
+				if (start > 0) {
+					String parameter = value.substring(start, index).trim();
+					int equals = parameter.indexOf('=');
+					if (equals >= 0 && "charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
+						String name = parameter.substring(equals + 1).trim();
+						name = name.startsWith("'") ? stripOptionalQuotes(name) : unquoteCookieValueIfNeeded(name);
+						String retained = Utilities.trimAggressivelyToNull(name);
+						return Optional.of(retained == null ? "" : retained);
+					}
+				}
+				start = index + 1;
+			}
+		}
+		return Optional.empty();
+	}
+
+	@NonNull
 	private Optional<String> parseContentType(@NonNull Request request) {
 		requireNonNull(request);
 		return Utilities.extractContentTypeFromHeaders(request.getHeaders());
@@ -479,6 +548,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	@NonNull
 	private Charset getEffectiveCharset() {
+		if (this.unsupportedCharsetName != null)
+			throw new UnsupportedCharsetException(this.unsupportedCharsetName);
 		Charset explicit = this.charset;
 
 		if (explicit != null)
@@ -515,6 +586,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 
 	private void setCharset(@Nullable Charset charset) {
 		this.charset = charset;
+		this.unsupportedCharsetName = null;
 	}
 
 	@NonNull
@@ -539,7 +611,6 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@NonNull
 	private Map<@NonNull String, @NonNull List<@NonNull String>> parseParameters() {
 		Map<@NonNull String, @NonNull List<@NonNull String>> parsed = new LinkedHashMap<>();
-		Charset charset = getEffectiveCharset();
 		// URL query components use core's UTF-8 contract, independently of body encoding.
 		int pairCount = appendParameters(parsed, getRequest().getRawQuery().orElse(""),
 				StandardCharsets.UTF_8, StandardCharsets.UTF_8, 0);
@@ -550,6 +621,13 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 				&& getRequestReadMethod() == RequestReadMethod.UNSPECIFIED
 				&& this.contentType != null && this.contentType.equalsIgnoreCase("application/x-www-form-urlencoded")) {
 			this.bodyParametersAccessed = true;
+			Charset charset;
+			try {
+				charset = getEffectiveCharset();
+			} catch (IllegalCharsetNameException | UnsupportedCharsetException failure) {
+				throw new IllegalRequestException("Unsupported character encoding in request parameters.");
+			}
+			setCharset(charset);
 			byte[] body = getRequest().getBody().orElse(new byte[0]);
 			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset,
 					StandardCharsets.ISO_8859_1, pairCount);
@@ -1639,12 +1717,14 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	@Override
 	@NonNull
 	public Enumeration<@NonNull String> getAttributeNames() {
-		return Collections.enumeration(getAttributes().keySet());
+		return Collections.enumeration(new ArrayList<>(getAttributes().keySet()));
 	}
 
 	@Override
 	@Nullable
 	public String getCharacterEncoding() {
+		if (this.unsupportedCharsetName != null)
+			return this.unsupportedCharsetName;
 		Charset explicit = getCharset().orElse(null);
 
 		if (explicit != null)
@@ -1658,7 +1738,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	public void setCharacterEncoding(@Nullable String env) throws UnsupportedEncodingException {
 		// Note that spec says: "This method must be called prior to reading request parameters or
 		// reading input using getReader(). Otherwise, it has no effect."
-		if (this.parametersAccessed || getRequestReadMethod() != RequestReadMethod.UNSPECIFIED)
+		if (this.parametersAccessed || getRequestReadMethod() == RequestReadMethod.READER)
 			return;
 
 		if (env == null) {
@@ -1870,8 +1950,16 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		RequestReadMethod currentReadMethod = getRequestReadMethod();
 
 		if (currentReadMethod == RequestReadMethod.UNSPECIFIED) {
+			Charset charset;
+			try {
+				charset = getEffectiveCharset();
+			} catch (IllegalCharsetNameException | UnsupportedCharsetException failure) {
+				UnsupportedEncodingException unsupported = new UnsupportedEncodingException(this.unsupportedCharsetName);
+				unsupported.initCause(failure);
+				throw unsupported;
+			}
+			setCharset(charset);
 			setRequestReadMethod(RequestReadMethod.READER);
-			Charset charset = getEffectiveCharset();
 			byte[] body = this.bodyParametersAccessed ? new byte[]{} : getRequest().getBody().orElse(new byte[0]);
 			InputStream inputStream = new ByteArrayInputStream(body);
 			setBufferedReader(new BufferedReader(new InputStreamReader(inputStream, charset)));

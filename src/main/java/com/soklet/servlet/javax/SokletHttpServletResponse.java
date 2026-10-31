@@ -16,6 +16,7 @@
 
 package com.soklet.servlet.javax;
 
+import com.soklet.HttpDate;
 import com.soklet.MarshaledResponse;
 import com.soklet.Request;
 import com.soklet.Response;
@@ -34,6 +35,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.IDN;
 import java.net.URI;
@@ -44,8 +46,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -89,15 +89,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private static final Integer DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES;
 	@NonNull
 	private static final Charset DEFAULT_CHARSET;
-	@NonNull
-	private static final DateTimeFormatter DATE_TIME_FORMATTER;
 
 	static {
 		DEFAULT_RESPONSE_BUFFER_SIZE_IN_BYTES = 1_024;
 		DEFAULT_CHARSET = StandardCharsets.ISO_8859_1; // Per Servlet spec
-		DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
-				.withLocale(Locale.US)
-				.withZone(ZoneId.of("GMT"));
 	}
 
 	@NonNull
@@ -166,6 +161,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	 * <p>
 	 * This is the exact path component sent by the client, without URL decoding and without a query string
 	 * (for example, {@code "/a%20b/c"}). It corresponds to {@link Request#getRawPath()}.
+	 * <p>
+	 * This factory has no request method. To preserve a declared HEAD representation
+	 * length when no body is captured, use {@link #fromRequest(Request, ServletContext)}
+	 * or {@link #fromHttpServletRequest(HttpServletRequest)} instead. An empty capture
+	 * created from only a path remains an ordinary empty byte-array body.
 	 *
 	 * @param rawPath raw path component of the request (no query string)
 	 * @param servletContext servlet context for this response
@@ -200,7 +200,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	/**
 	 * Converts the captured response to Soklet's application response representation.
-	 * Empty buffers are represented as an absent body for {@code 204}, {@code 205}, and {@code 304}.
+	 * Empty buffers are represented as an absent body for HEAD requests and {@code 204}, {@code 205}, and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
 	 * <p>
 	 * This method copies the captured body into a finite response. It does not transmit bytes or
@@ -222,7 +222,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 
 	/**
 	 * Converts the captured response to Soklet's marshaled response representation.
-	 * Empty buffers are represented as an absent body for {@code 204}, {@code 205}, and {@code 304}.
+	 * Empty buffers are represented as an absent body for HEAD requests and {@code 204}, {@code 205}, and {@code 304}.
 	 * Nonempty bodies are preserved for Soklet's normal response validation.
 	 * <p>
 	 * This method copies the captured body into a finite response. It does not transmit bytes or
@@ -273,8 +273,9 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	private byte @Nullable [] getResponseBody() {
 		byte[] body = getResponseOutputStream().toByteArray();
 		// Servlet buffers exist even when no content was written. Only normalize
-		// supported bodyless final statuses; preserve empty ordinary responses.
-		return body.length == 0 && (getStatus() == SC_NO_CONTENT || getStatus() == SC_RESET_CONTENT || getStatus() == SC_NOT_MODIFIED) ? null : body;
+		// HEAD or supported bodyless final statuses; preserve empty ordinary responses.
+		return body.length == 0 && ((this.httpServletRequest != null && "HEAD".equals(this.httpServletRequest.getMethod()))
+				|| getStatus() == SC_NO_CONTENT || getStatus() == SC_RESET_CONTENT || getStatus() == SC_NOT_MODIFIED) ? null : body;
 	}
 
 	private static boolean isBodylessStatusCode(int statusCode) {
@@ -489,7 +490,7 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 	@NonNull
 	private String dateHeaderRepresentation(@NonNull Long millisSinceEpoch) {
 		requireNonNull(millisSinceEpoch);
-		return DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(millisSinceEpoch));
+		return HttpDate.toHeaderValue(Instant.ofEpochMilli(millisSinceEpoch));
 	}
 
 	@NonNull
@@ -1181,6 +1182,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setResponseCommitted(true);
 	}
 
+	/**
+	 * Stores an English IMF-fixdate value when this response is uncommitted.
+	 *
+	 * @throws IllegalArgumentException if the date's UTC year is outside 1 through 9999
+	 */
 	@Override
 	public void setDateHeader(@Nullable String name,
 														long date) {
@@ -1190,6 +1196,11 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		setHeader(name, dateHeaderRepresentation(date));
 	}
 
+	/**
+	 * Stores an English IMF-fixdate value when this response is uncommitted.
+	 *
+	 * @throws IllegalArgumentException if the date's UTC year is outside 1 through 9999
+	 */
 	@Override
 	public void addDateHeader(@Nullable String name,
 														long date) {
@@ -1483,9 +1494,25 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 		ResponseWriteMethod currentResponseWriteMethod = getResponseWriteMethod();
 
 		if (currentResponseWriteMethod == ResponseWriteMethod.UNSPECIFIED) {
-			// Freeze encoding now
 			Charset enc = getEffectiveCharset();
-			setCharset(enc); // record the chosen encoding explicitly
+			ResettableResponseWriter responseWriter;
+			try {
+				// A known charset can be decoder-only. Validate its encoder before
+				// freezing the encoding or choosing this response's output method.
+				responseWriter = new ResettableResponseWriter(getResponseOutputStream(), enc);
+			} catch (UnsupportedOperationException e) {
+				UnsupportedEncodingException failure = new UnsupportedEncodingException(enc.name());
+				failure.initCause(e);
+				throw failure;
+			}
+			SokletServletPrintWriter printWriter = SokletServletPrintWriter.withWriter(responseWriter)
+					.onWriteOccurred((ignored1, ignored2) -> maybeCommitOnWrite())
+					.onWriteFinalized((ignored) -> {
+						setResponseCommitted(true);
+						setResponseFinalized(true);
+					})
+					.build();
+			setCharset(enc); // record the successfully validated encoding explicitly
 
 			// If a content type is already present and lacks charset, append the frozen charset to header
 			String currentContentType = getContentType();
@@ -1505,20 +1532,10 @@ public final class SokletHttpServletResponse implements HttpServletResponse {
 				}
 			}
 
+			this.responseWriter = responseWriter;
+			this.printWriter = printWriter;
 			setResponseWriteMethod(ResponseWriteMethod.PRINT_WRITER);
-
-			this.responseWriter = new ResettableResponseWriter(getResponseOutputStream(), enc);
-			this.printWriter =
-					SokletServletPrintWriter.withWriter(
-									this.responseWriter)
-							.onWriteOccurred((ignored1, ignored2) -> maybeCommitOnWrite())
-							.onWriteFinalized((ignored) -> {
-								setResponseCommitted(true);
-								setResponseFinalized(true);
-							})
-							.build();
-
-			return getPrintWriter().get();
+			return printWriter;
 		} else if (currentResponseWriteMethod == ResponseWriteMethod.PRINT_WRITER) {
 			return getPrintWriter().get();
 		} else {

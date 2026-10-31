@@ -103,7 +103,17 @@ dependencies {
   The shared parameter snapshot retains decoding failures, and later accessors
   rethrow them. At most 1,000 nonempty query and form pairs combined are
   accepted; exceeding that limit raises `IllegalRequestException`. Set the body
-  encoding before reading parameters or the body.
+  encoding before reading parameters or acquiring a body reader.
+- Unsupported request charset declarations remain visible through
+  `getCharacterEncoding()`. `getReader()` raises `UnsupportedEncodingException`
+  without acquiring the reader; a supported `setCharacterEncoding(...)` override
+  or raw input-stream access remains possible. Unsupported form-body encodings
+  raise `IllegalRequestException`; URL-query decoding remains UTF-8.
+  Reader acquisition and form-body parsing retain the selected encoding, so a
+  later context-default change cannot alter the request's reported encoding.
+  Acquiring or reading the raw input stream does not lock the encoding metadata;
+  an explicit override remains effective until reader or parameter access. The
+  reader/input-stream exclusivity rule remains unchanged.
 - Session-cookie lookup uses the exact, case-sensitive `JSESSIONID` name.
   Client cookie pairs that the chosen Servlet API cannot represent are ignored
   individually; valid neighboring cookies are retained.
@@ -130,20 +140,30 @@ dependencies {
   occurrence order. `setHeader("Set-Cookie", value)` replaces both forms.
   Cookies preceding a later raw header are represented as header values during
   conversion; trailing ordinary cookies remain structured response cookies.
+- A response charset that cannot encode text (for example, the JDK's
+  decoder-only `ISO-2022-CN`) makes `getWriter()` raise
+  `UnsupportedEncodingException` without acquiring the writer or locking the
+  output method. Before commitment, a supported encoding override can recover;
+  raw output-stream access also remains available.
 - Generated error responses use safe plain text and replace stale representation
   metadata. Redirects that clear the body also remove the previous representation's
   metadata. Cookies and unrelated application headers are preserved.
 - [`resetBuffer()`](<https://javax.javadoc.soklet.com/com/soklet/servlet/javax/SokletHttpServletResponse.html#resetBuffer()>) clears the writer's pending characters and encoding state as
   well as its bytes, while retaining the acquired writer and its locked charset.
+- `getDateHeader()` recognizes IMF-fixdate, RFC 850, and asctime dates using
+  strict calendar validation and English names independent of JVM locale
+  providers. Impossible dates raise `IllegalArgumentException`. The numeric
+  epoch-millisecond fallback remains supported.
 
 These are interoperability adapters, not full servlet containers; unsupported
 container features are not implicitly enabled by these corrections.
 
 Query parameters always use UTF-8, independently of the request-body charset.
 Context request/response encodings are unspecified (`null`) until configured;
-body readers and response writers still fall back to ISO-8859-1. This preserves
+body readers and response writers fall back to ISO-8859-1 when no encoding is
+specified. This preserves
 the standard `getCharacterEncoding() == null` guard for selecting UTF-8 before
-reading request parameters or the body.
+request parameter parsing or reader acquisition.
 
 `println`, `printf`, and `format` do not commit a response merely by being
 called. Explicit flush/close and filling the configured buffer still commit.
@@ -154,6 +174,28 @@ values mean no timeout, and values above the seconds range saturate at
 `Integer.MAX_VALUE`. This is session metadata, not an eviction service:
 applications remain responsible for session persistence, expiration, and
 invalidation. Updating the context timeout does not change existing sessions.
+
+## HEAD responses and date headers
+
+Create responses with `fromRequest(request, servletContext)` or
+`fromHttpServletRequest(servletRequest)` when adapting HEAD requests. These
+factories know the request method and preserve a declared representation length
+when the servlet captures no body. `fromRawPath` receives only a path; its empty
+capture remains an ordinary empty byte-array body, which can replace a declared
+HEAD length with zero during Soklet's normal projection.
+
+A servlet's default `doHead` may discard GET bytes and retain only their count.
+That count describes the identity representation. Once those bytes are discarded,
+the adapter cannot derive dynamic gzip metadata or its compressed length. If HEAD
+must match a dynamically compressed GET, generate the GET representation for
+Soklet to project, or supply the selected representation's `Content-Encoding`,
+`Vary` and length explicitly in a response bound to the HEAD request. A bodyless
+servlet HEAD with only an identity count does not enter dynamic compression.
+
+`setDateHeader` and `addDateHeader` accept only dates whose UTC year is 1 through
+9999, the range representable by a four-digit HTTP date. Values outside that
+range raise `IllegalArgumentException` before changing headers. As with other
+header setters, calls after local commitment have no effect.
 
 ## Response buffering
 
