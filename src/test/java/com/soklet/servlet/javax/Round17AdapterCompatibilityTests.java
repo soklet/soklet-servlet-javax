@@ -3,6 +3,8 @@ package com.soklet.servlet.javax;
 import com.soklet.HttpMethod;
 import com.soklet.Request;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URL;
@@ -18,14 +20,21 @@ class Round17AdapterCompatibilityTests {
 	@TempDir Path directory;
 
 	@Test void classpathFileStreamsEscapeFilenameCharactersWithoutDecodingExistingEscapesTwice() throws Exception {
-		for (String name : List.of("square[brackets]{braces}|caret^`quote\"<>\\.txt", "a+b café.txt", "percent%oops.txt")) {
+		for (String name : List.of("square[brackets]{braces}caret^`quote.txt", "a+b café.txt", "percent%oops.txt")) {
 			Path file = Files.writeString(directory.resolve(name), "content:" + name);
-			for (URL resource : List.of(new URL("file:" + file), new URL("file://localhost" + file), file.toUri().toURL()))
-				assertResourceContent(resource, "content:" + name);
+			assertFileUrlForms(file, "content:" + name);
 		}
 		Path literalEscape = Files.writeString(directory.resolve("literal%20-plus+.txt"), "literal percent escape");
 		assertResourceContent(literalEscape.toUri().toURL(), "literal percent escape");
 		assertResourceContent(new URL("file://localhost" + literalEscape.toUri().getRawPath()), "literal percent escape");
+	}
+
+	@Test
+	@DisabledOnOs(OS.WINDOWS)
+	void classpathFileStreamsEscapeUnixFilenameCharacters() throws Exception {
+		String name = "square[brackets]{braces}|caret^`quote\"<>\\.txt";
+		Path file = Files.writeString(directory.resolve(name), "content:" + name);
+		assertFileUrlForms(file, "content:" + name);
 	}
 
 	@Test void dateSettersRejectUnrepresentableYearsBeforeChangingHeaders() {
@@ -70,6 +79,15 @@ class Round17AdapterCompatibilityTests {
 		assertEquals(List.of("123"), marshaled.getHeaders().get("Content-Length"));
 		assertEquals(List.of("gzip"), marshaled.getHeaders().get("Content-Encoding"));
 		assertEquals(List.of("Accept-Encoding"), marshaled.getHeaders().get("Vary"));
+	}
+
+	private void assertFileUrlForms(Path file, String expected) throws Exception {
+		// URI paths retain the leading slash before a Windows drive and use URL separators.
+		String decodedPath = file.toUri().getPath();
+		String encodedPath = file.toUri().getRawPath();
+		for (URL resource : List.of(new URL("file:" + decodedPath), new URL("file://localhost" + decodedPath),
+				file.toUri().toURL(), new URL("file://localhost" + encodedPath)))
+			assertResourceContent(resource, expected);
 	}
 
 	private void assertResourceContent(URL resource, String expected) throws Exception {

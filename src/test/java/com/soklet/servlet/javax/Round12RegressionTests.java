@@ -60,7 +60,10 @@ class Round12RegressionTests {
 
 	@Test void classpathFileUrlsAllowUnescapedSpacesAndLocalhost() throws Exception {
 		Path file = Files.writeString(directory.resolve("a b.txt"), "content");
-		for (URL url : List.of(new URL("file:" + file), new URL("file://localhost" + file.toUri().getRawPath()))) {
+		String decodedPath = file.toUri().getPath();
+		String encodedPath = file.toUri().getRawPath();
+		for (URL url : List.of(new URL("file:" + decodedPath), new URL("file://localhost" + decodedPath),
+				file.toUri().toURL(), new URL("file://localhost" + encodedPath))) {
 			ClassLoader previous = Thread.currentThread().getContextClassLoader();
 			try {
 				Thread.currentThread().setContextClassLoader(new ClassLoader(null) {
