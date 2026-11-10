@@ -70,6 +70,7 @@ import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -613,7 +614,7 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 		Map<@NonNull String, @NonNull List<@NonNull String>> parsed = new LinkedHashMap<>();
 		// URL query components use core's UTF-8 contract, independently of body encoding.
 		int pairCount = appendParameters(parsed, getRequest().getRawQuery().orElse(""),
-				StandardCharsets.UTF_8, StandardCharsets.UTF_8, 0);
+				StandardCharsets.UTF_8, StandardCharsets.UTF_8, 0, false);
 
 		// All parameter-family entry points populate the same snapshot, even when a queried
 		// name occurs only in the URL. Only eligible POST form bodies are consumed.
@@ -629,16 +630,32 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			}
 			setCharset(charset);
 			byte[] body = getRequest().getBody().orElse(new byte[0]);
+			boolean fullyEncodedComponents = requiresFullyEncodedFormComponents(body, charset);
 			appendParameters(parsed, new String(body, StandardCharsets.ISO_8859_1), charset,
-					StandardCharsets.ISO_8859_1, pairCount);
+					StandardCharsets.ISO_8859_1, pairCount, fullyEncodedComponents);
 		}
 
 		parsed.replaceAll((name, values) -> List.copyOf(values));
 		return Collections.unmodifiableMap(parsed);
 	}
 
+	private static boolean requiresFullyEncodedFormComponents(byte @NonNull [] body, @NonNull Charset charset) {
+		String charsetName = charset.name().toUpperCase(Locale.ROOT);
+		boolean stateful = charsetName.contains("2022") || charsetName.startsWith("X-WINDOWS-5022");
+		if (stateful)
+			for (byte value : body)
+				if ((value & 0xff) >= 0x80 || value == 0x1b || value == 0x0e || value == 0x0f)
+					throw new IllegalRequestException("Stateful form charset requires percent-encoded non-ASCII and shift bytes.");
+		// Carrier delimiters are ASCII regardless of the component charset. Other
+		// encodings must escape every component byte so encoded text cannot look
+		// like a delimiter; ISO-2022 may retain its ordinary raw ASCII text.
+		return !stateful && (!charset.canEncode()
+				|| !Arrays.equals("&=+%AZaz09".getBytes(StandardCharsets.US_ASCII), "&=+%AZaz09".getBytes(charset)));
+	}
+
 	private static int appendParameters(@NonNull Map<@NonNull String, @NonNull List<@NonNull String>> parameters,
-			@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset, int pairCount) {
+			@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset, int pairCount,
+			boolean fullyEncodedComponents) {
 		requireNonNull(parameters);
 		requireNonNull(encoded);
 		requireNonNull(charset);
@@ -664,8 +681,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 			String rawValue = separator < 0 ? "" : pair.substring(separator + 1);
 
 			try {
-				String name = decodeParameter(rawName, charset, rawCharset);
-				String value = decodeParameter(rawValue, charset, rawCharset);
+				String name = decodeParameter(rawName, charset, rawCharset, fullyEncodedComponents);
+				String value = decodeParameter(rawValue, charset, rawCharset, fullyEncodedComponents);
 				parameters.computeIfAbsent(name, ignored -> new ArrayList<>()).add(value);
 			} catch (IllegalArgumentException e) {
 				throw new IllegalRequestException("Invalid encoding in request parameter");
@@ -675,7 +692,8 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 	}
 
 	@NonNull
-	private static String decodeParameter(@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset) {
+	private static String decodeParameter(@NonNull String encoded, @NonNull Charset charset, @NonNull Charset rawCharset,
+			boolean fullyEncoded) {
 		requireNonNull(encoded);
 		requireNonNull(charset);
 		requireNonNull(rawCharset);
@@ -696,8 +714,11 @@ public final class SokletHttpServletRequest implements HttpServletRequest {
 					throw new IllegalArgumentException("Invalid percent escape");
 				value = high * 16 + low;
 				index += 2;
-			} else if (value == '+') {
-				value = ' ';
+			} else {
+				if (fullyEncoded)
+					throw new IllegalArgumentException("Non-ASCII-compatible form charset requires percent-encoded component bytes.");
+				if (value == '+')
+					value = ' ';
 			}
 			bytes[decodedLength++] = (byte) value;
 		}

@@ -73,8 +73,11 @@ public class GeneratedResponseWireTests {
 						.gracefulShutdownTimeout(Duration.ofSeconds(2))
 						.forcedShutdownTimeout(Duration.ofSeconds(1)).build()).build();
 
-		try (Soklet owner = Soklet.fromConfig(config)) {
-			owner.start();
+		Soklet owner = Soklet.run(config);
+		try (@SuppressWarnings("try") AutoCloseable ownerShutdown = () -> {
+			owner.requestShutdown();
+			owner.awaitShutdownAsync().toCompletableFuture().join();
+		}) {
 			WireResponse html = readResponse(port, "/wire/error-html");
 			Assertions.assertEquals("HTTP/1.1 400 Bad Request", html.status);
 			Assertions.assertEquals("text/plain; charset=UTF-8", html.headers.get("Content-Type"));

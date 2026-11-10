@@ -45,11 +45,13 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 */
 	record CharsWritten(
 			@NonNull char[] chars,
-			int offset,
-			int length
+			@NonNull Integer offset,
+			@NonNull Integer length
 	) implements SokletServletPrintWriterEvent {
 		public CharsWritten {
 			requireNonNull(chars);
+			requireNonNull(offset);
+			requireNonNull(length);
 		}
 	}
 
@@ -57,19 +59,23 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 * Event emitted when an {@code int} (character) is written to the {@link SokletServletPrintWriter}.
 	 */
 	record CharWritten(
-			int ch
-	) implements SokletServletPrintWriterEvent {}
+			@NonNull Integer ch
+	) implements SokletServletPrintWriterEvent {
+		public CharWritten { requireNonNull(ch); }
+	}
 
 	/**
 	 * Event emitted when a {@link String} is written to the {@link SokletServletPrintWriter}.
 	 */
 	record StringWritten(
 			@NonNull String string,
-			int offset,
-			int length
+			@NonNull Integer offset,
+			@NonNull Integer length
 	) implements SokletServletPrintWriterEvent {
 		public StringWritten {
 			requireNonNull(string);
+			requireNonNull(offset);
+			requireNonNull(length);
 		}
 	}
 
@@ -125,11 +131,13 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 */
 	record CharSequenceAppended(
 			@NonNull CharSequence charSequence,
-			int start,
-			int end
+			@NonNull Integer start,
+			@NonNull Integer end
 	) implements SokletServletPrintWriterEvent {
 		public CharSequenceAppended {
 			requireNonNull(charSequence);
+			requireNonNull(start);
+			requireNonNull(end);
 		}
 	}
 
@@ -137,8 +145,8 @@ public sealed interface SokletServletPrintWriterEvent permits
 	 * Event emitted when a {@code char} is appended to the {@link SokletServletPrintWriter}.
 	 */
 	record CharAppended(
-			char ch
+			@NonNull Character ch
 	) implements SokletServletPrintWriterEvent {
-		public CharAppended {}
+		public CharAppended { requireNonNull(ch); }
 	}
 }

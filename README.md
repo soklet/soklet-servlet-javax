@@ -123,6 +123,13 @@ dependencies {
   The adapter pins its real path and rejects links outside it during resource
   lookup and listing. Concurrent tree changes are unsupported because a returned
   resource URL is opened later by application code.
+- `classpathResourceRoot` uses `/` separators, including on Windows. The empty
+  prefix or `/` selects the classpath root; an ordinary prefix may have one
+  leading `/`. Configured prefixes reject backslashes, NUL, `..` segments, a
+  remaining leading `/`, and a leading Windows drive qualifier. Invalid prefixes
+  fail configuration with `IllegalArgumentException`. Resource paths
+  reject the same forms after the required leading `/`; invalid lookups return
+  `null` before class-loader access or directory-listing fallback.
 - Concurrent setters of an identical session attribute share an in-progress
   binding callback. An ordinary follower waits at most 200 milliseconds or
   until interrupted, then returns without another `valueBound`; it may precede

@@ -169,6 +169,16 @@ public final class SokletServletContext implements ServletContext {
 			return this;
 		}
 
+		/**
+		 * Uses a slash-separated classpath prefix as the resource root. An empty
+		 * prefix or {@code /} selects the classpath root. Backslashes,
+		 * NULs, parent segments, multiple leading slashes and Windows drive forms
+		 * are rejected before resource lookup on every platform.
+		 *
+		 * @param resourceRoot the classpath prefix, optionally starting with one slash
+		 * @return this builder
+		 * @throws IllegalArgumentException if the prefix is not a safe classpath path
+		 */
 		@NonNull
 		public Builder classpathResourceRoot(@NonNull String resourceRoot) {
 			requireNonNull(resourceRoot);
@@ -186,8 +196,8 @@ public final class SokletServletContext implements ServletContext {
 		 * @return this builder
 		 */
 		@NonNull
-		public Builder sessionTimeout(int sessionTimeout) {
-			this.sessionTimeout = sessionTimeout;
+		public Builder sessionTimeout(@NonNull Integer sessionTimeout) {
+			this.sessionTimeout = requireNonNull(sessionTimeout);
 			return this;
 		}
 
@@ -340,18 +350,31 @@ public final class SokletServletContext implements ServletContext {
 
 		@NonNull
 		private static String normalizePrefix(@NonNull String prefix) {
+			// Validate before trim, which would otherwise hide a leading/trailing NUL.
+			if (prefix.indexOf('\0') >= 0 || prefix.indexOf('\\') >= 0)
+				throw new IllegalArgumentException("Classpath resource root contains a NUL or backslash");
 			String normalized = prefix.trim();
 
 			if (normalized.startsWith("/"))
 				normalized = normalized.substring(1);
 
+			if (isUnsafeClasspathPath(normalized))
+				throw new IllegalArgumentException("Classpath resource root must be a relative slash-separated path without '..'");
+
 			if (!normalized.isEmpty() && !normalized.endsWith("/"))
 				normalized += "/";
 
-			if (containsDotDotSegment(normalized))
-				throw new IllegalArgumentException("Classpath resource root must not contain '..'");
-
 			return normalized;
+		}
+
+		private static boolean isUnsafeClasspathPath(@NonNull String path) {
+			// Class loader names use '/', while filesystem fallbacks interpret Windows
+			// separators and drive prefixes. Reject either route out of the prefix.
+			boolean driveQualified = path.length() >= 2 && path.charAt(1) == ':'
+					&& ((path.charAt(0) >= 'A' && path.charAt(0) <= 'Z')
+							|| (path.charAt(0) >= 'a' && path.charAt(0) <= 'z'));
+			return path.indexOf('\0') >= 0 || path.indexOf('\\') >= 0
+					|| path.startsWith("/") || driveQualified || containsDotDotSegment(path);
 		}
 
 		private static boolean containsDotDotSegment(@NonNull String path) {
@@ -366,10 +389,10 @@ public final class SokletServletContext implements ServletContext {
 		@NonNull
 		private Optional<String> toClasspathPath(@NonNull String path,
 																						 boolean forDirectoryListing) {
-			if (path.indexOf('\0') >= 0 || containsDotDotSegment(path))
+			String relative = path.substring(1);
+			if (isUnsafeClasspathPath(relative))
 				return Optional.empty();
 
-			String relative = path.substring(1);
 			String lookup = rootPrefix + relative;
 
 			if (forDirectoryListing && !lookup.endsWith("/") && !lookup.isEmpty())
