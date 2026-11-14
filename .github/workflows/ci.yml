@@ -5,14 +5,6 @@ on:
     branches: [main, develop, 'feature/**']
   pull_request:
   workflow_dispatch:
-    inputs:
-      soklet_ref:
-        description: Exact 40-character Soklet commit SHA to validate (not a branch or tag)
-        required: false
-        default: 8dc7f45db6eb02990c2ac790fa8af669c412637f
-
-env:
-  SOKLET_CANDIDATE_SHA: ${{ inputs.soklet_ref || '8dc7f45db6eb02990c2ac790fa8af669c412637f' }}
 
 permissions:
   contents: read
@@ -38,34 +30,8 @@ jobs:
           path: soklet-servlet-javax
           persist-credentials: false
 
-      - name: Validate candidate selector
-        shell: bash
-        run: |
-          if [[ ! "$SOKLET_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::soklet_ref must be an exact 40-character lowercase commit SHA, not a branch or tag"
-            exit 1
-          fi
-
-      - name: Check out soklet
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          repository: soklet/soklet
-          ref: ${{ env.SOKLET_CANDIDATE_SHA }}
-          path: soklet
-          persist-credentials: false
-
       - name: Verify pinned Javadoc indexes
         run: node soklet-servlet-javax/scripts/verify-javadoc-links.mjs
-
-      - name: Test candidate verification
-        run: python3 -m unittest discover -s soklet-servlet-javax/scripts -p 'test_*.py'
-
-      - name: Verify candidate identity and declared Soklet baseline
-        run: >-
-          python3 soklet-servlet-javax/scripts/verify-soklet-candidate.py
-          --expected-commit "$SOKLET_CANDIDATE_SHA"
-          --core-directory soklet
-          --adapter-directory soklet-servlet-javax
 
       - name: Install checksum-pinned JDK 26 for documentation
         shell: bash
@@ -89,17 +55,18 @@ jobs:
           java-version: ${{ matrix.jdk }}
           cache: maven
 
-      - name: Install checked-out Soklet
-        run: mvn -B -ntp -f soklet/pom.xml -DskipTests -Dgpg.skip=true install
-
-      - name: Unpack exact-candidate core Javadoc index
+      - name: Resolve core Javadoc from the POM dependency
         shell: bash
         run: |
-          mkdir core-javadoc
-          unzip -q soklet/target/soklet-4.0.0-javadoc.jar -d core-javadoc
-          test -f core-javadoc/element-list
+          mvn -B -ntp -f soklet-servlet-javax/pom.xml \
+            org.apache.maven.plugins:maven-dependency-plugin:3.11.0:unpack-dependencies \
+            -DincludeGroupIds=com.soklet -DincludeArtifactIds=soklet \
+            -DexcludeTransitive=true -Dclassifier=javadoc \
+            -Dmdep.failOnMissingClassifierArtifact=true \
+            -DoutputDirectory="${RUNNER_TEMP}/core-javadoc"
+          test -f "${RUNNER_TEMP}/core-javadoc/element-list"
 
       - name: Verify adapter and packaged Javadoc
         run: >-
           mvn -B -ntp -f soklet-servlet-javax/pom.xml -Dgpg.skip=true
-          -Dsoklet.javadoc.location="${{ github.workspace }}/core-javadoc" clean verify
+          -Dsoklet.javadoc.location="${RUNNER_TEMP}/core-javadoc" clean verify

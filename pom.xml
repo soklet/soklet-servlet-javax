@@ -50,7 +50,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.outputTimestamp>2026-09-01T00:00:00Z</project.build.outputTimestamp>
-        <!-- Release builds override this with the unpacked exact-candidate core Javadoc JAR. -->
+        <!-- CI uses published Javadoc for the same Soklet dependency version. -->
         <soklet.javadoc.location>https://javadoc.soklet.com/</soklet.javadoc.location>
         <!-- Adapter 2.x requires Soklet 4.0.0 or later. -->
         <soklet.version>4.0.0</soklet.version>

@@ -13,9 +13,9 @@ exact version's official Maven Central Javadoc JAR, update the POM's link target
 and local directory, and record the new provenance and checksums. Do not fetch a
 mutable "latest" index during release packaging.
 
-Companion releases additionally pass
-`-Dsoklet.javadoc.location=/absolute/path/to/unpacked-core-javadoc-jar`.
-That directory must come from the exact core candidate's packaged Javadoc JAR,
-not the currently deployed website. It is intentionally not vendored here.
+CI resolves the published core Javadoc for the Soklet dependency declared in
+`pom.xml` and supplies its package index locally. Ordinary Maven builds use the
+published core Javadoc site. Set `-Dsoklet.javadoc.location=/absolute/path/to/core-javadoc`
+to use a local index when needed, including for an unpublished core version.
 Java API links currently target Java 26; the library's compile/runtime floor
 is Java 21.

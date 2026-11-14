@@ -29,41 +29,35 @@ JDK used to compile/test. `mvn test` does not require a documentation JDK.
 export SOKLET_JAVADOC_HOME=/absolute/path/to/corretto-26.0.2.11.1
 ```
 
-CI downloads and checksum-verifies the exact Linux documentation JDK without
-changing the test matrix's Java runtime. Canonical release builds compile on
-JDK 21 and invoke this JDK 26 Javadoc executable; rebuilds must match both pins.
+CI downloads and checksum-verifies the Linux documentation JDK separately from
+the Java 21/25 test matrix. Release builds use Java 21 for compilation and Java 26
+for Javadoc.
 
 External package indexes are checked in under `src/main/javadoc/links`, with
 source archive and index checksums in `manifest.json`. Check them with
 `node scripts/verify-javadoc-links.mjs`. Dependency upgrades must update the
 matching versioned index and link target together.
 
-For a release candidate, unpack the **exact core candidate's packaged Javadoc
-JAR** into a dedicated directory and pass that directory to the build:
+Ordinary Maven builds use the published core Javadoc site. To use a local core
+Javadoc directory, for example when working on an unpublished core version, pass:
 
 ```shell
 mvn -Dgpg.skip=true -Dsoklet.javadoc.location=/absolute/path/to/core-javadoc clean verify
 ```
 
-This supplies the core package index locally while generated hyperlinks still
-point to `https://javadoc.soklet.com/`. Without this override, ordinary local
-builds use the deployed core index; that fallback must not be used for an
-unreleased candidate. CI always uses the checked-out core candidate's Javadoc
-JAR. The JAR timestamp, module name, implementation version, and bundled license
-are set in the POM/resources; compare rebuilds using the same JDK and inputs.
+CI obtains this index from the published Javadoc artifact for the POM's Soklet
+dependency. Generated links still point to `https://javadoc.soklet.com/`.
 
 #### Continuous Integration
 
-CI builds on JDK 21 and 25 against the exact Soklet commit pinned in
-`.github/workflows/ci.yml`. The manual `soklet_ref` input accepts a full
-lowercase 40-character commit SHA. CI checks the checkout identity and POM
-baseline before building core, then verifies this adapter and its packaged
-Javadoc without overriding `soklet.version`. These jobs do not publish.
+CI builds and tests on JDK 21 and 25 using the Soklet dependency declared in
+`pom.xml`. Maven resolves that published version from Maven Central. There is
+no separate core checkout or commit selector to update.
 
-After committing core changes, the project owner must update both the workflow's
-manual default and automatic fallback to that reviewed, retrievable commit and
-obtain a green matrix. The current pin is an existing candidate, not proof that
-later uncommitted core changes have passed remote CI.
+CI also resolves the matching published core Javadoc through the POM dependency
+and uses its package index for documentation generation. The configured JDK 26
+and checked-in external Javadoc indexes remain verified build inputs. These jobs
+test and package the project without signing or publishing.
 
 #### Publishing to Maven Central
 
@@ -83,13 +77,7 @@ Contact Mark Allen at mark@revetware.com to request publishing access for the `c
 
 The server ID must match the `central-publishing-maven-plugin` configuration in `pom.xml`. Before an explicitly owner-approved release, unlock the exact approved signing key through `gpg-agent` in an interactive session. Never put a GPG passphrase in command arguments, environment variables, Maven settings, project files, logs, or release evidence.
 
-Build and sign the complete artifact set locally:
-
-```shell
-mvn clean verify
-```
-
-Confirm that the versioned main JAR, sources JAR, Javadocs JAR, and their signatures were produced under `target/`. The GPG plugin also signs the project POM for deployment. Then upload the release bundle:
+Build, test, generate documentation, sign, and upload with the standard command:
 
 ```shell
 mvn clean deploy
